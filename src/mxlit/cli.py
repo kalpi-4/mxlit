@@ -14,7 +14,7 @@ def run_server(script_path, host="127.0.0.1", port=8501):
         sys.exit(1)
 
     # Set the environment variable so the server knows which script to run
-    os.environ["ALTLIT_SCRIPT"] = str(abs_path)
+    os.environ["MXLIT_SCRIPT"] = str(abs_path)
     
     print(f"Starting mxlit server for '{abs_path.name}' at http://{host}:{port}")
     uvicorn.run("mxlit.server:app", host=host, port=port, reload=False, log_level="warning")

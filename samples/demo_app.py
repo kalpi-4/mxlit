@@ -26,8 +26,8 @@ with mt.sidebar:
         mt.rerun()
 
 # Main Area
-mt.title("Altlit Advanced Demo 🚀")
-mt.write("Welcome to the comprehensive demo of **Altlit** featuring dashboards, NER, and streaming.")
+mt.title("Mxlit Advanced Demo 🚀")
+mt.write("Welcome to the comprehensive demo of **Mxlit** featuring dashboards, NER, and streaming.")
 
 # Layout: Columns with Metrics
 mt.header("Dashboard Overview")
@@ -93,7 +93,7 @@ with tab3:
         
     if mt.session_state.get("stream_started"):
         def my_generator():
-            words = "This is a demonstration of the streaming text component in Altlit. It mimics server-sent events perfectly!".split(" ")
+            words = "This is a demonstration of the streaming text component in Mxlit. It mimics server-sent events perfectly!".split(" ")
             for word in words:
                 yield word + " "
         

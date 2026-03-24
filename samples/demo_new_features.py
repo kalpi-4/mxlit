@@ -1,6 +1,6 @@
 import mxlit as mt
 
-mt.title("Altlit New Features Demo")
+mt.title("Mxlit New Features Demo")
 mt.write("This app demonstrates the newly added components in the mxlit library.")
 
 mt.header("1. Text Components")
@@ -40,7 +40,7 @@ with col2:
     text_area_val = mt.text_area("Tell us about yourself", value="I love coding in Python!")
     mt.write(f"Text length: {len(text_area_val)} characters")
     
-    radio_val = mt.radio("Choose your favorite framework", options=["Streamlit", "Altlit", "FastAPI"], index=1)
+    radio_val = mt.radio("Choose your favorite framework", options=["Streamlit", "Mxlit", "FastAPI"], index=1)
     mt.write(f"Radio selected: {radio_val}")
     
     select_val = mt.selectbox("Choose a programming language", options=["Python", "JavaScript", "Rust", "Go"], index=0)

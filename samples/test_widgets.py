@@ -1,6 +1,6 @@
 import mxlit as mt
 
-mt.title("Altlit Interactive Widgets Test")
+mt.title("Mxlit Interactive Widgets Test")
 
 # Test Text Input
 name = mt.text_input("What is your name?", value="Alice")

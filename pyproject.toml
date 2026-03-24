@@ -6,7 +6,19 @@ build-backend = "hatchling.build"
 name = "mxlit"
 version = "0.1.0"
 description = "A Streamlit alternative powered by FastAPI and HTMX"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Kalpit Bhawalkar", email = "kalpit@dolphins.dev" }
+]
 requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: FastAPI",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastapi",
     "uvicorn",
@@ -15,6 +27,11 @@ dependencies = [
     "pandas",
     "markdown"
 ]
+
+[project.urls]
+Homepage = "https://dolphins.dev/"
+Repository = "https://github.com/kalpi-4/mxlit"
+Issues = "https://github.com/kalpi-4/mxlit/issues"
 
 [project.scripts]
 mxlit = "mxlit.cli:main"

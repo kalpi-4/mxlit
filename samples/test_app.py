@@ -1,7 +1,7 @@
 import mxlit as mt
 import pandas as pd
 
-mt.title("Altlit Basic Components Test")
+mt.title("Mxlit Basic Components Test")
 
 mt.header("Text Components")
 mt.write("This is `mt.write()`. It can print multiple args:", 1, "two", 3.0)

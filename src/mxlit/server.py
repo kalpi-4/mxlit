@@ -34,9 +34,9 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 def get_script_path():
-    path = os.environ.get("ALTLIT_SCRIPT")
+    path = os.environ.get("MXLIT_SCRIPT")
     if not path or not Path(path).is_file():
-        raise RuntimeError("ALTLIT_SCRIPT environment variable not set or file not found.")
+        raise RuntimeError("MXLIT_SCRIPT environment variable not set or file not found.")
     return path
 
 @app.get("/", response_class=HTMLResponse)

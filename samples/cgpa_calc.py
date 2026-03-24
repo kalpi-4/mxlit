@@ -99,4 +99,4 @@ if mt.button("Calculate"):
     )
 
 
-mt.markdown("Made with ❤️ by [Siddhesh Agarwal](https://siddhesh.cc/)")
+mt.markdown("Made with ❤️ by [Kalpit B](https://dolphins.dev/)")

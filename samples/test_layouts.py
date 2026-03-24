@@ -1,6 +1,6 @@
 import mxlit as mt
 
-mt.title("Altlit Layouts Test")
+mt.title("Mxlit Layouts Test")
 
 with mt.sidebar:
     mt.header("Sidebar Settings")
