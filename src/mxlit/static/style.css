@@ -1,0 +1,233 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #31333F;
+    background-color: #FFFFFF;
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-layout {
+    display: flex;
+    width: 100%;
+}
+
+.sidebar {
+    width: 300px;
+    background-color: #f0f2f6;
+    padding: 2rem 1.5rem;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Layout components */
+.st-columns {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.st-column {
+    flex: 1;
+}
+
+.st-tabs {
+    margin-bottom: 1rem;
+}
+.st-tab-headers {
+    display: flex;
+    border-bottom: 1px solid #d5d9e1;
+    margin-bottom: 1rem;
+}
+.st-tab-header {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+.st-tab-header:hover {
+    color: #ff4b4b;
+}
+.st-tab-header.active {
+    border-bottom: 2px solid #ff4b4b;
+    color: #ff4b4b;
+    font-weight: 600;
+}
+.st-tab-content {
+    display: none;
+}
+.st-tab-content.active {
+    display: block;
+}
+
+.st-expander {
+    border: 1px solid #d5d9e1;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+.st-expander-header {
+    padding: 0.75rem 1rem;
+    background-color: #fafafa;
+    cursor: pointer;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+}
+.st-expander-content {
+    padding: 1rem;
+    border-top: 1px solid #d5d9e1;
+    display: none;
+}
+/* Use a simple checkbox hack for expander */
+.st-expander-toggle:checked ~ .st-expander-content {
+    display: block;
+}
+
+.st-container-horizontal {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+/* Basic component styling */
+.component {
+    margin-bottom: 1rem;
+}
+h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; margin-top: 0; }
+h2 { font-size: 2rem; font-weight: 600; margin-bottom: 0.8rem; margin-top: 0; }
+h3 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.6rem; margin-top: 0; }
+p { font-size: 1rem; line-height: 1.6; margin-bottom: 1rem; margin-top: 0; }
+
+pre {
+    background-color: #f0f2f6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+code {
+    font-family: "Source Code Pro", monospace;
+    font-size: 0.9em;
+}
+
+/* Table styling */
+table.dataframe, table.table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+table.dataframe th, table.table th {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid #e6e9ef;
+    color: #808495;
+    font-weight: 500;
+}
+table.dataframe td, table.table td {
+    padding: 8px;
+    border-bottom: 1px solid #e6e9ef;
+}
+
+/* Metric styling */
+.metric-container {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin-right: 1rem;
+}
+.metric-label {
+    font-size: 0.9rem;
+    color: #808495;
+    margin-bottom: 0.2rem;
+}
+.metric-value {
+    font-size: 1.8rem;
+    font-weight: normal;
+    color: #31333F;
+    margin-bottom: 0.2rem;
+}
+.metric-delta {
+    font-size: 0.9rem;
+}
+.metric-delta.positive { color: #09ab3b; }
+.metric-delta.negative { color: #ff2b2b; }
+
+/* Widget styling */
+.st-button {
+    background-color: #fff;
+    border: 1px solid #d5d9e1;
+    color: #31333F;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.st-button:hover {
+    border-color: #ff4b4b;
+    color: #ff4b4b;
+}
+
+.st-text-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d5d9e1;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+    background-color: #f0f2f6;
+}
+.st-text-input:focus {
+    outline: none;
+    border-color: #ff4b4b;
+    background-color: #fff;
+}
+
+.widget-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #31333f;
+}
+
+.st-checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.st-slider-container {
+    margin-bottom: 1rem;
+}
+.st-slider {
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .main-layout {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        min-height: auto;
+        padding: 1rem;
+        border-bottom: 1px solid #d5d9e1;
+    }
+    .st-columns {
+        flex-direction: column;
+    }
+    .main-content {
+        padding: 1rem;
+    }
+}

@@ -1,0 +1,308 @@
+{% macro render_component(comp) %}
+    <div class="component">
+        {% if comp.type == 'title' %}
+            <h1>{{ comp.content }}</h1>
+        {% elif comp.type == 'header' %}
+            <h2>{{ comp.content }}</h2>
+        {% elif comp.type == 'subheader' %}
+            <h3>{{ comp.content }}</h3>
+        {% elif comp.type == 'write' or comp.type == 'text' %}
+            <p>{{ comp.content }}</p>
+        {% elif comp.type == 'markdown' %}
+            <div>{{ comp.content | safe }}</div>
+        {% elif comp.type == 'code' %}
+            <pre><code>{{ comp.content }}</code></pre>
+        {% elif comp.type == 'html' %}
+            <div>{{ comp.content | safe }}</div>
+        {% elif comp.type == 'dataframe' or comp.type == 'table' %}
+            {{ comp.content | safe }}
+        {% elif comp.type == 'ner' %}
+            <div style="line-height: 2;">
+                {% set text = comp.content %}
+                {% set ns_ner = namespace(last_idx=0) %}
+                {% for ent in comp.entities %}
+                    {{ text[ns_ner.last_idx:ent.start] }}
+                    <span style="background-color: #ffe0e0; padding: 0.2rem 0.4rem; border-radius: 0.3rem; margin: 0 0.1rem; border-bottom: 2px solid #ff4b4b;">
+                        {{ text[ent.start:ent.end] }}
+                        <span style="font-size: 0.7em; font-weight: bold; color: #ff4b4b; text-transform: uppercase; margin-left: 0.2rem;">{{ ent.label }}</span>
+                    </span>
+                    {% set ns_ner.last_idx = ent.end %}
+                {% endfor %}
+                {{ text[ns_ner.last_idx:] }}
+            </div>
+        {% elif comp.type == 'write_stream' %}
+            <div hx-ext="sse" sse-connect="/stream/{{ comp.stream_id }}" sse-swap="message" hx-swap="beforeend">
+            </div>
+        {% elif comp.type == 'json' %}
+            <pre><code>{{ comp.content }}</code></pre>
+        {% elif comp.type == 'metric' %}
+            <div class="metric-container">
+                <div class="metric-label">{{ comp.label }}</div>
+                <div class="metric-value">{{ comp.value }}</div>
+                {% if comp.delta %}
+                    {% set delta_class = 'positive' if not comp.delta.startswith('-') else 'negative' %}
+                    <div class="metric-delta {{ delta_class }}">{{ comp.delta }}</div>
+                {% endif %}
+            </div>
+        {% elif comp.type == 'button' %}
+            <button type="submit" class="st-button" name="{{ comp.key }}" value="true">
+                {{ comp.label }}
+            </button>
+        {% elif comp.type == 'text_input' %}
+            <div class="st-text-input-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
+                <input type="text" id="{{ comp.key }}" name="{{ comp.key }}" class="st-text-input" value="{{ comp.value }}"
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+            </div>
+        {% elif comp.type == 'checkbox' %}
+            <div class="st-checkbox-container">
+                <input type="hidden" name="{{ comp.key }}" value="false">
+                <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true" {% if comp.value %}checked{% endif %}
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="click, change">
+                <label for="{{ comp.key }}">{{ comp.label }}</label>
+            </div>
+        {% elif comp.type == 'slider' %}
+            <div class="st-slider-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.value }}</span></label>
+                <input type="range" id="{{ comp.key }}" name="{{ comp.key }}" class="st-slider" 
+                       min="{{ comp.min_value }}" max="{{ comp.max_value }}" value="{{ comp.value }}"
+                       oninput="document.getElementById('{{ comp.key }}-val').innerText = this.value"
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change, input delay:500ms">
+            </div>
+        {% elif comp.type == 'number_input' %}
+            <div class="st-number-input-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
+                <input type="number" id="{{ comp.key }}" name="{{ comp.key }}" class="st-number-input" value="{{ comp.value }}"
+                       {% if comp.step is not none %}step="{{ comp.step }}"{% else %}step="any"{% endif %}
+                       {% if comp.min_value is not none %}min="{{ comp.min_value }}"{% endif %} 
+                       {% if comp.max_value is not none %}max="{{ comp.max_value }}"{% endif %}
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+            </div>
+        {% elif comp.type == 'text_area' %}
+            <div class="st-text-area-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
+                <textarea id="{{ comp.key }}" name="{{ comp.key }}" class="st-text-area"
+                          hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">{{ comp.value }}</textarea>
+            </div>
+        {% elif comp.type == 'radio' %}
+            <div class="st-radio-container">
+                <label class="widget-label">{{ comp.label }}</label>
+                {% for option in comp.options %}
+                    <div>
+                        <input type="radio" id="{{ comp.key }}_{{ loop.index }}" name="{{ comp.key }}" value="{{ option }}" 
+                               {% if comp.value == option %}checked{% endif %}
+                               hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+                        <label for="{{ comp.key }}_{{ loop.index }}">{{ option }}</label>
+                    </div>
+                {% endfor %}
+            </div>
+        {% elif comp.type == 'selectbox' %}
+            <div class="st-selectbox-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
+                <select id="{{ comp.key }}" name="{{ comp.key }}" class="st-selectbox"
+                        hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+                    {% for option in comp.options %}
+                        <option value="{{ option }}" {% if comp.value == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% elif comp.type == 'toggle' %}
+            <div class="st-toggle-container">
+                <input type="hidden" name="{{ comp.key }}" value="false">
+                <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true" {% if comp.value %}checked{% endif %}
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+                <label for="{{ comp.key }}">{{ comp.label }}</label>
+            </div>
+        {% elif comp.type == 'color_picker' %}
+            <div class="st-color-picker-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
+                <input type="color" id="{{ comp.key }}" name="{{ comp.key }}" class="st-color-picker" value="{{ comp.value }}"
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+            </div>
+        {% elif comp.type == 'date_input' %}
+            <div class="st-date-input-container">
+                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
+                <input type="date" id="{{ comp.key }}" name="{{ comp.key }}" class="st-date-input" value="{{ comp.value }}"
+                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
+            </div>
+        {% elif comp.type == 'status' %}
+            <div class="st-status st-status-{{ comp.status_type }}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-weight: 500;
+                {% if comp.status_type == 'error' %}background-color: #ffcccc; color: #990000; border: 1px solid #ff9999;
+                {% elif comp.status_type == 'warning' %}background-color: #ffffcc; color: #996600; border: 1px solid #ffff99;
+                {% elif comp.status_type == 'success' %}background-color: #ccffcc; color: #006600; border: 1px solid #99ff99;
+                {% elif comp.status_type == 'info' %}background-color: #cce5ff; color: #003366; border: 1px solid #99ccff;
+                {% endif %}">
+                {{ comp.content }}
+            </div>
+        {% elif comp.type == 'latex' %}
+            <div class="st-latex" style="overflow-x: auto; padding: 1rem 0; font-family: 'Courier New', Courier, monospace;">
+                <!-- Just rendering as text for now; MathJax/KaTeX could be included -->
+                $${{ comp.content }}$$
+            </div>
+        {% elif comp.type == 'badge' %}
+            <span class="st-badge" style="background-color: #f0f2f6; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 600;">
+                {{ comp.content }}
+            </span>
+        {% elif comp.type == 'image' %}
+            <div class="st-image-container" style="margin-bottom: 1rem;">
+                <img src="{{ comp.url }}" alt="Image" style="max-width: 100%; {% if comp.width %}width: {{ comp.width }}px;{% endif %}">
+            </div>
+        {% elif comp.type == 'logo' %}
+            <div class="st-logo-container" style="margin-bottom: 1rem;">
+                <img src="{{ comp.url }}" alt="Logo" style="max-height: 50px;">
+            </div>
+        {% elif comp.type == 'audio' %}
+            <div class="st-audio-container" style="margin-bottom: 1rem;">
+                <audio controls src="{{ comp.url }}" style="width: 100%;"></audio>
+            </div>
+        {% elif comp.type == 'video' %}
+            <div class="st-video-container" style="margin-bottom: 1rem;">
+                <video controls src="{{ comp.url }}" style="max-width: 100%;"></video>
+            </div>
+        {% elif comp.type == 'chart' %}
+            <div class="st-chart-container" style="margin-bottom: 1rem; width: 100%; max-width: 800px; height: 300px; position: relative;">
+                <canvas id="chart-{{ comp.key }}"></canvas>
+                <script>
+                    (function() {
+                        setTimeout(() => {
+                            const canvas = document.getElementById('chart-{{ comp.key }}');
+                            if (!canvas) return;
+                            const ctx = canvas.getContext('2d');
+                            if (window.Chart) {
+                                new Chart(ctx, {
+                                    type: '{{ comp.chart_type }}',
+                                    data: {{ comp.data | tojson | safe }},
+                                    options: Object.assign({ responsive: true, maintainAspectRatio: false }, {{ comp.kwargs | tojson | safe }})
+                                });
+                            }
+                        }, 50);
+                    })();
+                </script>
+            </div>
+        {% elif comp.type == 'container' %}
+            <div class="{% if comp.horizontal %}st-container-horizontal{% endif %}">
+                {% for child in comp.children %}
+                    {{ render_component(child) }}
+                {% endfor %}
+            </div>
+        {% elif comp.type == 'expander' %}
+            {% set eid = range(1, 100000) | random %}
+            <div class="st-expander">
+                <input type="checkbox" id="expander-{{ eid }}" class="st-expander-toggle" style="display: none;">
+                <label class="st-expander-header" for="expander-{{ eid }}">
+                    <span>
+                        {% if comp.icon %}{{ comp.icon }} {% endif %}{{ comp.label }}
+                    </span>
+                    <span>▼</span>
+                </label>
+                <div class="st-expander-content">
+                    {% for child in comp.children %}
+                        {{ render_component(child) }}
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif comp.type == 'column' %}
+            <!-- Handled in columns parent -->
+        {% elif comp.type == 'tab' %}
+            <!-- Handled in tabs parent -->
+        {% else %}
+            <div>Unsupported component type: {{ comp.type }}</div>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+
+    <!-- Separate sidebar components if present -->
+    {% set ns = namespace(has_sidebar=false) %}
+    {% for comp in components %}
+        {% if comp.type == 'sidebar' %}
+            {% set ns.has_sidebar = true %}
+            <div class="sidebar">
+                {% for child in comp.children %}
+                    {{ render_component(child) }}
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endfor %}
+    
+    <div class="main-content">
+        <div class="container">
+            {% set current_idx = 0 %}
+            {% for comp in components %}
+                {% if comp.type != 'sidebar' %}
+                    <!-- We need special handling for lists of columns or tabs returned by the functions -->
+                    {% if comp.type == 'column' %}
+                        <!-- We bundle contiguous columns into a columns container -->
+                        {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'column' %}
+                            <div class="st-columns">
+                        {% endif %}
+                        
+                        <div class="st-column" style="flex: {{ comp.weight | default(1) }}">
+                            {% for child in comp.children %}
+                                {{ render_component(child) }}
+                            {% endfor %}
+                        </div>
+                        
+                        {% if loop.last or components[loop.index0 + 1].type != 'column' %}
+                            </div>
+                        {% endif %}
+                    
+                    {% elif comp.type == 'tab' %}
+                        <!-- Bundle contiguous tabs -->
+                        {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'tab' %}
+                            <div class="st-tabs">
+                                <div class="st-tab-headers">
+                                    <!-- Look ahead to build headers -->
+                                    {% set tab_start = loop.index0 %}
+                                    {% set break_ns = namespace(stop=false) %}
+                                    {% for future_comp in components[tab_start:] %}
+                                        {% if not break_ns.stop %}
+                                            {% if future_comp.type == 'tab' %}
+                                                <div class="st-tab-header {% if loop.index0 == 0 %}active{% endif %}" onclick="
+                                                    // Simple JS for tab switching
+                                                    let container = this.closest('.st-tabs');
+                                                    container.querySelectorAll('.st-tab-header').forEach(h => h.classList.remove('active'));
+                                                    container.querySelectorAll('.st-tab-content').forEach(c => c.classList.remove('active'));
+                                                    this.classList.add('active');
+                                                    container.querySelectorAll('.st-tab-content')[{{ loop.index0 }}].classList.add('active');
+                                                ">
+                                                    {{ future_comp.label }}
+                                                </div>
+                                            {% else %}
+                                                {% set break_ns.stop = true %}
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                        {% endif %}
+                        
+                        <!-- Track local tab index for active state -->
+                        {% set tab_idx = 0 %}
+                        {% set ns2 = namespace(count=0) %}
+                        {% for i in range(0, loop.index0 + 1) %}
+                            {% if components[i].type == 'tab' %}
+                                {% if components[i-1].type != 'tab' and i > 0 %}
+                                    {% set ns2.count = 0 %}
+                                {% endif %}
+                                {% set tab_idx = ns2.count %}
+                                {% set ns2.count = ns2.count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+
+                        <div class="st-tab-content {% if tab_idx == 0 %}active{% endif %}">
+                            {% for child in comp.children %}
+                                {{ render_component(child) }}
+                            {% endfor %}
+                        </div>
+                        
+                        {% if loop.last or components[loop.index0 + 1].type != 'tab' %}
+                            </div> <!-- end st-tabs -->
+                        {% endif %}
+                    
+                    {% else %}
+                        {{ render_component(comp) }}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>

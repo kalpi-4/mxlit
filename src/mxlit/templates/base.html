@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Altlit App</title>
+    <!-- Include HTMX -->
+    <script src="/static/htmx.min.js"></script>
+    <script src="/static/sse.js"></script>
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- The form wraps the root so that all inputs are submitted on interaction -->
+    <form hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" style="width: 100%; margin: 0; padding: 0;">
+        <div id="app-root" class="main-layout" hx-trigger="load" hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-ext="sse" sse-connect="/events" sse-swap="message">
+            <p style="padding: 2rem;">Loading app...</p>
+        </div>
+    </form>
+</body>
+</html>
