@@ -53,7 +53,8 @@ class Sidebar(ContainerContextManager):
         super().__init__("sidebar")
 
     def __enter__(self):
-        # We need a new container instance for each enter since sidebar is instantiated once globally
+        self.parent_children_list = None
+        self._added_to_parent = False
         self.container_component = {
             "type": "sidebar",
             "children": [],

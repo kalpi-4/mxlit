@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import signal
 from pathlib import Path
 import uvicorn
 
@@ -13,11 +14,21 @@ def run_server(script_path, host="127.0.0.1", port=8501):
         print(f"Error: Script '{script_path}' not found.", file=sys.stderr)
         sys.exit(1)
 
-    # Set the environment variable so the server knows which script to run
     os.environ["MXLIT_SCRIPT"] = str(abs_path)
-    
+
+    try:
+        sigtstp = signal.SIGTSTP
+        signal.signal(sigtstp, lambda sig, frame: sys.exit(0))
+    except AttributeError:
+        pass
+
     print(f"Starting mxlit server for '{abs_path.name}' at http://{host}:{port}")
-    uvicorn.run("mxlit.server:app", host=host, port=port, reload=False, log_level="warning")
+    print("Press Ctrl+C to stop.")
+    try:
+        uvicorn.run("mxlit.server:app", host=host, port=port, reload=False, log_level="warning")
+    except KeyboardInterrupt:
+        print("\nShutting down.")
+        sys.exit(0)
 
 def main():
     parser = argparse.ArgumentParser(description="mxlit CLI")

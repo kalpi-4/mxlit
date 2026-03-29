@@ -100,7 +100,7 @@ async def interact(request: Request):
             # In a real implementation we might re-run again, but for this demo, stopping and rendering is ok.
             pass
         else:
-            ctx.add_component({"type": "write", "args": (f"Error executing script: {e}",)})
+            ctx.add_component({"type": "write", "content": f"Error executing script: {e}"})
     finally:
         _current_context.reset(token)
         
@@ -186,7 +186,7 @@ async def modify_state(request: Request):
         if type(e).__name__ == "RerunException":
             pass
         else:
-            ctx.add_component({"type": "write", "args": (f"Error executing script: {e}",)})
+            ctx.add_component({"type": "write", "content": f"Error executing script: {e}"})
     finally:
         _current_context.reset(token)
 

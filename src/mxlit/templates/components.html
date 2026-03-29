@@ -31,7 +31,7 @@
                 {{ text[ns_ner.last_idx:] }}
             </div>
         {% elif comp.type == 'write_stream' %}
-            <div hx-ext="sse" sse-connect="/stream/{{ comp.stream_id }}" sse-swap="message" hx-swap="beforeend">
+            <div hx-ext="sse" sse-connect="/stream/{{ comp.stream_id }}" sse-swap="message" hx-swap="beforeend" sse-close="close">
             </div>
         {% elif comp.type == 'json' %}
             <pre><code>{{ comp.content }}</code></pre>
