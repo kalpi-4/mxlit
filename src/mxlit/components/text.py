@@ -1,22 +1,38 @@
 import uuid
 from mxlit.context import get_context
 from mxlit.state import session_state
+from mxlit.layout import layout_manager
 
-def write(*args):
-    """Print text or objects to the app."""
+def _register_text_component(component_type: str, content: str, id: str = None):
+    """Helper to register text component."""
     ctx = get_context()
     if ctx:
-        # Convert args to strings for simple rendering for now
-        ctx.add_component({"type": "write", "content": " ".join(str(a) for a in args)})
-    else:
+        if ctx.mode == "init":
+            component_id = layout_manager.register_component(
+                component_type,
+                {"content": content},
+                component_id=id
+            )
+            return component_id
+        else:
+            ctx.add_component({"type": component_type, "content": content})
+    return None
+
+def write(*args, id: str = None):
+    """Print text or objects to the app."""
+    content = " ".join(str(a) for a in args)
+    component_id = _register_text_component("write", content, id)
+    if component_id:  # init mode
+        return component_id
+    if not get_context():
         print(*args)
 
-def title(text: str):
+def title(text: str, id: str = None):
     """Display text in title formatting."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "title", "content": text})
-    else:
+    component_id = _register_text_component("title", text, id)
+    if component_id:  # init mode
+        return component_id
+    if not get_context():
         print(f"# {text}")
 
 def header(text: str):

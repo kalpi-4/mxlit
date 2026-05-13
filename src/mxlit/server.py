@@ -10,13 +10,41 @@ import asyncio
 
 from mxlit.context import AppContext, _current_context
 from mxlit.state import session_state
+from mxlit.layout import layout_manager
+from mxlit.callbacks import callback_registry
+from mxlit.dag import reactive_dag
 
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup logic
+    # Startup logic: Initialize app schema
+    try:
+        script_path = get_script_path()
+        ctx = AppContext(mode="init")
+        token = _current_context.set(ctx)
+        try:
+            # Run script in init mode to build layout schema and register callbacks
+            runpy.run_path(script_path, run_name="__main__")
+        except Exception as e:
+            if type(e).__name__ not in ("RerunException", "SystemExit"):
+                raise
+        finally:
+            _current_context.reset(token)
+
+        # Build DAG from registered callbacks
+        for callback_id, callback_info in callback_registry.get_all_callbacks().items():
+            reactive_dag.register_callback(
+                callback_id,
+                callback_info["inputs"],
+                callback_info["outputs"]
+            )
+
+    except Exception as e:
+        print(f"Error during app initialization: {e}")
+
     yield
+
     # Shutdown logic: Cancel all active SSE connections
     for queue in sse_clients:
         queue.put_nowait(None)  # Send sentinel value to stop generator
@@ -39,28 +67,53 @@ def get_script_path():
         raise RuntimeError("MXLIT_SCRIPT environment variable not set or file not found.")
     return path
 
+def rebuild_layout_schema():
+    layout_manager.components.clear()
+    layout_manager.root_children.clear()
+    layout_manager.current_container_stack.clear()
+    layout_manager.next_geometry = {"x": 0, "y": 0, "width": 12, "height": 1}
+
+    script_path = get_script_path()
+    ctx = AppContext(mode="init")
+    token = _current_context.set(ctx)
+    try:
+        runpy.run_path(script_path, run_name="__main__")
+    except Exception as e:
+        # RerunException (and SystemExit from mt.stop()) are expected control flow;
+        # ignore them so the partial schema that was built up to that point is used.
+        if type(e).__name__ not in ("RerunException", "SystemExit"):
+            raise
+    finally:
+        _current_context.reset(token)
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Serve the initial app shell."""
     return templates.TemplateResponse("base.html", {"request": request})
 
+@app.get("/initial", response_class=HTMLResponse)
+async def get_initial_layout(request: Request):
+    """Serve the initial layout using the pre-built schema."""
+    layout_schema = layout_manager.get_layout_schema()
+    return templates.TemplateResponse(
+        "components.html",
+        {"request": request, "layout_schema": layout_schema}
+    )
+
 @app.post("/interact", response_class=HTMLResponse)
 async def interact(request: Request):
     """
-    Handle HTMX interactions.
-    Re-runs the script and returns the updated components HTML.
+    Handle HTMX interactions using reactive DAG execution.
     """
     form_data = await request.form()
-    
-    # We need to know all known checkbox keys to handle unchecked state
-    # A robust way is to track registered widgets from the previous run, 
-    # but for simplicity, we'll prefix widget names in the HTML or infer from context.
-    # Alternatively, use a hidden input for checkboxes in HTML.
-    
+
+    # Track changed inputs for DAG
+    changed_inputs = set()
+
     for key, value in form_data.items():
         # Try to cast value to existing type if it exists in session_state
+        old_value = session_state.get(key)
         if key in session_state:
-            old_value = session_state[key]
             if isinstance(old_value, int):
                 try:
                     value = int(value)
@@ -72,42 +125,48 @@ async def interact(request: Request):
                 except ValueError:
                     pass
             elif isinstance(old_value, bool):
-                # Handle boolean casting, usually form values are strings like "true" or "false"
+                # Handle boolean casting
                 if str(value).lower() in ("true", "1", "yes", "on"):
                     value = True
                 elif str(value).lower() in ("false", "0", "no", "off"):
                     value = False
 
+        # Only mark as changed if value actually changed
+        if session_state.get(key) != value:
+            changed_inputs.add(key)
+
         session_state[key] = value
-        
-    # Checkbox logic: unchecked checkboxes do not send form data.
-    # We can handle this by adding a hidden input with the same name before the checkbox, 
-    # and parsing the list of values (if "true" is present, it's checked, otherwise false).
-    # Since FastAPI Request.form() returns the last value by default, this trick works well:
-    # <input type="hidden" name="key" value="false">
-    # <input type="checkbox" name="key" value="true">
-    
-    script_path = get_script_path()
-    
-    ctx = AppContext()
-    token = _current_context.set(ctx)
+
+    # Mark dirty inputs in DAG
+    for input_key in changed_inputs:
+        reactive_dag.mark_input_dirty(input_key)
+
+    # Execute affected callbacks
     try:
-        # Re-run the user script top-to-bottom
-        runpy.run_path(script_path, run_name="__main__")
+        updates = await reactive_dag.execute_callbacks(callback_registry, session_state)
+
+        # Send targeted updates via SSE
+        if updates:
+            # Format: component_id:html_fragment
+            update_messages = []
+            for component_id, new_value in updates.items():
+                update_messages.append(f"{component_id}\t{new_value}")
+
+            sse_message = "\n".join(update_messages)
+            for queue in sse_clients:
+                queue.put_nowait(sse_message)
+
+        # Rebuild and re-render full layout with updated state and return HTML for HTMX swap
+        rebuild_layout_schema()
+        layout_schema = layout_manager.get_layout_schema()
+        html = templates.get_template("components.html").render(
+            request=request, 
+            layout_schema=layout_schema
+        )
+        return HTMLResponse(content=html, status_code=200)
+
     except Exception as e:
-        if type(e).__name__ == "RerunException":
-            # If the user script called `at.rerun()`, that's fine, we just stop executing and render.
-            # In a real implementation we might re-run again, but for this demo, stopping and rendering is ok.
-            pass
-        else:
-            ctx.add_component({"type": "write", "content": f"Error executing script: {e}"})
-    finally:
-        _current_context.reset(token)
-        
-    return templates.TemplateResponse(
-        "components.html", 
-        {"request": request, "components": ctx.components}
-    )
+        return HTMLResponse(content=f"<div>Error: {e}</div>", status_code=500)
 
 @app.get("/events")
 async def global_events(request: Request):
@@ -136,7 +195,7 @@ async def global_events(request: Request):
                     # Yield it in SSE format, being careful with newlines.
                     # Since html_str can contain newlines, we should format it properly for SSE.
                     formatted_data = "\n".join(f"data: {line}" for line in html_str.split("\n"))
-                    yield f"{formatted_data}\n\n"
+                    yield f"event: targetedUpdate\n{formatted_data}\n\n"
                 except asyncio.TimeoutError:
                     # Just keep checking
                     continue
@@ -150,13 +209,17 @@ async def global_events(request: Request):
 @app.post("/modify", response_class=JSONResponse)
 async def modify_state(request: Request):
     """
-    Modify state and push update to all connected clients.
+    Modify state and push targeted updates to all connected clients.
     """
     form_data = await request.form()
+
+    # Track changed inputs
+    changed_inputs = set()
+
     for key, value in form_data.items():
-        # Try to cast value to existing type if it exists in session_state
+        # Try to cast value to existing type
+        old_value = session_state.get(key)
         if key in session_state:
-            old_value = session_state[key]
             if isinstance(old_value, int):
                 try:
                     value = int(value)
@@ -168,36 +231,38 @@ async def modify_state(request: Request):
                 except ValueError:
                     pass
             elif isinstance(old_value, bool):
-                # Handle boolean casting, usually form values are strings like "true" or "false"
                 if str(value).lower() in ("true", "1", "yes", "on"):
                     value = True
                 elif str(value).lower() in ("false", "0", "no", "off"):
                     value = False
 
+        if session_state.get(key) != value:
+            changed_inputs.add(key)
+
         session_state[key] = value
 
-    script_path = get_script_path()
-    
-    ctx = AppContext()
-    token = _current_context.set(ctx)
+    # Mark dirty inputs and execute callbacks
+    for input_key in changed_inputs:
+        reactive_dag.mark_input_dirty(input_key)
+
     try:
-        runpy.run_path(script_path, run_name="__main__")
+        updates = await reactive_dag.execute_callbacks(callback_registry, session_state)
+
+        # Convert updates to targeted SSE messages
+        # Format: component_id:html_fragment
+        update_messages = []
+        for component_id, new_value in updates.items():
+            update_messages.append(f"{component_id}\t{new_value}")
+
+        # Send targeted updates via SSE
+        sse_message = "\n".join(update_messages)
+        for queue in sse_clients:
+            queue.put_nowait(sse_message)
+
+        return JSONResponse(content={"status": "success", "updates": list(updates.keys())})
+
     except Exception as e:
-        if type(e).__name__ == "RerunException":
-            pass
-        else:
-            ctx.add_component({"type": "write", "content": f"Error executing script: {e}"})
-    finally:
-        _current_context.reset(token)
-
-    html_content = templates.get_template("components.html").render(
-        {"request": request, "components": ctx.components}
-    )
-
-    for queue in sse_clients:
-        queue.put_nowait(html_content)
-        
-    return JSONResponse(content={"status": "success", "message": "State updated and broadcasted"})
+        return JSONResponse(content={"status": "error", "message": str(e)})
 
 @app.get("/stream/{stream_id}")
 async def stream_events(stream_id: str):

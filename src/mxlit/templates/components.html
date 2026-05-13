@@ -211,98 +211,249 @@
     </div>
 {% endmacro %}
 
-
-    <!-- Separate sidebar components if present -->
-    {% set ns = namespace(has_sidebar=false) %}
-    {% for comp in components %}
-        {% if comp.type == 'sidebar' %}
-            {% set ns.has_sidebar = true %}
-            <div class="sidebar">
-                {% for child in comp.children %}
-                    {{ render_component(child) }}
+{% macro render_component_from_spec(comp) %}
+    <div class="component">
+        {% if comp.type == 'title' %}
+            <h1>{{ comp.props.content }}</h1>
+        {% elif comp.type == 'header' %}
+            <h2>{{ comp.props.content }}</h2>
+        {% elif comp.type == 'subheader' %}
+            <h3>{{ comp.props.content }}</h3>
+        {% elif comp.type == 'write' or comp.type == 'text' %}
+            <p id="{{ comp.id }}-content">{{ comp.props.content }}</p>
+        {% elif comp.type == 'markdown' %}
+            <div>{{ comp.props.content | safe }}</div>
+        {% elif comp.type == 'code' %}
+            <pre><code>{{ comp.props.content }}</code></pre>
+        {% elif comp.type == 'html' %}
+            <div>{{ comp.props.content | safe }}</div>
+        {% elif comp.type == 'dataframe' or comp.type == 'table' %}
+            {{ comp.props.content | safe }}
+        {% elif comp.type == 'json' %}
+            <pre><code>{{ comp.props.content }}</code></pre>
+        {% elif comp.type == 'button' %}
+            <button type="submit" name="{{ comp.props.key }}" value="true" class="st-button">
+                {{ comp.props.label }}
+            </button>
+        {% elif comp.type == 'text_input' %}
+            <div class="st-text-input">
+                <label>{{ comp.props.label }}</label>
+                <input type="text" name="{{ comp.props.key }}" value="{{ comp.props.value }}" class="st-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+            </div>
+        {% elif comp.type == 'slider' %}
+            <div class="st-slider">
+                <label>{{ comp.props.label }}: {{ comp.props.value }}</label>
+                <input type="range" name="{{ comp.props.key }}" min="{{ comp.props.min_value }}" max="{{ comp.props.max_value }}" value="{{ comp.props.value }}" class="st-range" hx-post="/interact" hx-trigger="change, input delay:500ms" hx-target="#app-root" hx-swap="innerHTML settle:0">
+            </div>
+        {% elif comp.type == 'selectbox' %}
+            <div class="st-selectbox">
+                <label>{{ comp.props.label }}</label>
+                <select name="{{ comp.props.key }}" class="st-select" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+                    {% for option in comp.props.options %}
+                        <option value="{{ option }}" {% if option == comp.props.value %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% elif comp.type == 'checkbox' %}
+            <div class="st-checkbox">
+                <input type="hidden" name="{{ comp.props.key }}" value="false">
+                <label>
+                    <input type="checkbox" name="{{ comp.props.key }}" value="true" {% if comp.props.value %}checked{% endif %} class="st-checkbox-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+                    {{ comp.props.label }}
+                </label>
+            </div>
+        {% elif comp.type == 'radio' %}
+            <div class="st-radio">
+                <label>{{ comp.props.label }}</label>
+                {% for option in comp.props.options %}
+                    <label>
+                        <input type="radio" name="{{ comp.props.key }}" value="{{ option }}" {% if option == comp.props.value %}checked{% endif %} class="st-radio-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+                        {{ option }}
+                    </label>
                 {% endfor %}
             </div>
-        {% endif %}
-    {% endfor %}
-    
-    <div class="main-content">
-        <div class="container">
-            {% set current_idx = 0 %}
-            {% for comp in components %}
-                {% if comp.type != 'sidebar' %}
-                    <!-- We need special handling for lists of columns or tabs returned by the functions -->
-                    {% if comp.type == 'column' %}
-                        <!-- We bundle contiguous columns into a columns container -->
-                        {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'column' %}
-                            <div class="st-columns">
-                        {% endif %}
-                        
-                        <div class="st-column" style="flex: {{ comp.weight | default(1) }}">
-                            {% for child in comp.children %}
-                                {{ render_component(child) }}
-                            {% endfor %}
+        {% elif comp.type == 'number_input' %}
+            <div class="st-number-input">
+                <label>{{ comp.props.label }}</label>
+                <input type="number" name="{{ comp.props.key }}" value="{{ comp.props.value }}" {% if comp.props.min_value is not none %}min="{{ comp.props.min_value }}"{% endif %} {% if comp.props.max_value is not none %}max="{{ comp.props.max_value }}"{% endif %} {% if comp.props.step %}step="{{ comp.props.step }}"{% endif %} class="st-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+            </div>
+        {% elif comp.type == 'text_area' %}
+            <div class="st-text-area">
+                <label>{{ comp.props.label }}</label>
+                <textarea name="{{ comp.props.key }}" class="st-textarea" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">{{ comp.props.value }}</textarea>
+            </div>
+        {% elif comp.type == 'toggle' %}
+            <div class="st-toggle">
+                <input type="hidden" name="{{ comp.props.key }}" value="false">
+                <label>
+                    <input type="checkbox" name="{{ comp.props.key }}" value="true" {% if comp.props.value %}checked{% endif %} class="st-toggle-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+                    {{ comp.props.label }}
+                </label>
+            </div>
+        {% elif comp.type == 'color_picker' %}
+            <div class="st-color-picker">
+                <label>{{ comp.props.label }}</label>
+                <input type="color" name="{{ comp.props.key }}" value="{{ comp.props.value }}" class="st-color-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+            </div>
+        {% elif comp.type == 'date_input' %}
+            <div class="st-date-input">
+                <label>{{ comp.props.label }}</label>
+                <input type="date" name="{{ comp.props.key }}" value="{{ comp.props.value }}" class="st-date-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
+            </div>
+        {% elif comp.type == 'metric' %}
+            <div class="st-metric">
+                <div class="st-metric-label">{{ comp.props.label }}</div>
+                <div id="{{ comp.id }}-value" class="st-metric-value">{{ comp.props.value }}</div>
+                {% if comp.props.delta %}
+                    <div id="{{ comp.id }}-delta" class="st-metric-delta">{{ comp.props.delta }}</div>
+                {% endif %}
+            </div>
+        {% elif comp.type == 'status' %}
+            <div class="st-status st-status-{{ comp.props.status_type }}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-weight: 500;
+                {% if comp.props.status_type == 'error' %}background-color: #ffcccc; color: #990000; border: 1px solid #ff9999;
+                {% elif comp.props.status_type == 'warning' %}background-color: #ffffcc; color: #996600; border: 1px solid #ffff99;
+                {% elif comp.props.status_type == 'success' %}background-color: #ccffcc; color: #006600; border: 1px solid #99ff99;
+                {% elif comp.props.status_type == 'info' %}background-color: #cce5ff; color: #003366; border: 1px solid #99ccff;
+                {% endif %}">
+                {{ comp.props.content }}
+            </div>
+        {% elif comp.type == 'latex' %}
+            <div class="st-latex" style="overflow-x: auto; padding: 1rem 0; font-family: 'Courier New', Courier, monospace;">
+                $${{ comp.props.content }}$$
+            </div>
+        {% elif comp.type == 'sidebar' %}
+            <div class="sidebar">
+                {% for child_id in comp.children %}
+                    {% set child_comp = layout_schema.components[child_id] %}
+                    {{ render_component_from_spec(child_comp) }}
+                {% endfor %}
+            </div>
+        {% elif comp.type == 'column' %}
+            <div class="st-column" style="flex: {{ comp.props.weight | default(1) }}">
+                {% for child_id in comp.children %}
+                    {% set child_comp = layout_schema.components[child_id] %}
+                    {{ render_component_from_spec(child_comp) }}
+                {% endfor %}
+            </div>
+        {% elif comp.type == 'container' %}
+            <div class="{% if comp.props.horizontal %}st-container-horizontal{% endif %}">
+                {% for child_id in comp.children %}
+                    {% set child_comp = layout_schema.components[child_id] %}
+                    {{ render_component_from_spec(child_comp) }}
+                {% endfor %}
+            </div>
+        {% elif comp.type == 'expander' %}
+            <div class="st-expander">
+                <input type="checkbox" id="expander-{{ comp.id }}" class="st-expander-toggle" style="display: none;">
+                <label class="st-expander-header" for="expander-{{ comp.id }}">
+                    <span>
+                        {% if comp.props.icon %}{{ comp.props.icon }} {% endif %}{{ comp.props.label }}
+                    </span>
+                    <span>▼</span>
+                </label>
+                <div class="st-expander-content">
+                    {% for child_id in comp.children %}
+                        {% set child_comp = layout_schema.components[child_id] %}
+                        {{ render_component_from_spec(child_comp) }}
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif comp.type == 'tabs' %}
+            <div id="{{ comp.id }}" class="st-tabs">
+                <div class="st-tab-headers">
+                    {% for child_id in comp.children %}
+                        {% set tab = layout_schema.components[child_id] %}
+                        <div class="st-tab-header {% if loop.first %}active{% endif %}"
+                             onclick="activateTab('{{ comp.id }}', {{ loop.index0 }})">
+                            {{ tab.props.label }}
                         </div>
-                        
-                        {% if loop.last or components[loop.index0 + 1].type != 'column' %}
-                            </div>
-                        {% endif %}
-                    
-                    {% elif comp.type == 'tab' %}
-                        <!-- Bundle contiguous tabs -->
-                        {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'tab' %}
-                            <div class="st-tabs">
-                                <div class="st-tab-headers">
-                                    <!-- Look ahead to build headers -->
-                                    {% set tab_start = loop.index0 %}
-                                    {% set break_ns = namespace(stop=false) %}
-                                    {% for future_comp in components[tab_start:] %}
-                                        {% if not break_ns.stop %}
-                                            {% if future_comp.type == 'tab' %}
-                                                <div class="st-tab-header {% if loop.index0 == 0 %}active{% endif %}" onclick="
-                                                    // Simple JS for tab switching
-                                                    let container = this.closest('.st-tabs');
-                                                    container.querySelectorAll('.st-tab-header').forEach(h => h.classList.remove('active'));
-                                                    container.querySelectorAll('.st-tab-content').forEach(c => c.classList.remove('active'));
-                                                    this.classList.add('active');
-                                                    container.querySelectorAll('.st-tab-content')[{{ loop.index0 }}].classList.add('active');
-                                                ">
-                                                    {{ future_comp.label }}
-                                                </div>
-                                            {% else %}
-                                                {% set break_ns.stop = true %}
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                        {% endif %}
-                        
-                        <!-- Track local tab index for active state -->
-                        {% set tab_idx = 0 %}
-                        {% set ns2 = namespace(count=0) %}
-                        {% for i in range(0, loop.index0 + 1) %}
-                            {% if components[i].type == 'tab' %}
-                                {% if components[i-1].type != 'tab' and i > 0 %}
-                                    {% set ns2.count = 0 %}
-                                {% endif %}
-                                {% set tab_idx = ns2.count %}
-                                {% set ns2.count = ns2.count + 1 %}
-                            {% endif %}
+                    {% endfor %}
+                </div>
+                {% for child_id in comp.children %}
+                    {% set tab = layout_schema.components[child_id] %}
+                    <div id="{{ child_id }}" class="st-tab-content {% if loop.first %}active{% endif %}">
+                        {% for grandchild_id in tab.children %}
+                            {% set grandchild = layout_schema.components[grandchild_id] %}
+                            <div id="{{ grandchild_id }}">{{ render_component_from_spec(grandchild) }}</div>
                         {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% elif comp.type == 'tab' %}
+            {# Standalone tab (legacy/fallback - show content directly) #}
+            <div id="{{ comp.id }}" class="st-tab-content active" style="padding: 0.8rem; border: 1px solid #ddd; border-radius: 0.4rem; margin-bottom: 0.5rem;">
+                {% for child_id in comp.children %}
+                    {% set child_comp = layout_schema.components[child_id] %}
+                    {{ render_component_from_spec(child_comp) }}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div>Unsupported component type: {{ comp.type }}</div>
+        {% endif %}
+    </div>
+{% endmacro %}
 
-                        <div class="st-tab-content {% if tab_idx == 0 %}active{% endif %}">
-                            {% for child in comp.children %}
-                                {{ render_component(child) }}
-                            {% endfor %}
-                        </div>
-                        
-                        {% if loop.last or components[loop.index0 + 1].type != 'tab' %}
-                            </div> <!-- end st-tabs -->
+    {% if layout_schema %}
+        {# Sidebar: rendered as a flex sibling of main-content so CSS positioning works #}
+        {% for component_id in layout_schema.root_children %}
+            {% set comp = layout_schema.components[component_id] %}
+            {% if comp.type == 'sidebar' %}
+                <div id="{{ component_id }}" class="sidebar">
+                    {% for child_id in comp.children %}
+                        {% set child_comp = layout_schema.components[child_id] %}
+                        <div id="{{ child_id }}">{{ render_component_from_spec(child_comp) }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+
+        {# Main content area #}
+        <div class="main-content">
+            <div class="container">
+                {% for component_id in layout_schema.root_children %}
+                    {% set comp = layout_schema.components[component_id] %}
+                    {% if comp.type != 'sidebar' %}
+                        {% if comp.type == 'column' %}
+                            {# Group contiguous columns inside st-columns flex wrapper #}
+                            {% if loop.index0 == 0 or layout_schema.components[layout_schema.root_children[loop.index0 - 1]].type != 'column' %}
+                                <div class="st-columns">
+                            {% endif %}
+                            <div id="{{ component_id }}" class="st-column" style="flex: {{ comp.props.weight | default(1) }}">
+                                {% for child_id in comp.children %}
+                                    {% set child_comp = layout_schema.components[child_id] %}
+                                    <div id="{{ child_id }}">{{ render_component_from_spec(child_comp) }}</div>
+                                {% endfor %}
+                            </div>
+                            {% if loop.last or layout_schema.components[layout_schema.root_children[loop.index0 + 1]].type != 'column' %}
+                                </div>{# end st-columns #}
+                            {% endif %}
+                        {% else %}
+                            <div id="{{ component_id }}">{{ render_component_from_spec(comp) }}</div>
                         {% endif %}
-                    
-                    {% else %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        {# Fallback: legacy component list rendering #}
+        {% set ns = namespace(has_sidebar=false) %}
+        {% for comp in components %}
+            {% if comp.type == 'sidebar' %}
+                {% set ns.has_sidebar = true %}
+                <div class="sidebar">
+                    {% for child in comp.children %}
+                        {{ render_component(child) }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+        <div class="main-content">
+            <div class="container">
+                {% for comp in components %}
+                    {% if comp.type != 'sidebar' %}
                         {{ render_component(comp) }}
                     {% endif %}
-                {% endif %}
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
-    </div>
+    {% endif %}
