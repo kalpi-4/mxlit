@@ -8,6 +8,9 @@ class AppContext:
         self.components = []
         # Current target list for adding components. Changes when inside a container 'with' block.
         self.current_target = self.components
+        # Optional extra Tailwind classes for the top-level layout elements.
+        self.main_class: str = ""
+        self.aside_class: str = ""
 
     def add_component(self, component):
         """Append a component dictionary to the current target list."""

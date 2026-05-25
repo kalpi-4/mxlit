@@ -10,6 +10,11 @@ import asyncio
 
 from mxlit.context import AppContext, _current_context
 from mxlit.state import session_state
+from mxlit.constants import THEME_KEY, _DEFAULTS as _THEME_DEFAULTS
+
+def _resolve_theme() -> dict:
+    """Return the current theme dict, falling back to built-in defaults."""
+    return {**_THEME_DEFAULTS, **session_state.get(THEME_KEY, {})}
 
 from contextlib import asynccontextmanager
 
@@ -105,8 +110,14 @@ async def interact(request: Request):
         _current_context.reset(token)
         
     return templates.TemplateResponse(
-        "components.html", 
-        {"request": request, "components": ctx.components}
+        "components.html",
+        {
+            "request": request,
+            "components": ctx.components,
+            "theme": _resolve_theme(),
+            "main_class": ctx.main_class,
+            "aside_class": ctx.aside_class,
+        }
     )
 
 @app.get("/events")
@@ -191,7 +202,13 @@ async def modify_state(request: Request):
         _current_context.reset(token)
 
     html_content = templates.get_template("components.html").render(
-        {"request": request, "components": ctx.components}
+        {
+            "request": request,
+            "components": ctx.components,
+            "theme": _resolve_theme(),
+            "main_class": ctx.main_class,
+            "aside_class": ctx.aside_class,
+        }
     )
 
     for queue in sse_clients:

@@ -5,10 +5,11 @@ from mxlit.state import session_state
 from mxlit.components.text import write, title, header, subheader, text, markdown, code, html, write_stream, ner_text, latex, badge
 from mxlit.components.data import dataframe, table, json, metric
 from mxlit.components.widgets import button, text_input, checkbox, slider, number_input, text_area, radio, selectbox, toggle, color_picker, date_input
-from mxlit.components.layout import sidebar, columns, tabs, expander, container
+from mxlit.components.layout import sidebar, columns, tabs, expander, container, page_config
 from mxlit.components.media import image, audio, video, logo
 from mxlit.components.charts import line_chart, bar_chart, area_chart, scatter_chart
 from mxlit.components.status import error, warning, info, success, exception
+from mxlit.components.theme import theme
 
 def stop():
     """Stop execution immediately."""

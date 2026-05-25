@@ -28,6 +28,11 @@ dependencies = [
     "markdown"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytailwindcss"
+]
+
 [project.urls]
 Homepage = "https://dolphins.dev/"
 Repository = "https://github.com/kalpi-4/mxlit"

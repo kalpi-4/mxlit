@@ -29,58 +29,70 @@ def _format_chart_data(data, chart_type):
         "datasets": datasets
     }
 
-def line_chart(data, **kwargs):
-    """Display a line chart."""
+def line_chart(data, class_: str = "", **kwargs):
+    """Display a line chart.
+
+    Args:
+        data: A list of values or a dict mapping labels to values.
+        class_: Optional Tailwind utility classes applied to the chart wrapper.
+    """
     ctx = get_context()
     if ctx:
         ctx.add_component({
-            "type": "chart",
-            "chart_type": "line",
+            "type": "chart", "chart_type": "line",
             "data": _format_chart_data(data, "line"),
-            "kwargs": kwargs,
-            "key": _generate_key("line", data)
+            "kwargs": kwargs, "key": _generate_key("line", data), "class_": class_
         })
     else:
-        print(f"[Line Chart]")
+        print("[Line Chart]")
 
-def bar_chart(data, **kwargs):
-    """Display a bar chart."""
+def bar_chart(data, class_: str = "", **kwargs):
+    """Display a bar chart.
+
+    Args:
+        data: A list of values or a dict mapping labels to values.
+        class_: Optional Tailwind utility classes applied to the chart wrapper.
+    """
     ctx = get_context()
     if ctx:
         ctx.add_component({
-            "type": "chart",
-            "chart_type": "bar",
+            "type": "chart", "chart_type": "bar",
             "data": _format_chart_data(data, "bar"),
-            "kwargs": kwargs,
-            "key": _generate_key("bar", data)
+            "kwargs": kwargs, "key": _generate_key("bar", data), "class_": class_
         })
     else:
-        print(f"[Bar Chart]")
+        print("[Bar Chart]")
 
-def area_chart(data, **kwargs):
-    """Display an area chart."""
+def area_chart(data, class_: str = "", **kwargs):
+    """Display an area chart.
+
+    Args:
+        data: A list of values or a dict mapping labels to values.
+        class_: Optional Tailwind utility classes applied to the chart wrapper.
+    """
     ctx = get_context()
     if ctx:
         ctx.add_component({
-            "type": "chart",
-            "chart_type": "line",  # Chart.js uses 'line' with fill=true for area charts
+            "type": "chart", "chart_type": "line",  # Chart.js line + fill=true
             "data": _format_chart_data(data, "area"),
-            "kwargs": kwargs,
-            "key": _generate_key("area", data)
+            "kwargs": kwargs, "key": _generate_key("area", data), "class_": class_
         })
     else:
-        print(f"[Area Chart]")
+        print("[Area Chart]")
 
-def scatter_chart(data, **kwargs):
-    """Display a scatter chart."""
+def scatter_chart(data, class_: str = "", **kwargs):
+    """Display a scatter chart.
+
+    Args:
+        data: A dict with ``'x'`` and ``'y'`` lists, or a list of ``(x, y)`` pairs.
+        class_: Optional Tailwind utility classes applied to the chart wrapper.
+    """
     ctx = get_context()
     if ctx:
         ctx.add_component({
-            "type": "chart",
-            "chart_type": "scatter",
+            "type": "chart", "chart_type": "scatter",
             "data": _format_chart_data(data, "scatter"),
-            "kwargs": kwargs,
-            "key": _generate_key("scatter", data)
+            "kwargs": kwargs, "key": _generate_key("scatter", data), "class_": class_
         })
     else:
-        print(f"[Scatter Chart]")
+        print("[Scatter Chart]")

@@ -4,18 +4,75 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mxlit App</title>
-    <!-- Include HTMX -->
+
+    <!-- Prevent FOUC: apply stored theme before first paint -->
+    <script>
+      (function () {
+        var t = localStorage.getItem('theme');
+        if (t) {
+          document.documentElement.style.colorScheme = t;
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      })();
+    </script>
+
+    <!-- 1. sanitize.css — normalize cross-browser inconsistencies (must be first) -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/sanitize.css/sanitize.min.css">
+
+    <!-- 2. Google Fonts: preconnect for early DNS + TLS handshake -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap">
+
+    <!-- 3. Tailwind CSS @layer polyfill (fixes older Chromium / Firefox ESR) -->
+    <script src="https://cdn.jsdelivr.net/npm/@csstools/cascade-layer-name-rule-polyfill@1/dist/cascade-layer-name-rule-polyfill.js"
+            crossorigin></script>
+
+    <!-- 4. oat.ink component library (semantic, zero-dependency) -->
+    <link rel="stylesheet" href="/static/oat.min.css">
+
+    <!-- 5. Tailwind output: custom mxlit styles + utility classes -->
+    <link rel="stylesheet" href="/static/style.css">
+
+    <!-- HTMX + SSE extension -->
     <script src="/static/htmx.min.js"></script>
     <script src="/static/sse.js"></script>
-    <!-- Include Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+
+    <!-- oat.ink JS (tabs, dropdown, toast, sidebar toggle WebComponents) -->
+    <script src="/static/oat.min.js" defer></script>
+
+    <!-- Chart.js (used by st.line_chart / st.bar_chart etc.) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </head>
 <body>
-    <!-- The form wraps the root so that all inputs are submitted on interaction -->
-    <form hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" style="width: 100%; margin: 0; padding: 0;">
-        <div id="app-root" class="main-layout" hx-trigger="load" hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-ext="sse" sse-connect="/events" sse-swap="message">
-            <p style="padding: 2rem;">Loading app...</p>
+    <!--
+      The outer <form> ensures every named input inside #app-root is included
+      in HTMX form submissions without needing individual hx-include directives.
+      margin/padding are zeroed so oat.ink's layout takes full control.
+    -->
+    <form hx-post="/interact"
+          hx-target="#app-root"
+          hx-swap="innerHTML settle:0"
+          style="margin:0; padding:0; width:100%;">
+
+        <!--
+          #app-root is the HTMX swap target AND the SSE listener.
+          data-sidebar-layout is the oat.ink sidebar host attribute —
+          components.html outputs <aside data-sidebar> + <main> as its children
+          when the user script defines a sidebar.
+        -->
+        <div id="app-root"
+             data-sidebar-layout
+             hx-trigger="load"
+             hx-post="/interact"
+             hx-target="#app-root"
+             hx-swap="innerHTML settle:0"
+             hx-ext="sse"
+             sse-connect="/events"
+             sse-swap="message">
+            <p class="mx-loading">Loading app&hellip;</p>
         </div>
     </form>
 </body>

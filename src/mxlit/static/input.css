@@ -1,0 +1,257 @@
+/* ── Tailwind v4 ─────────────────────────────────────────────────────────────
+   This file is the Tailwind CSS entry point.
+   Build:  python -m pytailwindcss -i src/mxlit/static/input.css \
+                                   -o src/mxlit/static/style.css
+   Watch:  python -m pytailwindcss -i src/mxlit/static/input.css \
+                                   -o src/mxlit/static/style.css --watch
+   ─────────────────────────────────────────────────────────────────────────── */
+@import "tailwindcss";
+
+/* Tell Tailwind v4 where to scan for utility classes */
+@source "../templates/**/*.html";   /* Jinja2 templates                    */
+@source "../../../**/*.py";         /* user app scripts + framework source  */
+
+/* ── Design tokens — sourced from constants/theme.json (Material Theme Builder)
+   All hex values below correspond 1-to-1 with scheme tokens in theme.json.
+   The template (components.html) overrides these at runtime via mt.theme().
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* schemes.light.* ─────────────────────────────────────────────────────────── */
+:root {
+  --background:           #F9F9FF;   /* schemes.light.background             */
+  --foreground:           #191C20;   /* schemes.light.onBackground           */
+  --card:                 #F3F3FA;   /* schemes.light.surfaceContainerLow    */
+  --card-foreground:      #191C20;   /* schemes.light.onSurface              */
+
+  --primary:              #405F90;   /* schemes.light.primary                */
+  --primary-foreground:   #FFFFFF;   /* schemes.light.onPrimary              */
+
+  --secondary:            #C9E6FF;   /* schemes.light.secondaryContainer     */
+  --secondary-foreground: #004B6F;   /* schemes.light.onSecondaryContainer   */
+
+  --muted:                #E0E2EC;   /* schemes.light.surfaceVariant         */
+  --muted-foreground:     #44474E;   /* schemes.light.onSurfaceVariant       */
+
+  --faint:                #FFFFFF;   /* schemes.light.surfaceContainerLowest */
+  --faint-foreground:     #C4C6CF;   /* schemes.light.outlineVariant         */
+
+  --accent:               #D6E3FF;   /* schemes.light.primaryContainer       */
+  --accent-foreground:    #274777;   /* schemes.light.onPrimaryContainer     */
+
+  --danger:               #BA1A1A;   /* schemes.light.error                  */
+  --danger-foreground:    #FFDAD6;   /* schemes.light.errorContainer         */
+
+  --success:              #1A6B3C;   /* semantic — not in Material spec       */
+  --success-foreground:   #D6F5E3;
+
+  --warning:              #7A4F00;   /* semantic — not in Material spec       */
+  --warning-foreground:   #FFF0C8;
+
+  --border:               #C4C6CF;   /* schemes.light.outlineVariant         */
+  --input:                #E2E2E9;   /* schemes.light.surfaceContainerHighest*/
+  --ring:                 #405F90;   /* schemes.light.primary                */
+}
+
+/* schemes.dark.* ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --background:           #111318;   /* schemes.dark.background              */
+  --foreground:           #E2E2E9;   /* schemes.dark.onBackground            */
+  --card:                 #191C20;   /* schemes.dark.surfaceContainerLow     */
+  --card-foreground:      #E2E2E9;   /* schemes.dark.onSurface               */
+
+  --primary:              #A9C7FF;   /* schemes.dark.primary                 */
+  --primary-foreground:   #08305F;   /* schemes.dark.onPrimary               */
+
+  --secondary:            #004B6F;   /* schemes.dark.secondaryContainer      */
+  --secondary-foreground: #C9E6FF;   /* schemes.dark.onSecondaryContainer    */
+
+  --muted:                #44474E;   /* schemes.dark.surfaceVariant          */
+  --muted-foreground:     #C4C6CF;   /* schemes.dark.onSurfaceVariant        */
+
+  --faint:                #0C0E13;   /* schemes.dark.surfaceContainerLowest  */
+  --faint-foreground:     #44474E;   /* schemes.dark.outlineVariant          */
+
+  --accent:               #274777;   /* schemes.dark.primaryContainer        */
+  --accent-foreground:    #D6E3FF;   /* schemes.dark.onPrimaryContainer      */
+
+  --danger:               #FFB4AB;   /* schemes.dark.error                   */
+  --danger-foreground:    #93000A;   /* schemes.dark.errorContainer          */
+
+  --success:              #6EDFA0;   /* semantic dark                        */
+  --success-foreground:   #003920;
+
+  --warning:              #FFCC5C;   /* semantic dark                        */
+  --warning-foreground:   #3D2600;
+
+  --border:               #44474E;   /* schemes.dark.outlineVariant          */
+  --input:                #33353A;   /* schemes.dark.surfaceContainerHighest */
+  --ring:                 #A9C7FF;   /* schemes.dark.primary                 */
+}
+
+/* ── Base font size ──────────────────────────────────────────────────────────
+   Restore the browser default (16 px).  Oat.ink and Tailwind both use rem
+   units, so this single value controls the entire type scale.
+   ─────────────────────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  font-size: 16px;
+  font-family: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── mxlit app shell ─────────────────────────────────────────────────────────
+   #app-root acts as the data-sidebar-layout host.  oat.ink handles the
+   sidebar/main split; we just ensure it fills the viewport.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+#app-root {
+  min-height: 100vh;
+}
+
+/* When no sidebar is present, fall back to normal block flow so <main>
+   is not stranded inside an empty 14rem grid column. */
+#app-root:not(:has(> aside[data-sidebar])) {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+}
+
+/* Loading placeholder */
+#app-root > p.mx-loading {
+  padding: 2rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Main content area ───────────────────────────────────────────────────────
+   oat.ink's <main> inside data-sidebar-layout fills the remaining width.
+   We add a comfortable max-width + padding for readability.
+   ─────────────────────────────────────────────────────────────────────────── */
+main.mx-main {
+  padding: 2rem 2.5rem;
+  width: 100%;
+}
+
+/* ── Component spacing ───────────────────────────────────────────────────────*/
+.mx-component {
+  margin-bottom: 1rem;
+}
+
+/* ── Metric card ─────────────────────────────────────────────────────────────
+   No direct oat.ink equivalent; render as a small card-like block.
+   ─────────────────────────────────────────────────────────────────────────── */
+.mx-metric {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  margin-right: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.mx-metric-label {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.mx-metric-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1;
+}
+.mx-metric-delta {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.mx-metric-delta.positive { color: var(--success); }
+.mx-metric-delta.negative { color: var(--danger);  }
+
+/* ── NER highlighting ────────────────────────────────────────────────────────*/
+.mx-ner {
+  line-height: 2;
+}
+.mx-ner-entity {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  background-color: color-mix(in srgb, var(--warning) 15%, transparent);
+  border-bottom: 2px solid var(--warning);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  margin: 0 0.1rem;
+}
+.mx-ner-label {
+  font-size: 0.65em;
+  font-weight: 700;
+  color: var(--warning);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Chart container ─────────────────────────────────────────────────────────*/
+.mx-chart {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  height: 300px;
+  margin-bottom: 1rem;
+}
+
+/* ── Write-stream container ──────────────────────────────────────────────────*/
+.mx-stream {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* ── LaTeX (raw render) ──────────────────────────────────────────────────────*/
+.mx-latex {
+  overflow-x: auto;
+  padding: 0.75rem 0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1rem;
+}
+
+/* ── Image / media ───────────────────────────────────────────────────────────*/
+.mx-media {
+  margin-bottom: 1rem;
+}
+.mx-media img,
+.mx-media video {
+  max-width: 100%;
+  border-radius: 0.375rem;
+}
+.mx-media audio {
+  width: 100%;
+}
+
+/* ── HTMX SSE swap – prevent flash of unstyled content ──────────────────────
+   When oat-tabs or other WC are swapped in, they need the custom element
+   upgrade to happen before they're visible.  The htmx:afterSwap event fires
+   after innerHTML is set; we reveal content then.
+   ─────────────────────────────────────────────────────────────────────────── */
+ot-tabs[hidden-until-ready] {
+  visibility: hidden;
+}
+
+/* Columns using Tailwind flex utilities */
+.mx-columns {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.mx-column {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  main.mx-main {
+    padding: 1rem;
+  }
+  .mx-columns {
+    flex-direction: column;
+  }
+}
