@@ -93,10 +93,13 @@ automatically inside the class.
 - Composite design pattern — `CompositeComponent` for tree-structured nesting
 - Migration checklist
 
-**Out of scope for this plan**
+**Out of scope for this plan** (tracked in `docs/DRY_VIOLATION.md`)
 
-- `ThemeManager` consolidation (covered in `DRY_VIOLATION.md` §Solution B / Task 3.1)
-- `_run_script` / `_coerce_form_value` extraction in `server.py` (Task 1.1)
+- Tasks 1.1 & 1.2 — `_run_script` / `_coerce_form_value` extraction and `RerunException` move (`server.py`) — see §7.0 prerequisite checklist
+- Task 1.4 — `_paths.py` shared path constants — see §7.0
+- ~~Task 1.3~~ — ✓ Completed: `setup.py` deleted; `pytailwindcss` added to `pyproject.toml` as dev extra
+- Task 3.1 — `ThemeManager` consolidation (`DRY_VIOLATION.md` §Solution B)
+- Task 3.2 — `mxlit sync-css-tokens` CLI sub-command
 - Multi-user session isolation (architectural concern independent of component rendering)
 
 ---
@@ -2007,8 +2010,27 @@ def ContainerContextManager(container_type, **kwargs):
 
 ## 7. Migration Checklist
 
-Tasks are sequenced to match the Priority 2 items from `docs/DRY_VIOLATION.md` and can be
-executed file-by-file without any cross-file coordination except the initial `base.py` creation.
+Tasks are sequenced to match the Priority 1–2 items from `docs/DRY_VIOLATION.md`. Priority 1
+tasks (§7.0) are independent of the component architecture work and can be executed in any order
+relative to it; Priority 2 tasks (§7.1–§7.7) can be executed file-by-file once `base.py` exists.
+
+### 7.0 Priority 1 — Prerequisite Server-Side Refactors (`DRY_VIOLATION.md`)
+
+These tasks eliminate DRY violations in `server.py`, `cli.py`, and the package structure. They
+carry zero behavioral risk and unblock `ThemeManager` (Task 3.1) which depends on Task 1.1.
+
+- [ ] **Task 1.2** — Create `src/mxlit/_exceptions.py`; move `RerunException` to module level
+      as a `BaseException` subclass; replace `type(e).__name__ == "RerunException"` string checks
+      in `server.py` with a proper `except RerunException:` clause (30 min)
+- [ ] **Task 1.1** — Extract `_run_script()` (the 12-line `runpy` + `AppContext` + error-handling
+      block, duplicated between `/interact` and `/modify`) and `_coerce_form_value()` /
+      `_apply_form_data()` (the 22-line form type-coercion block, also duplicated) as named helpers
+      in `server.py` (1 h, depends on Task 1.2)
+- [ ] **Task 1.4** — Create `src/mxlit/_paths.py` with `PACKAGE_DIR`, `STATIC_DIR`,
+      `TEMPLATES_DIR`, `INPUT_CSS`, `OUTPUT_CSS`; update `cli.py` and `server.py` to import from
+      it instead of recomputing `Path(__file__).parent / "static"` independently (20 min)
+- [x] ~~**Task 1.3**~~ — ✓ Completed: `setup.py` deleted; `pytailwindcss` declared as dev extra in
+      `pyproject.toml`
 
 ### 7.1 Create `src/mxlit/components/base.py`
 
@@ -2125,6 +2147,17 @@ be updated to `className=`. Since mxlit is pre-1.0, this is within the normal se
 
 ### 9.1 Per-file Breakdown
 
+**Priority 1 — Server-side prereqs (DRY_VIOLATION.md Tasks 1.1, 1.2, 1.4)**
+
+| File | Action | Δ | DRY Task |
+|------|--------|---|----------|
+| `src/mxlit/_exceptions.py` | **CREATE** | +10 | 1.2 — `RerunException` at module level |
+| `src/mxlit/_paths.py` | **CREATE** | +10 | 1.4 — shared `STATIC_DIR`, `TEMPLATES_DIR`, CSS paths |
+| `src/mxlit/server.py` | UPDATE | −20 | 1.1 — `_run_script` + `_coerce_form_value`; 1.2 — catch by type |
+| `src/mxlit/cli.py` | UPDATE | −5 | 1.4 — import paths from `_paths.py` |
+
+**Priority 2 — Component architecture (this plan)**
+
 | File | Action | Phase 1 Δ | Phase 2 Δ | Notes |
 |------|--------|-----------|-----------|-------|
 | `src/mxlit/components/base.py` | **CREATE** | +280 | — | `ComponentType` enum (+80), `HtmxProps` full (+60), `OatProps` (+25), `BaseComponent` (+35), `CompositeComponent` (+40), `@component` (+20), `@widget_component` (+20) |
@@ -2136,7 +2169,7 @@ be updated to `className=`. Since mxlit is pre-1.0, this is within the normal se
 | `src/mxlit/components/media.py` | UPDATE | −15 | −5 | |
 | `src/mxlit/components/status.py` | UPDATE | −20 | −22 | Phase 2: `_make_status_variant` collapses 4 status fns to 4 lines |
 | `src/mxlit/templates/components.html` | UPDATE | −10 | +30 | Phase 1: HTMX macro; Phase 2: OAT component branches |
-| **Total** | | **≈ +140 net** | **≈ −78 additional** | Phase 1 adds the new module; Phase 2 nets down |
+| **Total (P2)** | | **≈ +140 net** | **≈ −78 additional** | Phase 1 adds the new module; Phase 2 nets down |
 
 ### 9.2 Boilerplate Elimination Summary
 
