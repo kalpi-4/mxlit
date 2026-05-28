@@ -1,0 +1,252 @@
+import mxlit as mt
+import pandas as pd
+
+# ── SESSION STATE ─────────────────────────────────────────────────────────────
+if "save_success" not in mt.session_state:
+    mt.session_state["save_success"] = False
+
+if "show_delete_confirm" not in mt.session_state:
+    mt.session_state["show_delete_confirm"] = False
+
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
+with mt.sidebar:
+    mt.title("Oat Demo", class_="text-lg font-bold")
+    mt.markdown("---")
+
+    mt.write("Navigation", class_="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2")
+    mt.radio("", ["Dashboard", "Analytics", "Orders", "Settings"], key="nav_section")
+
+    mt.markdown("---")
+
+    mt.write("Theme", class_="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2")
+    mt.selectbox("Color scheme", ["Default", "Slate", "Stone", "Rose", "Blue", "Green", "Orange"], key="theme_choice")
+
+    auto_refresh = mt.toggle("Auto-refresh", value=False, key="auto_refresh")
+    if auto_refresh:
+        mt.info("Auto-refresh is on.")
+
+    mt.markdown("---")
+    mt.write("mxlit · FastAPI + HTMX", class_="text-xs text-slate-400")
+
+# ── PAGE TITLE ────────────────────────────────────────────────────────────────
+mt.title("Dashboard", class_="text-3xl font-bold")
+mt.write(
+    "This kitchensink dashboard shows various UI components and layouts built with **mxlit**.",
+    class_="text-slate-500 mb-6",
+)
+
+# ── TOP METRICS ───────────────────────────────────────────────────────────────
+m1, m2, m3, m4 = mt.columns(4)
+with m1:
+    mt.metric("Revenue",      "$42,128", "+12.5% vs last month", class_="w-full")
+with m2:
+    mt.metric("Active Users", "2,847",   "-3.2% vs last month",  class_="w-full")
+with m3:
+    mt.metric("Retention",    "3.24%",   "+0.8% vs last month",  class_="w-full")
+with m4:
+    mt.metric("Uptime",       "99.99%",  "Healthy",              class_="w-full")
+
+mt.markdown("---")
+
+# ── TABS: OVERVIEW / PERFORMANCE / REPORTS ────────────────────────────────────
+tab_overview, tab_performance, tab_reports = mt.tabs(["Overview", "Performance", "Reports"])
+
+# ── Overview ──────────────────────────────────────────────────────────────────
+with tab_overview:
+    mt.subheader("Weekly Traffic")
+    mt.write(
+        "This dummy kitchensink dashboard page shows various UI components and "
+        "layouts built with mxlit.",
+        class_="text-slate-500 mb-3",
+    )
+    mt.line_chart(
+        {"Mon": 420, "Tue": 380, "Wed": 510, "Thu": 460, "Fri": 590, "Sat": 340, "Sun": 280},
+        class_="rounded-lg border p-2",
+    )
+
+    mt.markdown("---")
+    mt.subheader("Monthly Summary")
+    mt.table(
+        pd.DataFrame({
+            "Metric":  ["Page Views", "Bounce Rate", "Avg Session Duration"],
+            "Value":   ["128,450",    "42.3%",        "3m 24s"],
+            "Change":  ["+8.2%",      "-1.4%",        "+0:18"],
+        }),
+        class_="w-full",
+    )
+
+    mt.markdown("---")
+    mt.subheader("Recent Activity")
+    activities = [
+        ("alice", "Submitted a new order #1042",   "2 min ago"),
+        ("bob",   "Updated customer profile",       "15 min ago"),
+        ("carol", "Generated monthly report",       "1 hr ago"),
+        ("alice", "Resolved support ticket #88",    "3 hr ago"),
+        ("bob",   "Deployed v2.4.1 to production",  "Yesterday"),
+    ]
+    for actor, desc, ts in activities:
+        with mt.container(horizontal=True, class_="items-center gap-3 py-2 border-b last:border-0"):
+            mt.badge(
+                actor[0].upper(),
+                class_="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0",
+            )
+            mt.write(f"**{actor}** — {desc}", class_="flex-1 text-sm")
+            mt.write(ts, class_="text-xs text-slate-400 shrink-0")
+
+# ── Performance ───────────────────────────────────────────────────────────────
+with tab_performance:
+    mt.subheader("Performance Metrics")
+    p1, p2, p3 = mt.columns(3)
+    with p1:
+        mt.metric("Avg Response", "142 ms",    "p95: 380 ms",       class_="w-full")
+    with p2:
+        mt.metric("Error Rate",   "0.03%",     "-0.01% this week",  class_="w-full")
+    with p3:
+        mt.metric("Throughput",   "1,240 req/s", "+5% this week",   class_="w-full")
+    mt.info("Fetching latest benchmark data…")
+
+    mt.markdown("---")
+    mt.subheader("Server Status")
+    server_stats = [
+        ("CPU Usage",   "34%", "8-core / 3.2 GHz"),
+        ("Memory",      "61%", "9.8 GB / 16 GB"),
+        ("Disk I/O",    "12%", "Read: 42 MB/s"),
+        ("Network In",  "8%",  "128 Mbps"),
+        ("Network Out", "15%", "240 Mbps"),
+    ]
+    for col, (label, pct, detail) in zip(mt.columns(len(server_stats)), server_stats):
+        with col:
+            mt.metric(label, pct, detail, class_="w-full")
+
+    mt.markdown("---")
+    mt.subheader("Response Time — last 7 days")
+    mt.area_chart(
+        {"Mon": 130, "Tue": 155, "Wed": 142, "Thu": 160, "Fri": 138, "Sat": 120, "Sun": 110},
+        class_="rounded-lg border p-2",
+    )
+    mt.subheader("Errors by Endpoint")
+    mt.bar_chart(
+        {"/api/orders": 12, "/api/users": 5, "/api/reports": 3, "/api/auth": 8, "/api/products": 1},
+        class_="rounded-lg border p-2",
+    )
+
+# ── Reports ───────────────────────────────────────────────────────────────────
+with tab_reports:
+    mt.subheader("Recent Orders")
+    orders_df = pd.DataFrame({
+        "Order ID":  ["#1042", "#1041", "#1040", "#1039", "#1038"],
+        "Customer":  ["Alice Brown", "Bob Smith", "Carol Davis", "Dave Lee", "Eve Martin"],
+        "Amount":    ["$320.00", "$89.50", "$1,200.00", "$45.00", "$670.00"],
+        "Status":    ["Pending",  "Shipped", "Shipped",   "Pending", "Delivered"],
+    })
+    f_all, f_pending, f_shipped = mt.tabs(["All", "Pending", "Shipped"])
+    with f_all:
+        mt.dataframe(orders_df, class_="w-full")
+    with f_pending:
+        mt.dataframe(
+            orders_df[orders_df["Status"] == "Pending"].reset_index(drop=True),
+            class_="w-full",
+        )
+    with f_shipped:
+        mt.dataframe(
+            orders_df[orders_df["Status"].isin(["Shipped", "Delivered"])].reset_index(drop=True),
+            class_="w-full",
+        )
+
+    mt.markdown("---")
+    mt.subheader("Notifications")
+    n1, n2, n3, n4 = mt.columns(4)
+    with n1: mt.info("System update available.")
+    with n2: mt.success("Report generated.")
+    with n3: mt.warning("Disk usage high.")
+    with n4: mt.error("Payment failed.")
+
+mt.markdown("---")
+
+# ── FAQ ───────────────────────────────────────────────────────────────────────
+mt.header("FAQ", class_="font-bold border-b pb-1")
+
+with mt.expander("How do I reset my password?", class_="border rounded-lg mb-2"):
+    mt.write(
+        "Go to **Settings → Security** and click *Reset Password*. "
+        "A reset link will be sent to your registered email address."
+    )
+
+with mt.expander("What export formats are supported?", class_="border rounded-lg mb-2"):
+    mt.write("Reports can be exported as **CSV**, **Excel (.xlsx)**, **JSON**, and **PDF**.")
+
+with mt.expander("How is billing calculated?", class_="border rounded-lg mb-2"):
+    mt.write(
+        "Billing is calculated monthly based on the number of active seats and API calls "
+        "made during the billing cycle. Overages are billed at the standard rate shown on "
+        "your plan page."
+    )
+
+with mt.expander("Can I connect third-party integrations?", class_="border rounded-lg mb-2"):
+    mt.write("Yes — integrations are available via the REST API. Example:")
+    mt.code(
+        'curl -X POST https://api.example.com/hooks \\\n'
+        '  -H "Authorization: Bearer <TOKEN>" \\\n'
+        '  -d \'{"event": "order.created", "url": "https://your-site.com/webhook"}\'',
+        class_="text-xs",
+    )
+
+mt.markdown("---")
+
+# ── ACCOUNT SETTINGS ─────────────────────────────────────────────────────────
+mt.header("Account Settings", class_="font-bold border-b pb-1")
+
+col_left, col_right = mt.columns(2)
+
+with col_left:
+    mt.subheader("Profile", class_="font-semibold mb-2")
+    name  = mt.text_input("Full Name",   value="Alice Brown",            key="acc_name")
+    email = mt.text_input("Email",       value="alice@example.com",      key="acc_email")
+    role  = mt.selectbox("Role", ["Admin", "Editor", "Viewer"],           key="acc_role")
+    start = mt.date_input("Start Date",  value="2024-01-15",              key="acc_start")
+    bio   = mt.text_area("Bio",          value="Product designer at Oat.", key="acc_bio")
+    brand = mt.color_picker("Brand Color", value="#415F91",               key="acc_brand")
+
+with col_right:
+    mt.subheader("Preferences", class_="font-semibold mb-2")
+    mt.slider("Notification Volume", 0, 100, 60, key="acc_volume")
+
+    mt.write("Email preferences", class_="text-sm font-medium mt-3 mb-1")
+    mt.checkbox("Product updates",  value=True,  key="acc_email_product")
+    mt.checkbox("Marketing emails", value=False, key="acc_email_mkt")
+    mt.checkbox("Security alerts",  value=True,  key="acc_email_security")
+
+    mt.write("Theme", class_="text-sm font-medium mt-3 mb-1")
+    mt.radio("", ["Light", "Dark", "System"], key="acc_theme_pref")
+
+    mt.write("Security", class_="text-sm font-medium mt-3 mb-1")
+    mt.toggle("Two-factor authentication", value=True,  key="acc_2fa")
+    mt.toggle("API access",                value=False, key="acc_api")
+
+mt.markdown("---")
+
+btn_save, btn_cancel, btn_delete = mt.columns([2, 1, 1])
+with btn_save:
+    if mt.button("Save Changes", class_="w-full"):
+        mt.session_state["save_success"] = True
+        mt.session_state["show_delete_confirm"] = False
+with btn_cancel:
+    if mt.button("Cancel", key="btn_cancel", class_="w-full"):
+        mt.session_state["save_success"] = False
+with btn_delete:
+    if mt.button("Delete Account", key="btn_delete", class_="w-full"):
+        mt.session_state["show_delete_confirm"] = True
+
+if mt.session_state.get("save_success"):
+    mt.success(f"Changes saved for **{name}** ({email}).")
+
+if mt.session_state.get("show_delete_confirm"):
+    mt.warning("Are you sure? This action cannot be undone.")
+    c_confirm, c_abort = mt.columns(2)
+    with c_confirm:
+        if mt.button("Yes, delete", key="confirm_delete", class_="w-full"):
+            mt.error("Account deletion is disabled in this demo.")
+            mt.session_state["show_delete_confirm"] = False
+    with c_abort:
+        if mt.button("Cancel", key="abort_delete", class_="w-full"):
+            mt.session_state["show_delete_confirm"] = False

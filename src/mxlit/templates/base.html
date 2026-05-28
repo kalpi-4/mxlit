@@ -45,6 +45,47 @@
 
     <!-- Chart.js (used by st.line_chart / st.bar_chart etc.) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+
+    <!-- Tab-state persistence across HTMX swaps
+         Problem 1: <button role="tab"> without type="button" defaults to type="submit"
+                    inside the outer <form>, so clicking a tab submits the form and HTMX
+                    re-renders the whole page, snapping back to tab 0.
+                    → Fixed in components.html by adding type="button".
+
+         Problem 2: After any HTMX innerHTML swap, ot-tabs.connectedCallback fires
+                    synchronously and calls init(), which always activates tab 0 first.
+                    The user's previously selected tab is lost.
+                    → Fixed here: save the active index to localStorage on ot-tab-change,
+                      then restore it on htmx:afterSwap (which fires after init() runs). -->
+    <script>
+      (function () {
+        var LS_PREFIX = 'mxlit:tab:';
+
+        // 1. Persist the active tab whenever the user switches tabs.
+        //    ot-tab-change bubbles up from <ot-tabs> with detail.index.
+        document.addEventListener('ot-tab-change', function (e) {
+          var key = e.target.dataset && e.target.dataset.tabGroup;
+          if (!key) return;
+          try { localStorage.setItem(LS_PREFIX + key, String(e.detail.index)); } catch (_) {}
+        });
+
+        // 2. After every HTMX swap the ot-tabs custom element re-initialises and
+        //    resets to tab 0.  Re-apply the saved index using the activeIndex setter,
+        //    which ot-tabs exposes explicitly for exactly this purpose.
+        function restoreTabs() {
+          document.querySelectorAll('ot-tabs[data-tab-group]').forEach(function (el) {
+            var key = el.dataset.tabGroup;
+            var saved;
+            try { saved = localStorage.getItem(LS_PREFIX + key); } catch (_) { return; }
+            if (saved === null) return;
+            var idx = parseInt(saved, 10);
+            if (!isNaN(idx)) { el.activeIndex = idx; }
+          });
+        }
+
+        document.addEventListener('htmx:afterSwap', restoreTabs);
+      })();
+    </script>
 </head>
 <body>
     <!--

@@ -1,21 +1,47 @@
 # mxlit Codebase — DRY Violation Analysis & Refactor Plan
 
+## Table of Contents
+
+- [Executive Summary](#executive-summary)
+- [Section 1 — Identified Violations](#section-1--identified-violations)
+  - [1A · Component Registration Boilerplate](#1a--component-registration-boilerplate-43-repetitions-across-7-files)
+  - [1B · Theme Resolution Split](#1b--theme-resolution-split-3-sources-of-truth)
+  - [1C · Script Execution & Error Handling](#1c--script-execution--error-handling-verbatim-copy-paste-between-two-endpoints)
+  - [1D · Path Constants & Package Manifest](#1d--path-constants--package-manifest)
+- [Section 2 — Proposed Solutions](#section-2--proposed-solutions)
+  - [Solution A: `register_component` Helper + `_registry.py`](#solution-a-register_component-helper--_registrypy)
+  - [Solution B: `ThemeManager` in `constants/theme.py`](#solution-b-thememanager-in-constantsthemepy)
+  - [Solution C: `_run_script` & `_coerce_form_value` in `server.py`](#solution-c-_run_script--_coerce_form_value-in-serverpy)
+  - [Solution D: Consolidate Paths via `_paths.py`](#solution-d-consolidate-paths-via-_pathspy)
+- [Section 3 — Implementation Roadmap](#section-3--implementation-roadmap)
+  - [Priority 1 — Immediate](#priority-1--immediate-zero-behavioral-risk)
+  - [Priority 2 — Short-Term](#priority-2--short-term-cross-file-low-risk)
+  - [Priority 3 — Medium-Term](#priority-3--medium-term-architectural)
+  - [Priority 4 — Long-Term](#priority-4--long-term-structural)
+- [Dependency Map](#dependency-map)
+- [Quick-Reference: Violation → Solution Matrix](#quick-reference-violation--solution-matrix)
+
+---
+
 ## Executive Summary
 
 The audit found **four distinct categories** of DRY violations. None individually break correctness,
 but together they mean that every future feature, bug-fix, or new component type must be applied in
 multiple places simultaneously or risk silent divergence. The most impactful is the
-component-registration boilerplate, which recurs **43 times** across six files; the second most
+component-registration boilerplate, which recurs **43 times** across seven files; the second most
 impactful is the duplicated script-execution block in `server.py`.
+
+**Since the original audit**, one violation has been resolved: `setup.py` has been deleted and
+`pytailwindcss` is now properly declared in `pyproject.toml` as a dev extra (task 1.3 ✓).
 
 ---
 
 ## Section 1 — Identified Violations
 
-### 1A · Component Registration Boilerplate *(43 repetitions across 6 files)*
+### 1A · Component Registration Boilerplate *(43 repetitions across 7 files)*
 
-Every component function across `text.py`, `data.py`, `widgets.py`, `charts.py`, `media.py`, and
-`status.py` opens with an identical three-part ritual:
+Every component function across `text.py`, `data.py`, `widgets.py`, `charts.py`, `media.py`,
+`status.py`, and `layout.py` opens with an identical three-part ritual:
 
 ```python
 def write(*args, class_: str = ""):
@@ -29,9 +55,34 @@ def write(*args, class_: str = ""):
 The only part that differs is the component dict payload. Adding cross-cutting behaviour (e.g.,
 component IDs, render hooks, performance tracing) requires 43 edits.
 
+**Breakdown by file (recalculated from source):**
+
+| File | Functions | Pattern |
+|------|-----------|---------|
+| `text.py` | 12 | ①②③④ (display functions) |
+| `widgets.py` | 11 | ①②③ (no `else` fallback; returns value) |
+| `charts.py` | 4 | ①②③④ |
+| `data.py` | 4 | ①②③④ |
+| `media.py` | 4 | ①②③④ |
+| `status.py` | 5 | ①②③④ |
+| `layout.py` | 3 | ①② in `__enter__`/`__exit__`/`page_config`; ③ in `__exit__` only |
+| **Total** | **43** | |
+
+The only part that differs between instances is the component dict payload.
+
 **Sub-violation: duplicated `_generate_key` utility.**
-The helper exists independently in `widgets.py` (line 5) and `charts.py` (line 4) with slightly
-different signatures and reversed argument order.
+The helper exists independently in `widgets.py` (line 5) and `charts.py` (line 4) with different
+signatures and reversed argument order:
+
+```python
+# widgets.py  — (label, component_type) → md5("component_type-label")
+def _generate_key(label: str, component_type: str) -> str:
+    return hashlib.md5(f"{component_type}-{label}".encode()).hexdigest()
+
+# charts.py   — (component_type, data) → md5("component_type-str(data)")
+def _generate_key(component_type: str, data) -> str:
+    return hashlib.md5(f"{component_type}-{str(data)}".encode()).hexdigest()
+```
 
 ---
 
@@ -50,14 +101,16 @@ def _resolve_theme() -> dict:
 current: dict[str, str] = {**_DEFAULTS, **session_state.get(THEME_KEY, {})}
 ```
 
-`_THEME_DEFAULTS` and `_DEFAULTS` are the same object. The merge rule — and its precedence — lives
-in two places.
+`_THEME_DEFAULTS` and `_DEFAULTS` are the same object (`_DEFAULTS` is imported with an alias in
+`server.py`). The merge rule — and its precedence — lives in two places.
 
 **CSS layer divergence.** The theme's default values are hardcoded a third time in `static/input.css`
-as 48 build-time CSS custom properties (24 light, 24 dark). These hex values already exist in
-`theme.json`. They must be kept in sync manually whenever the Material palette seed changes.
-The runtime override block in `components.html` (lines 1–29) then overrides *thirteen* of those
-same variables, making the `:root {}` block in `input.css` partially redundant at runtime.
+as **46 build-time CSS custom properties (23 light, 23 dark)**. These hex values already exist in
+`theme.json`. They must be kept in sync manually whenever the palette seed changes.
+
+The runtime override block in `components.html` (lines 12–48) then overwrites **all 23** of those
+variables on every HTMX response via `color-mix()` expressions, making the `:root {}` block in
+`input.css` entirely redundant at runtime (it serves only as a no-JavaScript fallback).
 
 ---
 
@@ -85,26 +138,31 @@ Two embedded problems:
 1. **`type(e).__name__ == "RerunException"`** is a fragile string-comparison guard. `RerunException`
    is defined as a *local class* inside `mxlit.rerun()`, so it cannot be imported and caught
    normally. Any unrelated exception with that name would be silently swallowed.
-2. The **form-value type-coercion block** (6 `isinstance` checks, 20 lines) is also copy-pasted
+2. The **form-value type-coercion block** (3 `isinstance` checks, 22 lines) is also copy-pasted
    between `/interact` (lines 65–86) and `/modify` (lines 167–188).
 
 ---
 
-### 1D · Dual Package Manifests *(setup.py vs. pyproject.toml)*
+### 1D · Path Constants & Package Manifest
 
-`setup.py` and `pyproject.toml` both declare the package's name, version, description, authors,
-license, `requires-python`, classifiers, `install_requires`/`dependencies`, and the `mxlit` entry
-point. Every release requires updating both files atomically.
+**Resolved:** `setup.py` has been deleted; `pyproject.toml` (hatchling) is the sole build config
+and correctly declares `pytailwindcss` in `[project.optional-dependencies] dev`. Task 1.3 ✓
 
-Additional inconsistency: `pytailwindcss` is listed as a `dev` extra in `setup.py` but is entirely
-absent from `pyproject.toml`.
-
-The `STATIC_DIR` path is also computed independently in two modules:
+**Remaining:** Three path constants are computed independently across two modules:
 
 ```python
-_STATIC_DIR = Path(__file__).parent / "static"   # cli.py line 10
-STATIC_DIR  = Path(__file__).parent / "static"   # server.py line 34
+# cli.py lines 10–12
+_STATIC_DIR = Path(__file__).parent / "static"
+_INPUT_CSS  = _STATIC_DIR / "input.css"
+_OUTPUT_CSS = _STATIC_DIR / "style.css"
+
+# server.py lines 34, 38
+STATIC_DIR    = Path(__file__).parent / "static"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 ```
+
+`STATIC_DIR` is duplicated; `TEMPLATES_DIR` and the CSS paths are single-use but would also benefit
+from a shared constants module for consistency and IDE navigation.
 
 ---
 
@@ -206,12 +264,21 @@ async def _apply_form_data(form_data) -> None:
 
 ---
 
-### Solution D: Retire `setup.py`, Consolidate Paths
+### Solution D: Consolidate Paths via `_paths.py`
 
-- Delete `setup.py`; `pyproject.toml` (hatchling) is the active build config.
-- Add `[project.optional-dependencies] dev = ["pytailwindcss"]` to `pyproject.toml`.
 - Create `src/mxlit/_paths.py` with `PACKAGE_DIR`, `STATIC_DIR`, `TEMPLATES_DIR`, `INPUT_CSS`,
   `OUTPUT_CSS`; import from it in both `cli.py` and `server.py`.
+
+```python
+# src/mxlit/_paths.py
+from pathlib import Path
+
+PACKAGE_DIR   = Path(__file__).parent
+STATIC_DIR    = PACKAGE_DIR / "static"
+TEMPLATES_DIR = PACKAGE_DIR / "templates"
+INPUT_CSS     = STATIC_DIR / "input.css"
+OUTPUT_CSS    = STATIC_DIR / "style.css"
+```
 
 ---
 
@@ -221,34 +288,34 @@ Tasks ordered by **impact-to-risk ratio** (highest isolation, lowest breakage ri
 
 ### Priority 1 — Immediate (Zero Behavioral Risk)
 
-| Task | Action | Effort |
-|------|--------|--------|
-| 1.1 | Extract `_run_script` and `_coerce_form_value` / `_apply_form_data` in `server.py` | 1 h |
-| 1.2 | Move `RerunException` to `src/mxlit/_exceptions.py`; catch by type | 30 min |
-| 1.3 | Delete `setup.py`; add `pytailwindcss` dev extra to `pyproject.toml` | 15 min |
-| 1.4 | Create `src/mxlit/_paths.py`; update `cli.py` and `server.py` imports | 20 min |
+| Task | Action | Effort | Status |
+|------|--------|--------|--------|
+| 1.1 | Extract `_run_script` and `_coerce_form_value` / `_apply_form_data` in `server.py` | 1 h | ○ |
+| 1.2 | Move `RerunException` to `src/mxlit/_exceptions.py`; catch by type | 30 min | ○ |
+| ~~1.3~~ | ~~Delete `setup.py`; add `pytailwindcss` dev extra to `pyproject.toml`~~ | ~~15 min~~ | ✓ |
+| 1.4 | Create `src/mxlit/_paths.py`; update `cli.py` and `server.py` imports | 20 min | ○ |
 
 ### Priority 2 — Short-Term (Cross-File, Low Risk)
 
-| Task | Action | Effort |
-|------|--------|--------|
-| 2.1 | Create `src/mxlit/components/_registry.py` with `register_component` and unified `_generate_key` | 1 h |
-| 2.2 | Migrate all display-only components (text, media, status, data, charts) to `register_component` | 2–3 h |
-| 2.3 | Migrate widget functions (return-value functions) to use `register_component` inline | 1 h |
+| Task | Action | Effort | Status |
+|------|--------|--------|--------|
+| 2.1 | Create `src/mxlit/components/_registry.py` with `register_component` and unified `_generate_key` | 1 h | ○ |
+| 2.2 | Migrate all display-only components (text, media, status, data, charts) to `register_component` | 2–3 h | ○ |
+| 2.3 | Migrate widget functions (return-value functions) to use `register_component` inline | 1 h | ○ |
 
 ### Priority 3 — Medium-Term (Architectural)
 
-| Task | Action | Effort |
-|------|--------|--------|
-| 3.1 | Introduce `ThemeManager`; retire `_resolve_theme()` in `server.py` | 2 h |
-| 3.2 | Add `mxlit sync-css-tokens` CLI command to generate `:root {}` from `_DEFAULTS` | 3–4 h |
+| Task | Action | Effort | Status |
+|------|--------|--------|--------|
+| 3.1 | Introduce `ThemeManager`; retire `_resolve_theme()` in `server.py` | 2 h | ○ |
+| 3.2 | Add `mxlit sync-css-tokens` CLI command to generate `:root {}` from `_DEFAULTS` | 3–4 h | ○ |
 
 ### Priority 4 — Long-Term (Structural)
 
-| Task | Action | Effort |
-|------|--------|--------|
-| 4.1 | Add `ComponentMiddleware` hook in `register_component` for IDs, tracing, conditional rendering | variable |
-| 4.2 | Move `runpy.run_path` to `asyncio.to_thread` to unblock the SSE event loop | 2 h |
+| Task | Action | Effort | Status |
+|------|--------|--------|--------|
+| 4.1 | Add `ComponentMiddleware` hook in `register_component` for IDs, tracing, conditional rendering | variable | ○ |
+| 4.2 | Move `runpy.run_path` to `asyncio.to_thread` to unblock the SSE event loop | 2 h | ○ |
 
 ---
 
@@ -266,14 +333,14 @@ Task 3.2 (sync-css-tokens)  ──► Task 3.1 (ThemeManager exposes _DEFAULTS)
 
 ## Quick-Reference: Violation → Solution Matrix
 
-| # | Violation | Location | Repetitions | Solution | Tasks |
-|---|-----------|----------|-------------|---------|-------|
-| 1A | `get_context()` / `add_component` boilerplate | 6 component files | 43 | `register_component` helper | 2.1, 2.2, 2.3 |
-| 1A | `_generate_key` duplicated | `widgets.py`, `charts.py` | 2 | Merge into `_registry.py` | 2.1 |
-| 1B | `_resolve_theme` vs `theme()` merge logic | `server.py`, `theme.py` | 2 | `ThemeManager.resolve()` | 3.1 |
-| 1B | CSS tokens hardcoded in `input.css` + `theme.json` | `input.css`, `theme.json` | 48 values | Generated `:root {}` block | 3.2 |
-| 1C | `runpy` + `AppContext` + error handling block | `server.py` | 2 | `_run_script()` helper | 1.1 |
-| 1C | Form value type-coercion block | `server.py` | 2 | `_coerce_form_value` + `_apply_form_data` | 1.1 |
-| 1C | `type(e).__name__ == "RerunException"` string check | `server.py` | 2 | Module-level `RerunException` | 1.2 |
-| 1D | Dual `setup.py` + `pyproject.toml` manifests | root | 2 | Delete `setup.py` | 1.3 |
-| 1D | `STATIC_DIR` computed independently | `cli.py`, `server.py` | 2 | `_paths.py` shared constants | 1.4 |
+| # | Violation | Location | Repetitions | Solution | Tasks | Status |
+|---|-----------|----------|-------------|---------|-------|--------|
+| 1A | `get_context()` / `add_component` boilerplate | 7 component files | 43 | `register_component` helper | 2.1, 2.2, 2.3 | ○ |
+| 1A | `_generate_key` duplicated (different signatures) | `widgets.py`, `charts.py` | 2 | Merge into `_registry.py` | 2.1 | ○ |
+| 1B | `_resolve_theme` vs `theme()` merge logic | `server.py`, `theme.py` | 2 | `ThemeManager.resolve()` | 3.1 | ○ |
+| 1B | CSS tokens hardcoded in `input.css` + `theme.json` | `input.css`, `theme.json` | 46 values | Generated `:root {}` block | 3.2 | ○ |
+| 1C | `runpy` + `AppContext` + error handling block | `server.py` | 2 | `_run_script()` helper | 1.1 | ○ |
+| 1C | Form value type-coercion block (3 checks, 22 lines) | `server.py` | 2 | `_coerce_form_value` + `_apply_form_data` | 1.1 | ○ |
+| 1C | `type(e).__name__ == "RerunException"` string check | `server.py` | 2 | Module-level `RerunException` | 1.2 | ○ |
+| ~~1D~~ | ~~Dual `setup.py` + `pyproject.toml` manifests~~ | ~~root~~ | ~~2~~ | ~~Delete `setup.py`~~ | ~~1.3~~ | ✓ |
+| 1D | `STATIC_DIR` / `TEMPLATES_DIR` computed independently | `cli.py`, `server.py` | 2–3 | `_paths.py` shared constants | 1.4 | ○ |

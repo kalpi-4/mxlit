@@ -5,6 +5,75 @@
 
 ---
 
+## Table of Contents
+
+1. [Overview & Goals](#1-overview--goals)
+2. [Architecture Specification](#2-architecture-specification)
+   - [2.1 Module Layout After Refactor](#21-module-layout-after-refactor)
+   - [2.2 `HtmxProps` — Full HTMX Attribute Schema](#22-htmxprops--full-htmx-attribute-schema)
+     - [2.2.1 Type Aliases and Literals](#221-type-aliases-and-literals)
+     - [2.2.2 Full `HtmxProps` Dataclass](#222-full-htmxprops-dataclass)
+     - [2.2.3 Attribute-to-Field Quick Reference](#223-attribute-to-field-quick-reference)
+     - [2.2.4 Usage Examples](#224-usage-examples)
+     - [2.2.5 Jinja2 Template Integration](#225-jinja2-template-integration)
+   - [2.3 `ComponentType` Enum + `BaseComponent` — Full Definitions](#23-componenttype-enum--basecomponent--full-definitions)
+     - [2.3.1 `ComponentType` Enum](#231-componenttype-enum)
+     - [2.3.2 `BaseComponent` — Full Class Definition](#232-basecomponent--full-class-definition)
+   - [2.4 Design Decisions](#24-design-decisions)
+   - [2.5 `OatProps` — OAT Semantic Attribute Schema](#25-oatprops--oat-semantic-attribute-schema)
+   - [2.6 Component Factory Pattern](#26-component-factory-pattern)
+     - [2.6.1 Problem: Residual Boilerplate After `BaseComponent`](#261-problem-residual-boilerplate-after-basecomponent)
+     - [2.6.2 `@component` — Display Components](#262-component--display-components)
+     - [2.6.3 `@widget_component` — Interactive Widgets](#263-widget_component--interactive-widgets)
+     - [2.6.4 Decorator Wiring Summary](#264-decorator-wiring-summary)
+   - [2.7 Atomic Composition](#27-atomic-composition)
+     - [2.7.1 Problem: Repeated Parametric Variants](#271-problem-repeated-parametric-variants)
+     - [2.7.2 Status Variant Factory](#272-status-variant-factory)
+     - [2.7.3 Heading Atom Factory](#273-heading-atom-factory)
+     - [2.7.4 Chart Atom Factory](#274-chart-atom-factory)
+     - [2.7.5 Composition vs. Subclassing](#275-composition-vs-subclassing)
+3. [Refactoring Examples](#3-refactoring-examples)
+   - [3.1 Simple Component — `mt.title`](#31-simple-component--mttitle)
+   - [3.2 Complex Widget — `mt.text_input`](#32-complex-widget--mttext_input)
+   - [3.3 Status Variants — Atomic Composition in Practice](#33-status-variants--atomic-composition-in-practice)
+4. [Template Update Strategy](#4-template-update-strategy)
+   - [4.1 Current State](#41-current-state)
+   - [4.2 Phase 1 — Additive: `htmx_attrs` Jinja2 Macro](#42-phase-1--additive-htmx_attrs-jinja2-macro)
+   - [4.3 Phase 2 — Cleanup (Post Full Migration)](#43-phase-2--cleanup-post-full-migration)
+   - [4.4 OAT Data Attribute Strategy — Phase 2](#44-oat-data-attribute-strategy--phase-2)
+5. [OAT Component Catalog](#5-oat-component-catalog)
+   - [5.1 Existing mxlit Components → OAT Mapping](#51-existing-mxlit-components--oat-mapping)
+   - [5.2 New Components Enabled by OAT](#52-new-components-enabled-by-oat)
+     - [5.2.1 New UI Primitives (not yet in mxlit at all)](#521-new-ui-primitives-not-yet-in-mxlit-at-all)
+     - [5.2.2 Missing Form Input Variants](#522-missing-form-input-variants)
+   - [5.3 OAT Attribute Quick Reference](#53-oat-attribute-quick-reference)
+   - [5.4 Gap Analysis — Missing Components (oat.ink parity)](#54-gap-analysis--missing-components-oatink-parity)
+6. [Composite Design Pattern](#6-composite-design-pattern)
+   - [6.1 Problem with Current `ContainerContextManager`](#61-problem-with-current-containercontextmanager)
+   - [6.2 `CompositeComponent` — Extended Definition](#62-compositecomponent--extended-definition)
+   - [6.3 Template Support for Composite Children](#63-template-support-for-composite-children)
+   - [6.4 Worked Example — `mt.card`](#64-worked-example--mtcard)
+   - [6.5 Migrating Existing Layout Containers](#65-migrating-existing-layout-containers)
+7. [Migration Checklist](#7-migration-checklist)
+   - [7.1 Create `src/mxlit/components/base.py`](#71-create-srcmxlitcomponentsbasepy)
+   - [7.2 Template — Phase 1 (do this before any Python changes)](#72-template--phase-1-do-this-before-any-python-changes)
+   - [7.3 Migrate Display-Only Components (no return value)](#73-migrate-display-only-components-no-return-value)
+   - [7.4 Migrate Widget Components (return value preserved)](#74-migrate-widget-components-return-value-preserved)
+   - [7.5 Migrate Layout Containers to `CompositeComponent`](#75-migrate-layout-containers-to-compositecomponent)
+   - [7.6 Template — Phase 2 (after all widgets migrated)](#76-template--phase-2-after-all-widgets-migrated)
+   - [7.7 Final Cleanup](#77-final-cleanup)
+8. [Compatibility Notes](#8-compatibility-notes)
+9. [File Change Summary](#9-file-change-summary)
+   - [9.1 Per-file Breakdown](#91-per-file-breakdown)
+   - [9.2 Boilerplate Elimination Summary](#92-boilerplate-elimination-summary)
+10. [Full-Page Refresh Bug — Diagnosis & Targeted-Update Plan](#10-full-page-refresh-bug--diagnosis--targeted-update-plan)
+    - [10.1 Root-Cause Breakdown (5 compounding problems)](#101-root-cause-breakdown-5-compounding-problems)
+    - [10.2 Summary Table](#102-summary-table)
+    - [10.3 Target Architecture — Targeted Per-Component Updates](#103-target-architecture--targeted-per-component-updates)
+    - [10.4 Work Items](#104-work-items)
+
+---
+
 ## 1. Overview & Goals
 
 This plan introduces a `BaseComponent` dataclass in `src/mxlit/components/base.py` as the single,
@@ -1631,20 +1700,36 @@ Source: [oat.ink/components](https://oat.ink/components/)
 
 These can all be implemented as `BaseComponent` (leaves) or `CompositeComponent` (containers):
 
+#### 5.2.1 New UI Primitives (not yet in mxlit at all)
+
 | New function | OAT pattern | Type | Key attributes |
 |--------------|-------------|------|----------------|
 | `mt.card(header, footer)` | `<article class="card">` | Composite | `<header>`, `<footer>` slots |
-| `mt.avatar(src, initials, size)` | `<figure data-variant="avatar">` | Leaf | `class="small\|large"` |
-| `mt.avatar_group()` | `<figure data-variant="avatar" role="group">` | Composite | size from parent class |
-| `mt.dialog(id, title)` | `<dialog>` + `commandfor/command` trigger button | Composite | `closedby="any"` |
+| `mt.avatar(src, initials, size)` | `<figure data-variant="avatar">` | Leaf | `class="small\|large"`, `aria-label` |
+| `mt.avatar_group(size)` | `<figure data-variant="avatar" role="group">` | Composite | size controls all nested avatars |
+| `mt.dialog(dialog_id, title)` | `<dialog closedby="any">` + `commandfor/command` trigger | Composite | zero-JS focus trapping + Escape key |
 | `mt.dropdown(label)` | `<ot-dropdown>` WebComponent | Composite | `popovertarget` / `popover` |
 | `mt.spinner(size)` | `<div aria-busy="true">` | Leaf | `data-spinner="small\|large\|overlay"` |
 | `mt.skeleton(variant)` | `<div role="status" class="skeleton line\|box">` | Leaf | `role="status"` |
-| `mt.progress(value, max)` | `<progress value max>` | Leaf | Native `<progress>` |
-| `mt.meter(value, low, high, optimum)` | `<meter>` | Leaf | Native semantic colors |
-| `mt.breadcrumb(items)` | `<nav aria-label="Breadcrumb"><ol class="unstyled hstack">` | Leaf | `aria-current="page"` |
-| `mt.button_group()` | `<menu class="buttons">` | Composite | Connected button styling |
-| `mt.grid(cols)` | `<div class="container"><div class="row">` | Composite | `.col-{1-12}`, `.offset-{n}` |
+| `mt.progress(value, max)` | `<progress value max>` | Leaf | Native `<progress>`; indeterminate when `value` omitted |
+| `mt.meter(value, min, max, low, high, optimum)` | `<meter>` | Leaf | Browser semantic colors via `low/high/optimum` |
+| `mt.breadcrumb(items)` | `<nav aria-label="Breadcrumb"><ol class="unstyled hstack">` | Leaf | `aria-current="page"` on last item |
+| `mt.button_group(labels, on_click)` | `<menu class="buttons">` | Composite | Connected / segmented button styling |
+| `mt.grid(cols)` | `<div class="container"><div class="row">` | Composite | `.col-{1-12}`, `.offset-{n}`, `.col-end` |
+| `mt.toast(message, title, variant, placement, duration)` | `ot.toast()` JS call emitted via SSE | Leaf | variant: success\|danger\|warning; placement: top-right\|… |
+| `mt.pagination(total_pages, current_page)` | `<nav aria-label="Pagination"><menu class="buttons">` | Widget | `aria-current="page"` on active item; returns new page number |
+
+#### 5.2.2 Missing Form Input Variants
+
+oat.ink supports these `<input>` types that mxlit does not yet expose as dedicated Python functions:
+
+| New function | OAT pattern | Type | Notes |
+|--------------|-------------|------|-------|
+| `mt.email_input(label, value, key)` | `<input type="email">` in `<label data-field>` | Widget | Browser-native email validation |
+| `mt.password_input(label, key)` | `<input type="password">` in `<label data-field>` | Widget | Value never stored in session state |
+| `mt.file_input(label, accept, key)` | `<input type="file">` in `<label data-field>` | Widget | Returns uploaded filename; multipart encoding needed |
+| `mt.datetime_input(label, value, key)` | `<input type="datetime-local">` in `<label data-field>` | Widget | Returns ISO datetime string |
+| `mt.input_group(prefix, suffix)` | `<fieldset class="group">` with input + button/select | Composite | Combines input with prefix label or action button |
 
 ### 5.3 OAT Attribute Quick Reference
 
@@ -1658,6 +1743,76 @@ Drawn directly from the oat.ink spec for use in `OatProps`:
 | `busy` | `aria-busy` | `"true"` | spinner, loading overlay |
 | `spinner` | `data-spinner` | `"small"` `"large"` `"overlay"` | spinner, card loading |
 | `tooltip` | `title` | any string | any element — OAT renders as smooth tooltip |
+| `tooltip_placement` | `data-tooltip-placement` | `"top"` `"bottom"` `"left"` `"right"` | any element with a `title` attribute |
+
+---
+
+### 5.4 Gap Analysis — Missing Components (oat.ink parity)
+
+Audited against [oat.ink/components](https://oat.ink/components/) on 2026-05-28.
+
+#### Currently implemented ✅ (18 oat.ink sections covered)
+
+| oat.ink section | mxlit function(s) |
+|-----------------|-------------------|
+| Typography | `write`, `title`, `header`, `subheader`, `text`, `markdown`, `code`, `html`, `latex`, `ner_text`, `badge`, `write_stream` |
+| Accordion | `expander` |
+| Alert | `error`, `warning`, `info`, `success` |
+| Badge | `badge` |
+| Button | `button` |
+| Form elements (core) | `text_input`, `number_input`, `text_area`, `date_input`, `color_picker`, `checkbox`, `radio`, `slider`, `selectbox`, `toggle` |
+| Sidebar | `sidebar` |
+| Switch | `toggle` |
+| Table | `dataframe`, `table` |
+| Tabs | `tabs` |
+| Media | `image`, `audio`, `video`, `logo` |
+| Charts (custom) | `line_chart`, `bar_chart`, `area_chart`, `scatter_chart` |
+| Data display (custom) | `dataframe`, `table`, `json`, `metric` |
+| Layout containers | `container`, `columns` |
+
+#### Missing — New UI Primitives ❌ (14 items)
+
+| # | Function | Priority | Complexity |
+|---|----------|----------|------------|
+| 1 | `mt.card(header, footer)` | 🔴 High | Medium — CompositeComponent |
+| 2 | `mt.spinner(size)` | 🔴 High | Low — single div + aria-busy |
+| 3 | `mt.progress(value, max)` | 🔴 High | Low — native `<progress>` |
+| 4 | `mt.skeleton(variant)` | 🟡 Medium | Low — CSS class on div |
+| 5 | `mt.avatar(src, initials, size)` | 🟡 Medium | Low — figure element |
+| 6 | `mt.avatar_group(size)` | 🟡 Medium | Medium — CompositeComponent |
+| 7 | `mt.meter(value, min, max, low, high, optimum)` | 🟡 Medium | Low — native `<meter>` |
+| 8 | `mt.breadcrumb(items)` | 🟡 Medium | Low — nav + ordered list |
+| 9 | `mt.button_group(labels, on_click)` | 🟡 Medium | Medium — menu + HTMX |
+| 10 | `mt.toast(message, title, variant, placement, duration)` | 🟡 Medium | Medium — SSE → `ot.toast()` JS call |
+| 11 | `mt.pagination(total_pages, current_page)` | 🟡 Medium | Medium — widget + HTMX |
+| 12 | `mt.dialog(dialog_id, title)` | 🟠 Low | High — CompositeComponent + JS interop |
+| 13 | `mt.dropdown(label)` | 🟠 Low | High — `<ot-dropdown>` WebComponent |
+| 14 | `mt.grid(cols)` | 🟠 Low | Medium — CompositeComponent, 12-col system |
+
+#### Missing — Form Input Variants ❌ (5 items)
+
+| # | Function | Priority | Notes |
+|---|----------|----------|-------|
+| 15 | `mt.email_input(label, value, key)` | 🔴 High | `type="email"` — browser validation built-in |
+| 16 | `mt.password_input(label, key)` | 🔴 High | `type="password"` — value never stored in session |
+| 17 | `mt.datetime_input(label, value, key)` | 🟡 Medium | `type="datetime-local"` — returns ISO string |
+| 18 | `mt.file_input(label, accept, key)` | 🟡 Medium | `type="file"` — needs multipart form encoding |
+| 19 | `mt.input_group(prefix, suffix)` | 🟠 Low | `<fieldset class="group">` — combines input + button |
+
+#### Summary counts
+
+| Category | Total in oat.ink | Implemented | **Missing** |
+|----------|-----------------|-------------|-------------|
+| Core UI primitives | 22 sections | 14 | **8** |
+| New UI primitives (§5.2.1) | 14 | 0 | **14** |
+| Form input variants (§5.2.2) | 5 | 0 | **5** |
+| **Total** | **41** | **14** | **27** |
+
+> **Recommended implementation order:** High-priority items first (card, spinner, progress,
+> email_input, password_input), then medium-priority (skeleton, avatar, meter, breadcrumb,
+> button_group, toast, pagination, datetime_input, file_input), then low-priority (dialog,
+> dropdown, grid, input_group). Each high-priority item is a leaf component that can be
+> delivered in a single PR with no dependency on `CompositeComponent`.
 
 ---
 

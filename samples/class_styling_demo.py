@@ -14,20 +14,24 @@ import pandas as pd
 # Keys are dot-notation paths into constants/theme.json (schemes.light.*).
 _PRESETS = {
     "btn_material": {
-        "schemes.light.primary":   "#415F91",
-        "schemes.light.secondary": "#565F71",
+        # Default oat.ink warm neutral — schemes.light defaults
+        "schemes.light.primary":   "#574747",   # schemes.light.primary
+        "schemes.light.secondary": "#71717A",   # palettes.secondary[50] / schemes.light.outline
     },
     "btn_ocean": {
-        "schemes.light.primary":   "#0891b2",
-        "schemes.light.secondary": "#0d9488",
+        # Cool zinc + fresh green — muted but alive
+        "schemes.light.primary":   "#57575C",   # palettes.secondary[40]
+        "schemes.light.secondary": "#33A05A",   # palettes.tertiary[60]
     },
     "btn_sunset": {
-        "schemes.light.primary":   "#ea580c",
-        "schemes.light.secondary": "#9333ea",
+        # Rich warm tones — deep red-brown primary, dusty-rose secondary
+        "schemes.light.primary":   "#543636",   # palettes.primary[30]
+        "schemes.light.secondary": "#856363",   # palettes.primary[50]
     },
     "btn_forest": {
-        "schemes.light.primary":   "#15803d",
-        "schemes.light.secondary": "#92400e",
+        # Deep forest green primary, earthy bark secondary
+        "schemes.light.primary":   "#006E2D",   # palettes.tertiary[40]
+        "schemes.light.secondary": "#543636",   # palettes.primary[30]
     },
 }
 for _pk, _pv in _PRESETS.items():
@@ -305,17 +309,6 @@ mt.ner_text(
     ],
     class_="mt-4 mb-6 text-base leading-loose",
 )
-
-mt.subheader("Streaming text")
-def _stream_demo():
-    words = ("mxlit streams tokens live via HTMX — "
-             "no WebSocket, no polling, just server-sent events.").split()
-    import time
-    for w in words:
-        yield w + " "
-        time.sleep(0.07)
-
-mt.write_stream(_stream_demo())
 
 mt.markdown("---")
 mt.write(

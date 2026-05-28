@@ -217,24 +217,41 @@ async def modify_state(request: Request):
     return JSONResponse(content={"status": "success", "message": "State updated and broadcasted"})
 
 @app.get("/stream/{stream_id}")
-async def stream_events(stream_id: str):
+async def stream_events(request: Request, stream_id: str):
     """
     Handle SSE for text streaming.
+
+    Yields each chunk from the stored generator in SSE format and closes the
+    connection cleanly when the generator is exhausted or the client disconnects.
+    The consumed generator is removed from session_state to avoid memory leaks.
     """
     async def event_generator():
         stream_key = f"_stream_{stream_id}"
-        if stream_key in session_state:
-            # We assume it's a generator or iterable
-            stream = session_state[stream_key]
+        if stream_key not in session_state:
+            yield "event: close\ndata: \n\n"
+            return
+
+        stream = session_state[stream_key]
+        try:
             for chunk in stream:
-                # SSE format: data: <content>\n\n
-                # We can sleep a tiny bit to make it look like streaming if it's too fast
-                # but let's let the generator handle its own speed.
-                yield f"data: <span>{chunk}</span>\n\n"
-                await asyncio.sleep(0.05)  # small delay for effect
-            # Optional: send a closing event, but not strictly necessary for simple appending
-            # unless we want to stop the client from reconnecting
+                if await request.is_disconnected():
+                    break
+                # Escape newlines so each chunk stays on a single SSE data line.
+                safe_chunk = str(chunk).replace("\n", " ")
+                yield f"data: <span>{safe_chunk}</span>\n\n"
+                await asyncio.sleep(0)  # yield control to the event loop
+        finally:
+            # Clean up the exhausted (or abandoned) generator.
+            session_state.pop(stream_key, None)
+
         yield "event: close\ndata: \n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering for SSE
+        },
+    )
 

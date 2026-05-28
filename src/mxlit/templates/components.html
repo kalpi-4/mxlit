@@ -6,8 +6,12 @@
 {% set s   = theme["schemes.light.secondary"] %}
 {% set bg  = theme["schemes.light.background"] %}
 {% set txt = theme["schemes.light.onBackground"] %}
+{# Derived danger/success/warning from Material error/tertiary tokens (with fallbacks) #}
+{% set err = theme.get("schemes.light.error", "#d32f2f") %}
+{% set ter = theme.get("schemes.light.tertiary", "#008032") %}
 <style>
 :root {
+    /* ── Core palette (oat.ink theme variables) ── */
     --primary:              {{ p }};
     --primary-foreground:   #ffffff;
     --secondary:            color-mix(in srgb, {{ s }} 18%, {{ bg }});
@@ -16,13 +20,29 @@
     --card:                 {{ bg }};
     --foreground:           {{ txt }};
     --card-foreground:      {{ txt }};
+
+    /* ── Borders & inputs ── */
     --border:               color-mix(in srgb, {{ txt }} 14%, {{ bg }});
     --input:                color-mix(in srgb, {{ txt }} 14%, {{ bg }});
     --ring:                 {{ p }};
+
+    /* ── Muted / faint surfaces ── */
+    --muted:                color-mix(in srgb, {{ txt }} 6%,  {{ bg }});
+    --muted-foreground:     color-mix(in srgb, {{ txt }} 55%, {{ bg }});
+    --faint:                color-mix(in srgb, {{ txt }} 3%,  {{ bg }});
+    --faint-foreground:     color-mix(in srgb, {{ txt }} 35%, {{ bg }});
+
+    /* ── Accent ── */
     --accent:               color-mix(in srgb, {{ p }} 10%, {{ bg }});
     --accent-foreground:    {{ p }};
-    --muted:                color-mix(in srgb, {{ txt }} 6%, {{ bg }});
-    --muted-foreground:     color-mix(in srgb, {{ txt }} 55%, {{ bg }});
+
+    /* ── Semantic colours (alerts, validation, badges) ── */
+    --danger:               {{ err }};
+    --danger-foreground:    #fafafa;
+    --success:              {{ ter }};
+    --success-foreground:   #fafafa;
+    --warning:              #a65b00;
+    --warning-foreground:   #09090b;
 }
 body, html { background-color: {{ bg }}; color: {{ txt }}; }
 </style>
@@ -387,6 +407,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
 {# ── Main content ─────────────────────────────────────────────────────────── #}
 <main class="mx-main {{ main_class | default('') }}">
+    {# Counter used to give each <ot-tabs> a stable data-tab-group key so that
+       the localStorage tab-state script in base.html can identify it after swaps. #}
+    {% set tab_group_ns = namespace(count=0) %}
     {% for comp in components %}
         {% if comp.type != 'sidebar' %}
 
@@ -412,15 +435,23 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             {# first tab and close it on the last.                             #}
             {% elif comp.type == 'tab' %}
                 {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'tab' %}
-                    <ot-tabs class="{{ comp.tabs_class_ | default('') }}">
+                    {# Assign a stable key for this tab group so the localStorage
+                       restore script (base.html) can identify it after HTMX swaps. #}
+                    {% set tab_group_ns.count = tab_group_ns.count + 1 %}
+                    <ot-tabs data-tab-group="mxlit-tabs-{{ tab_group_ns.count }}"
+                             class="{{ comp.tabs_class_ | default('') }}">
                         <div role="tablist">
-                            {# Look-ahead to emit all tab headers in one pass #}
+                            {# Look-ahead: emit all tab headers in one pass. #}
                             {% set tab_start = loop.index0 %}
                             {% set hdr_ns = namespace(stop=false) %}
                             {% for fc in components[tab_start:] %}
                                 {% if not hdr_ns.stop %}
                                     {% if fc.type == 'tab' %}
-                                        <button role="tab">{{ fc.label }}</button>
+                                        {# type="button" prevents this button from
+                                           submitting the outer <form> on click, which
+                                           would trigger an HTMX re-render and reset the
+                                           active tab back to 0 on every tab switch. #}
+                                        <button role="tab" type="button">{{ fc.label }}</button>
                                     {% else %}
                                         {% set hdr_ns.stop = true %}
                                     {% endif %}

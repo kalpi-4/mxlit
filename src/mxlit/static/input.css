@@ -16,76 +16,81 @@
    The template (components.html) overrides these at runtime via mt.theme().
    ─────────────────────────────────────────────────────────────────────────── */
 
-/* schemes.light.* ─────────────────────────────────────────────────────────── */
+/* ── oat.ink default theme ────────────────────────────────────────────────────
+   Values sourced directly from oat.min.css @layer theme {:root { light-dark(…) }}
+   Light values are the first argument; dark values are the second.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Light (:root) ────────────────────────────────────────────────────────────── */
 :root {
-  --background:           #F9F9FF;   /* schemes.light.background             */
-  --foreground:           #191C20;   /* schemes.light.onBackground           */
-  --card:                 #F3F3FA;   /* schemes.light.surfaceContainerLow    */
-  --card-foreground:      #191C20;   /* schemes.light.onSurface              */
+  --background:           #FFFFFF;   /* light-dark(#fff,     #09090b) */
+  --foreground:           #09090B;   /* light-dark(#09090b,  #fafafa) */
+  --card:                 #FFFFFF;   /* light-dark(#fff,     #18181b) */
+  --card-foreground:      #09090B;   /* light-dark(#09090b,  #fafafa) */
 
-  --primary:              #405F90;   /* schemes.light.primary                */
-  --primary-foreground:   #FFFFFF;   /* schemes.light.onPrimary              */
+  --primary:              #574747;   /* light-dark(#574747,  #fafafa) — warm neutral */
+  --primary-foreground:   #FAFAFA;   /* light-dark(#fafafa,  #18181b) */
 
-  --secondary:            #C9E6FF;   /* schemes.light.secondaryContainer     */
-  --secondary-foreground: #004B6F;   /* schemes.light.onSecondaryContainer   */
+  --secondary:            #F4F4F5;   /* light-dark(#f4f4f5,  #27272a) */
+  --secondary-foreground: #574747;   /* light-dark(#574747,  #fafafa) */
 
-  --muted:                #E0E2EC;   /* schemes.light.surfaceVariant         */
-  --muted-foreground:     #44474E;   /* schemes.light.onSurfaceVariant       */
+  --muted:                #F4F4F5;   /* light-dark(#f4f4f5,  #27272a) */
+  --muted-foreground:     #71717A;   /* light-dark(#71717a,  #a1a1aa) */
 
-  --faint:                #FFFFFF;   /* schemes.light.surfaceContainerLowest */
-  --faint-foreground:     #C4C6CF;   /* schemes.light.outlineVariant         */
+  --faint:                #FAFAFA;   /* light-dark(#fafafa,  #1e1e21) */
+  --faint-foreground:     #A1A1AA;   /* light-dark(#a1a1aa,  #71717a) */
 
-  --accent:               #D6E3FF;   /* schemes.light.primaryContainer       */
-  --accent-foreground:    #274777;   /* schemes.light.onPrimaryContainer     */
+  --accent:               #F4F4F5;   /* light-dark(#f4f4f5,  #27272a) */
+  --accent-foreground:    #574747;   /* light-dark(#574747,  #fafafa) */
 
-  --danger:               #BA1A1A;   /* schemes.light.error                  */
-  --danger-foreground:    #FFDAD6;   /* schemes.light.errorContainer         */
+  --danger:               #D32F2F;   /* light-dark(#d32f2f,  #f4807b) */
+  --danger-foreground:    #FAFAFA;   /* light-dark(#fafafa,  #18181b) */
 
-  --success:              #1A6B3C;   /* semantic — not in Material spec       */
-  --success-foreground:   #D6F5E3;
+  --success:              #008032;   /* light-dark(#008032,  #6cc070) */
+  --success-foreground:   #FAFAFA;   /* light-dark(#fafafa,  #18181b) */
 
-  --warning:              #7A4F00;   /* semantic — not in Material spec       */
-  --warning-foreground:   #FFF0C8;
+  --warning:              #A65B00;   /* light-dark(#a65b00,  #f0a030) */
+  --warning-foreground:   #09090B;   /* #09090b (same both modes)     */
 
-  --border:               #C4C6CF;   /* schemes.light.outlineVariant         */
-  --input:                #E2E2E9;   /* schemes.light.surfaceContainerHighest*/
-  --ring:                 #405F90;   /* schemes.light.primary                */
+  --border:               #D4D4D8;   /* light-dark(#d4d4d8,  #52525b) */
+  --input:                #D4D4D8;   /* light-dark(#d4d4d8,  #52525b) */
+  --ring:                 #574747;   /* light-dark(#574747,  #d4d4d8) */
 }
 
-/* schemes.dark.* ──────────────────────────────────────────────────────────── */
+/* Dark ─────────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --background:           #111318;   /* schemes.dark.background              */
-  --foreground:           #E2E2E9;   /* schemes.dark.onBackground            */
-  --card:                 #191C20;   /* schemes.dark.surfaceContainerLow     */
-  --card-foreground:      #E2E2E9;   /* schemes.dark.onSurface               */
+  --background:           #09090B;   /* dark bg  */
+  --foreground:           #FAFAFA;   /* dark fg  */
+  --card:                 #18181B;
+  --card-foreground:      #FAFAFA;
 
-  --primary:              #A9C7FF;   /* schemes.dark.primary                 */
-  --primary-foreground:   #08305F;   /* schemes.dark.onPrimary               */
+  --primary:              #FAFAFA;
+  --primary-foreground:   #18181B;
 
-  --secondary:            #004B6F;   /* schemes.dark.secondaryContainer      */
-  --secondary-foreground: #C9E6FF;   /* schemes.dark.onSecondaryContainer    */
+  --secondary:            #27272A;
+  --secondary-foreground: #FAFAFA;
 
-  --muted:                #44474E;   /* schemes.dark.surfaceVariant          */
-  --muted-foreground:     #C4C6CF;   /* schemes.dark.onSurfaceVariant        */
+  --muted:                #27272A;
+  --muted-foreground:     #A1A1AA;
 
-  --faint:                #0C0E13;   /* schemes.dark.surfaceContainerLowest  */
-  --faint-foreground:     #44474E;   /* schemes.dark.outlineVariant          */
+  --faint:                #1E1E21;
+  --faint-foreground:     #71717A;
 
-  --accent:               #274777;   /* schemes.dark.primaryContainer        */
-  --accent-foreground:    #D6E3FF;   /* schemes.dark.onPrimaryContainer      */
+  --accent:               #27272A;
+  --accent-foreground:    #FAFAFA;
 
-  --danger:               #FFB4AB;   /* schemes.dark.error                   */
-  --danger-foreground:    #93000A;   /* schemes.dark.errorContainer          */
+  --danger:               #F4807B;
+  --danger-foreground:    #18181B;
 
-  --success:              #6EDFA0;   /* semantic dark                        */
-  --success-foreground:   #003920;
+  --success:              #6CC070;
+  --success-foreground:   #18181B;
 
-  --warning:              #FFCC5C;   /* semantic dark                        */
-  --warning-foreground:   #3D2600;
+  --warning:              #F0A030;
+  --warning-foreground:   #09090B;
 
-  --border:               #44474E;   /* schemes.dark.outlineVariant          */
-  --input:                #33353A;   /* schemes.dark.surfaceContainerHighest */
-  --ring:                 #A9C7FF;   /* schemes.dark.primary                 */
+  --border:               #52525B;
+  --input:                #52525B;
+  --ring:                 #D4D4D8;
 }
 
 /* ── Base font size ──────────────────────────────────────────────────────────
@@ -253,5 +258,68 @@ ot-tabs[hidden-until-ready] {
   }
   .mx-columns {
     flex-direction: column;
+  }
+}
+
+/* ── Form element fix ────────────────────────────────────────────────────────
+   Root cause: oat.min.css puts form styles in @layer base.  Tailwind v4 also
+   uses @layer base for its * { border: 0 solid; padding: 0; } preflight reset.
+   Since style.css loads AFTER oat.min.css, Tailwind's @layer base rules appear
+   later in source order within the shared layer, and — at equal (0,0,0)
+   specificity — they win, stripping all borders and padding from inputs and
+   selects.  Re-asserting in @layer components (higher priority than base) fixes
+   this without touching oat.min.css or adding any !important overrides.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]),
+  textarea,
+  select {
+    width: 100%;
+    margin-block-start: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-7);
+    line-height: var(--leading-normal);
+    background-color: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-medium);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color])::placeholder,
+  textarea::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]):focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 2px rgb(from var(--ring) r g b / 0.2);
+    z-index: 1;
+  }
+
+  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]):disabled,
+  textarea:disabled,
+  select:disabled {
+    background-color: var(--muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  textarea {
+    height: auto;
+    min-height: 5rem;
+    padding: var(--space-3);
+    resize: vertical;
+  }
+
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-2) center;
+    padding-inline-end: var(--space-6);
   }
 }
