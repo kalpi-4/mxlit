@@ -26,11 +26,7 @@
     <link rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap">
 
-    <!-- 3. Tailwind CSS @layer polyfill (fixes older Chromium / Firefox ESR) -->
-    <script src="https://cdn.jsdelivr.net/npm/@csstools/cascade-layer-name-rule-polyfill@1/dist/cascade-layer-name-rule-polyfill.js"
-            crossorigin></script>
-
-    <!-- 4. oat.ink component library (semantic, zero-dependency) -->
+    <!-- 3. oat.ink component library (semantic, zero-dependency) -->
     <link rel="stylesheet" href="/static/oat.min.css">
 
     <!-- 5. Tailwind output: custom mxlit styles + utility classes -->
@@ -95,7 +91,7 @@
     -->
     <form hx-post="/interact"
           hx-target="#app-root"
-          hx-swap="innerHTML settle:0"
+          hx-swap="innerHTML"
           style="margin:0; padding:0; width:100%;">
 
         <!--
@@ -109,7 +105,7 @@
              hx-trigger="load"
              hx-post="/interact"
              hx-target="#app-root"
-             hx-swap="innerHTML settle:0"
+             hx-swap="innerHTML"
              hx-ext="sse"
              sse-connect="/events"
              sse-swap="message">

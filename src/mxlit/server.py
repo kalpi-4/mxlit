@@ -123,40 +123,52 @@ async def interact(request: Request):
 @app.get("/events")
 async def global_events(request: Request):
     """
-    Global SSE endpoint for real-time updates.
+    Global SSE endpoint for real-time updates pushed via /modify.
+
+    A heartbeat comment (': heartbeat') is sent every 30 s so that load
+    balancers, proxies, and App Runner do not close the idle connection.
     """
-    queue = asyncio.Queue()
+    queue: asyncio.Queue = asyncio.Queue()
     sse_clients.add(queue)
-    
+
     async def event_generator(req: Request):
         try:
             while True:
-                # Use wait_for to periodically check if the client disconnected
-                # If they did, we raise an exception/break.
                 if await req.is_disconnected():
                     break
-                    
+
                 try:
-                    # Wait for next event or connection close, with a short timeout
-                    html_str = await asyncio.wait_for(queue.get(), timeout=1.0)
-                    
+                    html_str = await asyncio.wait_for(queue.get(), timeout=30.0)
+
                     if html_str is None:
-                        # Send a final empty payload to close SSE cleanly before server exits
+                        # Sentinel from lifespan shutdown — close cleanly.
                         yield "event: close\ndata: \n\n"
                         break
-                    # Yield it in SSE format, being careful with newlines.
-                    # Since html_str can contain newlines, we should format it properly for SSE.
-                    formatted_data = "\n".join(f"data: {line}" for line in html_str.split("\n"))
-                    yield f"{formatted_data}\n\n"
+
+                    # Format multi-line HTML safely for SSE (each line gets its
+                    # own "data: " prefix so the browser reassembles them).
+                    formatted = "\n".join(
+                        f"data: {line}" for line in html_str.split("\n")
+                    )
+                    yield f"{formatted}\n\n"
+
                 except asyncio.TimeoutError:
-                    # Just keep checking
-                    continue
+                    # Keep the connection alive for ALBs / App Runner (idle timeout fix).
+                    yield ": heartbeat\n\n"
+
         except asyncio.CancelledError:
             pass
         finally:
             sse_clients.discard(queue)
 
-    return StreamingResponse(event_generator(request), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # disable nginx / Caddy buffering
+        },
+    )
 
 @app.post("/modify", response_class=JSONResponse)
 async def modify_state(request: Request):

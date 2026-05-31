@@ -48,6 +48,57 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 </style>
 {% endif %}
 
+{# ── render_children: render a list of components, handling tab/column grouping ─ #}
+{% macro render_children(children) %}
+{% for comp in children %}
+    {% if comp.type == 'column' %}
+        {% if loop.index0 == 0 or children[loop.index0 - 1].type != 'column' %}
+            <div class="mx-columns {{ comp.columns_class_ | default('') }}">
+        {% endif %}
+        <div class="mx-column {{ comp.class_ | default('') }}" style="flex: {{ comp.weight | default(1) }}">
+            {{ render_children(comp.children) }}
+        </div>
+        {% if loop.last or children[loop.index0 + 1].type != 'column' %}
+            </div>
+        {% endif %}
+    {% elif comp.type == 'tab' %}
+        {% if loop.index0 == 0 or children[loop.index0 - 1].type != 'tab' %}
+            {% set tab_start = loop.index0 %}
+            {% set tab_id_ns = namespace(value='', done=false) %}
+            {% for fc in children[tab_start:] %}
+                {% if fc.type == 'tab' and not tab_id_ns.done %}
+                    {% set tab_id_ns.value = tab_id_ns.value ~ '-' ~ fc.label | replace(' ', '-') %}
+                {% else %}
+                    {% set tab_id_ns.done = true %}
+                {% endif %}
+            {% endfor %}
+            <ot-tabs data-tab-group="mxlit-tabs{{ tab_id_ns.value }}"
+                     class="{{ comp.tabs_class_ | default('') }}">
+                <div role="tablist">
+                    {% set hdr_ns = namespace(stop=false) %}
+                    {% for fc in children[tab_start:] %}
+                        {% if not hdr_ns.stop %}
+                            {% if fc.type == 'tab' %}
+                                <button role="tab" type="button">{{ fc.label }}</button>
+                            {% else %}
+                                {% set hdr_ns.stop = true %}
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+        {% endif %}
+        <div role="tabpanel">
+            {{ render_children(comp.children) }}
+        </div>
+        {% if loop.last or children[loop.index0 + 1].type != 'tab' %}
+            </ot-tabs>
+        {% endif %}
+    {% else %}
+        {{ render_component(comp) }}
+    {% endif %}
+{% endfor %}
+{% endmacro %}
+
 {% macro render_component(comp) %}
 <div class="mx-component">
 
@@ -157,7 +208,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    value="{{ comp.value }}"
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
+                   hx-swap="innerHTML"
                    hx-trigger="change">
         </label>
 
@@ -168,7 +219,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                       name="{{ comp.key }}"
                       hx-post="/interact"
                       hx-target="#app-root"
-                      hx-swap="innerHTML settle:0"
+                      hx-swap="innerHTML"
                       hx-trigger="change">{{ comp.value }}</textarea>
         </label>
 
@@ -184,7 +235,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    {% if comp.max_value is not none %}max="{{ comp.max_value }}"{% endif %}
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
+                   hx-swap="innerHTML"
                    hx-trigger="change">
         </label>
 
@@ -197,7 +248,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    value="{{ comp.value }}"
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
+                   hx-swap="innerHTML"
                    hx-trigger="change">
         </label>
 
@@ -210,7 +261,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    value="{{ comp.value }}"
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
+                   hx-swap="innerHTML"
                    hx-trigger="change">
         </label>
 
@@ -225,8 +276,8 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    {% if comp.value %}checked{% endif %}
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
-                   hx-trigger="click, change">
+                   hx-swap="innerHTML"
+                   hx-trigger="change">
             {{ comp.label }}
         </label>
 
@@ -242,7 +293,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    {% if comp.value %}checked{% endif %}
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
+                   hx-swap="innerHTML"
                    hx-trigger="change">
             {{ comp.label }}
         </label>
@@ -259,7 +310,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    oninput="document.getElementById('{{ comp.key }}-val').textContent = this.value"
                    hx-post="/interact"
                    hx-target="#app-root"
-                   hx-swap="innerHTML settle:0"
+                   hx-swap="innerHTML"
                    hx-trigger="change, input delay:500ms">
         </label>
 
@@ -275,7 +326,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                            {% if comp.value == option %}checked{% endif %}
                            hx-post="/interact"
                            hx-target="#app-root"
-                           hx-swap="innerHTML settle:0"
+                           hx-swap="innerHTML"
                            hx-trigger="change">
                     {{ option }}
                 </label>
@@ -290,7 +341,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                     aria-label="{{ comp.label }}"
                     hx-post="/interact"
                     hx-target="#app-root"
-                    hx-swap="innerHTML settle:0"
+                    hx-swap="innerHTML"
                     hx-trigger="change">
                 {% for option in comp.options %}
                     <option value="{{ option }}" {% if comp.value == option %}selected{% endif %}>{{ option }}</option>
@@ -352,9 +403,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# ── Layout: container (horizontal / vertical) ───────────────────────── #}
     {% elif comp.type == 'container' %}
         <div class="{% if comp.horizontal %}hstack{% endif %} {{ comp.class_ | default('') }}">
-            {% for child in comp.children %}
-                {{ render_component(child) }}
-            {% endfor %}
+            {{ render_children(comp.children) }}
         </div>
 
     {# ── Layout: expander ────────────────────────────────────────────────── #}
@@ -363,9 +412,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         <details class="{{ comp.class_ | default('') }}">
             <summary>{% if comp.icon %}{{ comp.icon }} {% endif %}{{ comp.label }}</summary>
             <div>
-                {% for child in comp.children %}
-                    {{ render_component(child) }}
-                {% endfor %}
+                {{ render_children(comp.children) }}
             </div>
         </details>
 
@@ -420,9 +467,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 {% endif %}
 
                 <div class="mx-column {{ comp.class_ | default('') }}" style="flex: {{ comp.weight | default(1) }}">
-                    {% for child in comp.children %}
-                        {{ render_component(child) }}
-                    {% endfor %}
+                    {{ render_children(comp.children) }}
                 </div>
 
                 {% if loop.last or components[loop.index0 + 1].type != 'column' %}
@@ -461,9 +506,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 {% endif %}
 
                 <div role="tabpanel">
-                    {% for child in comp.children %}
-                        {{ render_component(child) }}
-                    {% endfor %}
+                    {{ render_children(comp.children) }}
                 </div>
 
                 {% if loop.last or components[loop.index0 + 1].type != 'tab' %}

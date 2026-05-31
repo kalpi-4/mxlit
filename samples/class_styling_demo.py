@@ -49,26 +49,27 @@ bg  = _t["schemes.light.background"]        # → --background
 txt = _t["schemes.light.onBackground"]      # → --foreground
 
 # ── Extended Material tokens (used in swatches and inline HTML) ───────────────
-p_on  = _t["schemes.light.onPrimary"]             # text colour on primary
-p_ctr = _t["schemes.light.primaryContainer"]      # primary tint container
-s_ctr = _t["schemes.light.secondaryContainer"]    # secondary tint container
-tert  = _t["schemes.light.tertiary"]              # tertiary accent
-t_ctr = _t["schemes.light.tertiaryContainer"]     # tertiary container
-err   = _t["schemes.light.error"]                 # error / danger
-surf  = _t["schemes.light.surfaceVariant"]        # subtle raised surface
-outl  = _t["schemes.light.outline"]               # border / divider colour
+p_on     = _t["schemes.light.onPrimary"]              # text colour on primary
+p_ctr    = _t["schemes.light.primaryContainer"]       # primary tint container
+p_ctr_on = _t["schemes.light.onPrimaryContainer"]     # text on primary container
+s_on     = _t["schemes.light.onSecondary"]            # text colour on secondary
+s_ctr    = _t["schemes.light.secondaryContainer"]     # secondary tint container
+s_ctr_on = _t["schemes.light.onSecondaryContainer"]   # text on secondary container
+tert     = _t["schemes.light.tertiary"]               # tertiary accent
+t_ctr    = _t["schemes.light.tertiaryContainer"]      # tertiary container
+t_ctr_on = _t["schemes.light.onTertiaryContainer"]    # text on tertiary container
+err      = _t["schemes.light.error"]                  # error / danger
+err_ctr  = _t["schemes.light.errorContainer"]         # error container
+err_ctr_on = _t["schemes.light.onErrorContainer"]     # text on error container
+surf     = _t["schemes.light.surfaceVariant"]         # subtle raised surface
+surf_low = _t["schemes.light.surfaceContainerLow"]    # lower surface level
+outl     = _t["schemes.light.outline"]                # border / divider colour
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with mt.sidebar:
     mt.title("Theme Generator", class_="text-base font-bold tracking-tight")
     mt.write("Colours sourced from constants/theme.json (schemes.light.*).",
              class_="text-xs mb-3")
-
-    mt.color_picker("Primary",    value=p,    key="theme_schemes_light_primary")
-    mt.color_picker("Secondary",  value=s,    key="theme_schemes_light_secondary")
-    mt.color_picker("Background", value=bg,   key="theme_schemes_light_background")
-    mt.color_picker("Text",       value=txt,  key="theme_schemes_light_onBackground")
-    mt.color_picker("Tertiary",   value=tert, key="theme_schemes_light_tertiary")
 
     mt.write("Quick presets",
              class_="text-xs font-semibold uppercase tracking-wide mt-4 mb-1")
@@ -81,8 +82,52 @@ with mt.sidebar:
         mt.button("Forest",   key="btn_forest",   class_="w-full text-xs mt-1")
 
     mt.markdown("---")
-    mt.write("class_ targets the primary HTML element of each component.",
-             class_="text-xs text-slate-400")
+    mt.html(f'<p style="font-size:0.7rem;color:{outl};">'
+            f'class_ targets the primary HTML element of each component.</p>')
+
+    # ── Material Design Token Palette ──────────────────────────────────────────
+    mt.markdown("---")
+    mt.write("Material Token Palette",
+             class_="text-xs font-semibold uppercase tracking-wide mt-1 mb-2")
+
+    mt.html(f'<p style="font-size:0.6rem;font-weight:700;color:{outl};'
+            f'letter-spacing:0.06em;text-transform:uppercase;'
+            f'border-bottom:1px solid {outl}33;padding-bottom:2px;margin-bottom:4px;">Primary</p>')
+    mt.color_picker("primary",            value=p,       key="theme_schemes_light_primary")
+    mt.color_picker("onPrimary",          value=p_on,    key="theme_schemes_light_onPrimary")
+    mt.color_picker("primaryContainer",   value=p_ctr,   key="theme_schemes_light_primaryContainer")
+    mt.color_picker("onPrimaryContainer", value=p_ctr_on, key="theme_schemes_light_onPrimaryContainer")
+
+    mt.html(f'<p style="font-size:0.6rem;font-weight:700;color:{outl};'
+            f'letter-spacing:0.06em;text-transform:uppercase;'
+            f'border-bottom:1px solid {outl}33;padding-bottom:2px;margin:8px 0 4px;">Secondary</p>')
+    mt.color_picker("secondary",              value=s,       key="theme_schemes_light_secondary")
+    mt.color_picker("onSecondary",            value=s_on,    key="theme_schemes_light_onSecondary")
+    mt.color_picker("secondaryContainer",     value=s_ctr,   key="theme_schemes_light_secondaryContainer")
+    mt.color_picker("onSecondaryContainer",   value=s_ctr_on, key="theme_schemes_light_onSecondaryContainer")
+
+    mt.html(f'<p style="font-size:0.6rem;font-weight:700;color:{outl};'
+            f'letter-spacing:0.06em;text-transform:uppercase;'
+            f'border-bottom:1px solid {outl}33;padding-bottom:2px;margin:8px 0 4px;">Tertiary</p>')
+    mt.color_picker("tertiary",            value=tert,    key="theme_schemes_light_tertiary")
+    mt.color_picker("tertiaryContainer",   value=t_ctr,   key="theme_schemes_light_tertiaryContainer")
+    mt.color_picker("onTertiaryContainer", value=t_ctr_on, key="theme_schemes_light_onTertiaryContainer")
+
+    mt.html(f'<p style="font-size:0.6rem;font-weight:700;color:{outl};'
+            f'letter-spacing:0.06em;text-transform:uppercase;'
+            f'border-bottom:1px solid {outl}33;padding-bottom:2px;margin:8px 0 4px;">Error</p>')
+    mt.color_picker("error",            value=err,      key="theme_schemes_light_error")
+    mt.color_picker("errorContainer",   value=err_ctr,  key="theme_schemes_light_errorContainer")
+    mt.color_picker("onErrorContainer", value=err_ctr_on, key="theme_schemes_light_onErrorContainer")
+
+    mt.html(f'<p style="font-size:0.6rem;font-weight:700;color:{outl};'
+            f'letter-spacing:0.06em;text-transform:uppercase;'
+            f'border-bottom:1px solid {outl}33;padding-bottom:2px;margin:8px 0 4px;">Surface / Outline</p>')
+    mt.color_picker("background",          value=bg,       key="theme_schemes_light_background")
+    mt.color_picker("onBackground",        value=txt,      key="theme_schemes_light_onBackground")
+    mt.color_picker("surfaceVariant",      value=surf,     key="theme_schemes_light_surfaceVariant")
+    mt.color_picker("surfaceContainerLow", value=surf_low, key="theme_schemes_light_surfaceContainerLow")
+    mt.color_picker("outline",             value=outl,     key="theme_schemes_light_outline")
 
 # ── PAGE HEADER ────────────────────────────────────────────────────────────────
 mt.title("mxlit Kitchen Sink", class_="text-3xl font-extrabold")
@@ -95,14 +140,14 @@ mt.write(
 # ── MATERIAL TOKEN SWATCHES ────────────────────────────────────────────────────
 mt.subheader("Material Design Token Palette", class_="mt-6 mb-2")
 _swatches = [
-    (p,     p_on,  "Primary",          "schemes.light.primary"),
-    (p_ctr, txt,   "PrimaryContainer", "schemes.light.primaryContainer"),
-    (s,     "#FFF","Secondary",        "schemes.light.secondary"),
-    (s_ctr, txt,   "SecContainer",     "schemes.light.secondaryContainer"),
-    (tert,  "#FFF","Tertiary",         "schemes.light.tertiary"),
-    (t_ctr, txt,   "TertContainer",    "schemes.light.tertiaryContainer"),
-    (err,   "#FFF","Error",            "schemes.light.error"),
-    (surf,  txt,   "SurfaceVariant",   "schemes.light.surfaceVariant"),
+    (p,     p_on,     "Primary",          "schemes.light.primary"),
+    (p_ctr, p_ctr_on, "PrimaryContainer", "schemes.light.primaryContainer"),
+    (s,     s_on,     "Secondary",        "schemes.light.secondary"),
+    (s_ctr, s_ctr_on, "SecContainer",     "schemes.light.secondaryContainer"),
+    (tert,  p_on,     "Tertiary",         "schemes.light.tertiary"),
+    (t_ctr, t_ctr_on, "TertContainer",    "schemes.light.tertiaryContainer"),
+    (err,   p_on,     "Error",            "schemes.light.error"),
+    (surf,  txt,      "SurfaceVariant",   "schemes.light.surfaceVariant"),
 ]
 _sw = '<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.5rem;">'
 for _col, _on, _name, _key in _swatches:
@@ -131,16 +176,24 @@ with ta:
 with tb:
     mt.subheader("Body variants")
     mt.write("Default body text — no class_")
-    mt.write("Muted helper text",  class_="text-sm text-slate-400 italic")
+    mt.html(f'<p style="font-size:0.875rem;color:{outl};font-style:italic;">Muted helper text</p>')
     mt.write("Bold CTA",           class_="font-bold")
-    mt.write("Mono note",          class_="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded")
+    mt.html(f'<p style="font-family:monospace;font-size:0.75rem;background:{surf};'
+            f'padding:0.125rem 0.5rem;border-radius:0.25rem;display:inline-block;">Mono note</p>')
     mt.text("mt.text() — fixed-width paragraph")
 
 mt.subheader("Badges")
-mt.badge("stable",     class_="bg-green-100  text-green-800  font-semibold")
-mt.badge("beta",       class_="bg-yellow-100 text-yellow-800")
-mt.badge("deprecated", class_="bg-red-100    text-red-700    line-through")
-mt.badge("new",        class_="bg-blue-100   text-blue-800   font-bold")
+_badge_defs = [
+    (tert,    p_on,      "stable",     "font-weight:600;"),
+    (t_ctr,   t_ctr_on,  "beta",       ""),
+    (err_ctr, err_ctr_on,"deprecated", "text-decoration:line-through;"),
+    (p_ctr,   p_ctr_on,  "new",        "font-weight:700;"),
+]
+_bh = '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">'
+for _bc, _fc, _lbl, _xtra in _badge_defs:
+    _bh += f'<span class="badge" style="background:{_bc};color:{_fc};{_xtra}">{_lbl}</span>'
+_bh += '</div>'
+mt.html(_bh)
 
 mt.subheader("Code, Markdown, LaTeX")
 mt.code('mt.theme({"schemes.light.primary": "#9333ea"})', class_="max-w-xl")
@@ -165,14 +218,14 @@ mt.header("3 · Widgets", class_="font-bold border-b pb-1")
 mt.subheader("Buttons")
 col1, col2, col3 = mt.columns(3)
 with col1:
-    mt.write("Full-width", class_="text-xs text-slate-400")
+    mt.html(f'<p style="font-size:0.75rem;color:{outl};">Full-width</p>')
     if mt.button("Save changes", class_="w-full"):
         mt.success("Saved!", class_="mt-1")
 with col2:
-    mt.write("Fixed width", class_="text-xs text-slate-400")
+    mt.html(f'<p style="font-size:0.75rem;color:{outl};">Fixed width</p>')
     mt.button("Cancel", class_="w-28")
 with col3:
-    mt.write("Default (no class_)", class_="text-xs text-slate-400")
+    mt.html(f'<p style="font-size:0.75rem;color:{outl};">Default (no class_)</p>')
     mt.button("Default")
 
 mt.subheader("Text inputs")
@@ -218,10 +271,10 @@ df = pd.DataFrame({
 })
 dt1, dt2 = mt.columns(2)
 with dt1:
-    mt.write("Interactive (mt.dataframe)", class_="text-xs text-slate-400 mb-1")
+    mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Interactive (mt.dataframe)</p>')
     mt.dataframe(df, class_="w-full")
 with dt2:
-    mt.write("Static (mt.table)", class_="text-xs text-slate-400 mb-1")
+    mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Static (mt.table)</p>')
     mt.table(df, class_="w-full")
 
 mt.subheader("JSON viewer")
@@ -283,13 +336,25 @@ with mt.expander("Raw API response", class_="border rounded-lg mt-2"):
             class_="text-xs")
 
 mt.subheader("Horizontal container — tech-stack pills")
-with mt.container(horizontal=True,
-                  class_="gap-3 flex-wrap p-4 bg-slate-50 rounded-xl border mt-2"):
-    mt.badge("Python 3.12",   class_="bg-blue-100   text-blue-800   text-sm px-3 py-1")
-    mt.badge("FastAPI 0.111", class_="bg-green-100  text-green-800  text-sm px-3 py-1")
-    mt.badge("Tailwind v4",   class_="bg-sky-100    text-sky-800    text-sm px-3 py-1")
-    mt.badge("oat.ink",       class_="bg-purple-100 text-purple-800 text-sm px-3 py-1")
-    mt.badge("HTMX 2.x",     class_="bg-orange-100 text-orange-800 text-sm px-3 py-1")
+_tech = [
+    (p_ctr,   p_ctr_on,   "Python 3.12"),
+    (t_ctr,   t_ctr_on,   "FastAPI 0.111"),
+    (surf,    outl,        "Tailwind v4"),
+    (s_ctr,   s_ctr_on,   "oat.ink"),
+    (err_ctr, err_ctr_on, "HTMX 2.x"),
+]
+_tp = (
+    f'<div style="display:flex;gap:0.75rem;flex-wrap:wrap;padding:1rem;'
+    f'background:{surf_low};border-radius:0.75rem;'
+    f'border:1px solid {outl}22;margin-top:0.5rem;">'
+)
+for _bc, _fc, _lbl in _tech:
+    _tp += (
+        f'<span class="badge" style="background:{_bc};color:{_fc};'
+        f'font-size:0.875rem;padding:0.2em 0.85em;">{_lbl}</span>'
+    )
+_tp += '</div>'
+mt.html(_tp)
 
 mt.markdown("---")
 

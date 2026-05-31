@@ -71,6 +71,20 @@
     - [10.2 Summary Table](#102-summary-table)
     - [10.3 Target Architecture — Targeted Per-Component Updates](#103-target-architecture--targeted-per-component-updates)
     - [10.4 Work Items](#104-work-items)
+11. [Auto-Refresh — `mt.setInterval` / `mt.setTimeout`](#11-auto-refresh--mtsetinterval--mtsettimeout)
+    - [11.1 Mechanism — HTMX Client-Side Polling](#111-mechanism--htmx-client-side-polling)
+    - [11.2 Python API](#112-python-api)
+    - [11.3 Data-Feed Pattern](#113-data-feed-pattern)
+    - [11.4 How `with` Nesting Works](#114-how-with-nesting-works)
+    - [11.5 File Changes](#115-file-changes)
+      - [11.5.1 `src/mxlit/context.py`](#1151-srcmxlitcontextpy)
+      - [11.5.2 `src/mxlit/timers.py`](#1152-srcmxlittimerspynew-file)
+      - [11.5.3 `src/mxlit/server.py`](#1153-srcmxlitserverpy--new-refresh-endpoint)
+      - [11.5.4 `src/mxlit/templates/component_fragment.html`](#1154-srcmxlittemplatescomponent_fragmenthtml-new-file)
+      - [11.5.5 `src/mxlit/templates/components.html`](#1155-srcmxlittemplatescomponentshtml--wrap-refresh-components)
+      - [11.5.6 `src/mxlit/__init__.py`](#1156-srcmxlit__init__py)
+    - [11.6 Constraints and Caveats](#116-constraints-and-caveats)
+    - [11.7 Work Items](#117-work-items)
 
 ---
 
@@ -2455,3 +2469,384 @@ A new `component_fragment.html` template (or a Jinja2 macro call) renders just t
 | W9 | `server.py` | Return single-component fragment HTML when `HX-Trigger` is present |
 | W10 | `templates/` | Create `component_fragment.html` (or macro) for single-component renders |
 | W11 | `server.py` | Add named region ids (`#mx-sidebar`, `#mx-main`) for button targets that affect multiple components |
+
+---
+
+## 11. Auto-Refresh — `mt.setInterval` / `mt.setTimeout`
+
+> **Use case:** Periodically update a component with live data (e.g., a scatter chart fed by a
+> streaming data API) without rebuilding the full page.
+
+---
+
+### 11.1 Mechanism — HTMX Client-Side Polling
+
+Both utilities translate to HTMX's native `hx-trigger` timing syntax. Timing is managed
+entirely by the browser — no server-side threads, background tasks, or asyncio scheduling
+are required.
+
+| Python call | HTMX trigger emitted on the wrapper div |
+|---|---|
+| `mt.setInterval(sync_time=10)` | `hx-trigger="every 10s"` |
+| `mt.setTimeout(delay=5)` | `hx-trigger="load delay:5s"` |
+
+When the trigger fires, HTMX POSTs to a new `/refresh/{component_id}` endpoint. The server
+re-runs the full user script (exactly as `/interact` does), finds the single component whose
+`id` matches, and returns **only that component's HTML fragment** via `hx-swap="outerHTML"`.
+All other components on the page are untouched.
+
+This is a **targeted, scoped version of the Section 10 per-component update strategy**,
+delivered without the full W1–W11 work-item set.
+
+```
+Browser                              Server
+───────                              ──────
+every 10s → POST /refresh/scatter_1
+                                     re-run user script
+                                     find comp where id == "scatter_1"
+                                     render fragment HTML
+             ←── <div id="mx-scatter_1"> … </div>
+hx-swap="outerHTML" replaces the
+wrapper div in-place; rest of page
+is unchanged
+```
+
+---
+
+### 11.2 Python API
+
+#### `mt.setInterval` — repeating refresh
+
+```python
+import mxlit as mt
+
+data_frame = get_latest_data()          # runs fresh on every script re-run
+
+with mt.setInterval(sync_time=10):      # every 10 seconds
+    mt.scatter_chart(
+        data_frame,
+        id="scatter_1",                 # stable id required
+        class_="rounded-lg border p-2",
+    )
+```
+
+#### `mt.setTimeout` — one-shot delayed render
+
+```python
+with mt.setTimeout(delay=5):           # fires once, 5 s after page load
+    mt.success("Data pipeline ready", id="pipeline_status")
+```
+
+#### Multiple components under one interval
+
+```python
+with mt.setInterval(sync_time=30):
+    mt.metric("Active users", get_active_count(), id="metric_users")
+    mt.metric("Queue depth",  get_queue_depth(),  id="metric_queue")
+```
+
+Each component gets its own wrapper div with `hx-trigger="every 30s"` and its own
+`/refresh/{id}` target — they poll independently at the same cadence.
+
+#### Combining with other layout primitives
+
+```python
+with mt.columns(2):
+    with mt.setInterval(sync_time=5):
+        mt.line_chart(get_cpu_data(),  id="chart_cpu",  class_="h-48")
+
+    with mt.setInterval(sync_time=5):
+        mt.line_chart(get_mem_data(),  id="chart_mem",  class_="h-48")
+```
+
+---
+
+### 11.3 Data-Feed Pattern
+
+The typical use case pairs `setInterval` with an external data source. Because the full user
+script re-runs on every `/refresh` POST, data-fetching logic at the top of the script
+(before the `with` block) will always execute with the latest state:
+
+```python
+import mxlit as mt
+import httpx
+
+# This call re-executes on every /refresh POST — always fresh data.
+resp  = httpx.get("https://api.example.com/feeds/abc/latest")
+point = resp.json()                        # {x: 1234567890, y: 42.7}
+
+# Accumulate points in session state so the chart grows over time.
+history = mt.session_state.get("feed_history", [])
+history.append(point)
+mt.session_state["feed_history"] = history[-200:]  # keep last 200 points
+
+with mt.setInterval(sync_time=10):
+    mt.scatter_chart(
+        mt.session_state["feed_history"],
+        id="live_scatter",
+        class_="rounded-lg border p-2",
+    )
+```
+
+---
+
+### 11.4 How `with` Nesting Works
+
+`setInterval` and `setTimeout` are plain Python context managers. They do not nest inside
+the component tree — they annotate components registered during the `with` block.
+
+Internally, entering the context sets a flag on the active `AppContext`:
+
+```
+__enter__                        __exit__
+   │                                │
+   ctx._auto_refresh = "every 10s"  ctx._auto_refresh = None
+   │                                │
+   └──► every add_component call    └──► flag cleared; subsequent
+         in this block injects            add_component calls are
+         "refresh_trigger": "every 10s"   unaffected
+         into the component dict
+```
+
+The flag is a string matching the HTMX trigger spec, so the template can embed it
+verbatim in `hx-trigger=`.
+
+---
+
+### 11.5 File Changes
+
+#### 11.5.1 `src/mxlit/context.py`
+
+Add `_auto_refresh: str | None = None` and inject the field in `add_component`:
+
+```python
+class AppContext:
+    def __init__(self):
+        self.components = []
+        self.current_target = self.components
+        self.main_class: str = ""
+        self.aside_class: str = ""
+        self._auto_refresh: str | None = None          # NEW
+
+    def add_component(self, component: dict) -> None:
+        if self._auto_refresh is not None:             # NEW: inject refresh trigger
+            component = {**component, "refresh_trigger": self._auto_refresh}
+        self.current_target.append(component)
+```
+
+#### 11.5.2 `src/mxlit/timers.py` *(new file)*
+
+```python
+from mxlit.context import get_context
+
+
+class _AutoRefreshCtx:
+    def __init__(self, trigger: str) -> None:
+        self._trigger = trigger
+        self._prev: str | None = None
+
+    def __enter__(self) -> "_AutoRefreshCtx":
+        ctx = get_context()
+        if ctx:
+            self._prev = ctx._auto_refresh
+            ctx._auto_refresh = self._trigger
+        return self
+
+    def __exit__(self, *_) -> bool:
+        ctx = get_context()
+        if ctx:
+            ctx._auto_refresh = self._prev   # restore (supports nesting)
+        return False
+
+
+def setInterval(sync_time: float) -> _AutoRefreshCtx:
+    """Mark components in this block for periodic HTMX polling.
+
+    Args:
+        sync_time: Refresh cadence in seconds.
+
+    Usage::
+
+        with mt.setInterval(sync_time=10):
+            mt.scatter_chart(data, id="live_chart")
+    """
+    return _AutoRefreshCtx(f"every {sync_time}s")
+
+
+def setTimeout(delay: float) -> _AutoRefreshCtx:
+    """Mark components in this block for a single delayed HTMX fetch.
+
+    The component renders immediately with current data, then re-fetches
+    once after *delay* seconds.
+
+    Args:
+        delay: Seconds to wait before the one-shot refresh.
+
+    Usage::
+
+        with mt.setTimeout(delay=5):
+            mt.info("Checking status…", id="status_msg")
+    """
+    return _AutoRefreshCtx(f"load delay:{delay}s")
+```
+
+Note: `__exit__` restores the **previous** value rather than hard-setting `None`. This
+supports nested intervals:
+
+```python
+with mt.setInterval(sync_time=60):          # outer: 60 s
+    with mt.setInterval(sync_time=5):       # inner: 5 s — overrides while in block
+        mt.line_chart(fast_data, id="fast")
+    mt.bar_chart(slow_data, id="slow")      # ← back to 60 s
+```
+
+#### 11.5.3 `src/mxlit/server.py` — new `/refresh/{component_id}` endpoint
+
+```python
+def _find_component(components: list, target_id: str) -> dict | None:
+    """Recursively search component tree for a component matching target_id."""
+    for comp in components:
+        if comp.get("id") == target_id:
+            return comp
+        found = _find_component(comp.get("children", []), target_id)
+        if found:
+            return found
+    return None
+
+
+@app.post("/refresh/{component_id}", response_class=HTMLResponse)
+async def refresh_component(request: Request, component_id: str):
+    """Partial re-render for a single auto-refresh component.
+
+    Called by HTMX hx-trigger="every Ns" / "load delay:Ns" on the component
+    wrapper div.  Re-runs the full user script, extracts the one component
+    whose id == component_id, and returns its HTML fragment.
+    The client swaps it via hx-swap="outerHTML" — all other DOM nodes unchanged.
+    """
+    form_data = await request.form()
+    for key, value in form_data.items():
+        if key in session_state:
+            old = session_state[key]
+            if isinstance(old, int):
+                try: value = int(value)
+                except ValueError: pass
+            elif isinstance(old, float):
+                try: value = float(value)
+                except ValueError: pass
+            elif isinstance(old, bool):
+                value = str(value).lower() in ("true", "1", "yes", "on")
+        session_state[key] = value
+
+    script_path = get_script_path()
+    ctx = AppContext()
+    token = _current_context.set(ctx)
+    try:
+        runpy.run_path(script_path, run_name="__main__")
+    except Exception as e:
+        if type(e).__name__ != "RerunException":
+            return HTMLResponse(
+                f'<div id="mx-{component_id}" class="mx-refresh-error">'
+                f'Refresh error: {e}</div>'
+            )
+    finally:
+        _current_context.reset(token)
+
+    comp = _find_component(ctx.components, component_id)
+    if comp is None:
+        # Preserve the swap target so the next tick can try again.
+        return HTMLResponse(f'<div id="mx-{component_id}"></div>')
+
+    return templates.TemplateResponse(
+        "component_fragment.html",
+        {
+            "request": request,
+            "comp": comp,
+            "theme": _resolve_theme(),
+        },
+    )
+```
+
+#### 11.5.4 `src/mxlit/templates/component_fragment.html` *(new file)*
+
+```jinja2
+{#
+  Renders a single component as a self-contained fragment.
+  Used by /refresh/{component_id} for outerHTML swaps.
+  Imports render_component from components.html so the macro stays DRY.
+#}
+{% from 'components.html' import render_component with context %}
+<div id="mx-{{ comp.id }}"
+     {% if comp.refresh_trigger %}
+     hx-post="/refresh/{{ comp.id }}"
+     hx-trigger="{{ comp.refresh_trigger }}"
+     hx-swap="outerHTML"
+     hx-include="[name]"
+     {% endif %}>
+    {{ render_component(comp) }}
+</div>
+```
+
+The fragment **includes its own wrapper div** because `hx-swap="outerHTML"` replaces the
+entire `<div id="mx-…">` node — if the fragment only contained the inner HTML, the wrapper
+and its poll attributes would disappear after the first swap and polling would stop.
+
+#### 11.5.5 `src/mxlit/templates/components.html` — wrap refresh components
+
+The `render_component` macro (or wherever the top-level component loop renders) needs to
+emit the polling wrapper when `comp.refresh_trigger` is present. The simplest additive
+change is to add a conditional wrapper **around** the existing macro output:
+
+```jinja2
+{# In render_children / top-level loop — wrap auto-refresh components #}
+{% for comp in components %}
+    {% if comp.refresh_trigger %}
+    <div id="mx-{{ comp.id }}"
+         hx-post="/refresh/{{ comp.id }}"
+         hx-trigger="{{ comp.refresh_trigger }}"
+         hx-swap="outerHTML"
+         hx-include="[name]">
+        {{ render_component(comp) }}
+    </div>
+    {% else %}
+    {{ render_component(comp) }}
+    {% endif %}
+{% endfor %}
+```
+
+> **Note:** Once Section 10 work items W1–W3 are complete (every component wrapped in
+> `<div id="mx-{{ comp.id }}">` unconditionally), this conditional collapses to simply
+> adding `hx-post / hx-trigger / hx-swap` attrs to the already-present wrapper when
+> `comp.refresh_trigger` is set — no extra `{% if %}` branching needed.
+
+#### 11.5.6 `src/mxlit/__init__.py`
+
+```python
+from mxlit.timers import setInterval, setTimeout
+```
+
+---
+
+### 11.6 Constraints and Caveats
+
+| Constraint | Detail |
+|---|---|
+| `id=` required | Components inside `setInterval`/`setTimeout` **must** carry a user-supplied `id=` kwarg. Without a stable id the `/refresh/{id}` endpoint cannot locate the component in the re-rendered tree. Once `base.py` exists (§7.1), auto-generated ids (`type-0`, `type-1` …) will satisfy this automatically. |
+| Full script re-run | Every `/refresh` POST re-executes the entire user script. Heavy side-effects (database writes, API mutations) in the script body will fire on every tick — guard them with session-state flags. |
+| Nested intervals | Supported via the `_prev` restore in `_AutoRefreshCtx.__exit__`. The innermost `with` block wins for components registered inside it. |
+| `setTimeout` semantics | `hx-trigger="load delay:5s"` fires once, 5 s after the element appears in the DOM. If the user navigates away and back, the timer resets. It is **not** a persistent server-side timer. |
+| Polling vs. SSE push | `setInterval` is browser-initiated polling. For true server-push (e.g., a background job completing), use the existing `/modify` → SSE channel instead. |
+| `sync_time` minimum | HTMX enforces no minimum, but sub-second polling (`sync_time=0.5`) will flood the server. A reasonable floor is `sync_time ≥ 1`. |
+
+---
+
+### 11.7 Work Items
+
+| # | Area | Task |
+|---|------|------|
+| T1 | `context.py` | Add `_auto_refresh: str \| None = None`; inject in `add_component` |
+| T2 | `timers.py` | Implement `_AutoRefreshCtx`, `setInterval`, `setTimeout` |
+| T3 | `server.py` | Add `_find_component` helper and `POST /refresh/{component_id}` endpoint |
+| T4 | `templates/` | Create `component_fragment.html` |
+| T5 | `components.html` | Add conditional `refresh_trigger` wrapper in the component loop |
+| T6 | `__init__.py` | Export `setInterval`, `setTimeout` |
+| T7 | `samples/` | Add `samples/live_feed_demo.py` exercising `setInterval` with simulated data |
