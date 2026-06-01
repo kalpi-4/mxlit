@@ -2033,108 +2033,84 @@ relative to it; Priority 2 tasks (§7.1–§7.7) can be executed file-by-file on
 These tasks eliminate DRY violations in `server.py`, `cli.py`, and the package structure. They
 carry zero behavioral risk and unblock `ThemeManager` (Task 3.1) which depends on Task 1.1.
 
-- [ ] **Task 1.2** — Create `src/mxlit/_exceptions.py`; move `RerunException` to module level
-      as a `BaseException` subclass; replace `type(e).__name__ == "RerunException"` string checks
-      in `server.py` with a proper `except RerunException:` clause (30 min)
-- [ ] **Task 1.1** — Extract `_run_script()` (the 12-line `runpy` + `AppContext` + error-handling
-      block, duplicated between `/interact` and `/modify`) and `_coerce_form_value()` /
-      `_apply_form_data()` (the 22-line form type-coercion block, also duplicated) as named helpers
-      in `server.py` (1 h, depends on Task 1.2)
-- [ ] **Task 1.4** — Create `src/mxlit/_paths.py` with `PACKAGE_DIR`, `STATIC_DIR`,
-      `TEMPLATES_DIR`, `INPUT_CSS`, `OUTPUT_CSS`; update `cli.py` and `server.py` to import from
-      it instead of recomputing `Path(__file__).parent / "static"` independently (20 min)
-- [x] ~~**Task 1.3**~~ — ✓ Completed: `setup.py` deleted; `pytailwindcss` declared as dev extra in
+- [x] ~~**Task 1.2**~~ — ✓ `src/mxlit/_exceptions.py` created; `RerunException` is a `BaseException`
+      subclass caught by type in `server.py`
+- [x] ~~**Task 1.1**~~ — ✓ `_run_script()`, `_coerce_form_value()`, `_apply_form_data()` extracted
+      as named helpers in `server.py`; used by `/interact`, `/refresh/{id}`, and `/modify`
+- [x] ~~**Task 1.4**~~ — ✓ `src/mxlit/_paths.py` exists with `PACKAGE_DIR`, `STATIC_DIR`,
+      `TEMPLATES_DIR`, `INPUT_CSS`, `OUTPUT_CSS`; imported by `cli.py` and `server.py`
+- [x] ~~**Task 1.3**~~ — ✓ `setup.py` deleted; `pytailwindcss` declared as dev extra in
       `pyproject.toml`
 
 ### 7.1 Create `src/mxlit/components/base.py`
 
-- [ ] Implement `ComponentType(str, Enum)` with all 50+ type identifiers (§2.3.1)
-- [ ] Implement type aliases: `SwapStrategy`, `TriggerSpec`, `ParamsSpec`, `EncodingType` (§2.2.1)
-- [ ] Implement `HtmxProps` dataclass with all 33 HTMX fields + `to_attrs()` (§2.2.2)
-- [ ] Implement `OatProps` dataclass with `variant`, `role`, `field`, `busy`, `spinner`, `tooltip`
-- [ ] Implement `BaseComponent` dataclass with `type: ComponentType`, `className`, `props`,
-      `_htmx`, `_oat`, `_fallback_fn`
-- [ ] Implement `__post_init__` → `_register()` lifecycle
-- [ ] Implement `to_dict()`: merges `{"type", "class_"}` + `props` + `_htmx` + `_oat`
-- [ ] Implement `generate_key(ComponentType | str, discriminator)` static method
-- [ ] Implement `CompositeComponent(BaseComponent)` with `__enter__` / `__exit__` / `to_dict()`
-- [ ] Implement `@component(component_type, *, htmx, oat)` decorator (§2.6.2)
-- [ ] Implement `@widget_component(component_type, *, htmx, oat)` decorator (§2.6.3)
-- [ ] Verify local import of `get_context` inside `_register` avoids circular imports
+- [x] ~~Implement `ComponentType(str, Enum)` with all 50+ type identifiers (§2.3.1)~~ — ✓ 62 types
+- [x] ~~Implement type aliases: `SwapStrategy`, `TriggerSpec`, `ParamsSpec`, `EncodingType` (§2.2.1)~~ — ✓ done
+- [x] ~~Implement `HtmxProps` dataclass with all 33 HTMX fields + `to_attrs()` (§2.2.2)~~ — ✓ done
+- [x] ~~Implement `OatProps` dataclass with `variant`, `role`, `field`, `busy`, `spinner`, `tooltip`~~ — ✓ done
+- [x] ~~Implement `BaseComponent` dataclass with `type: ComponentType`, `className`, `props`,
+      `_htmx`, `_oat`, `_fallback_fn`~~ — ✓ done
+- [x] ~~Implement `__post_init__` → `_register()` lifecycle~~ — ✓ done
+- [x] ~~Implement `to_dict()`: merges `{"type", "class_"}` + `props` + `_htmx` + `_oat`~~ — ✓ done
+- [x] ~~Implement `generate_key(ComponentType | str, discriminator)` static method~~ — ✓ done
+- [x] ~~Implement `CompositeComponent(BaseComponent)` with `__enter__` / `__exit__` / `to_dict()`~~ — ✓ done
+- [x] ~~Implement `@component(component_type, *, htmx, oat)` decorator (§2.6.2)~~ — ✓ done
+- [x] ~~Implement `@widget_component(component_type, *, htmx, oat)` decorator (§2.6.3)~~ — ✓ done
+- [x] ~~Verify local import of `get_context` inside `_register` avoids circular imports~~ — ✓ verified
 
-### 7.2 Template — Phase 1 (do this before any Python changes)
+### 7.2 Template — Phase 1
 
-- [ ] Add `htmx_attrs(comp)` macro to `components.html` above `render_component`
-- [ ] Replace hardcoded `hx-post/target/swap/trigger` in all 10 widget blocks with
-      `{{ htmx_attrs(comp) }}`
-- [ ] Add new composite branches for `card`, `spinner`, `skeleton`, `progress`, `meter`
-- [ ] Run all sample apps in `samples/` and confirm no visual or behavioral regression
-- [ ] Confirm `checkbox` block's `"click, change"` and `slider`'s `"change, input delay:500ms"`
-      are preserved as `default()` values in the macro
+- [x] ~~Add `htmx_attrs(comp)` macro to `components.html`~~ — ✓ Implemented inline: each widget
+      reads `comp['hx-trigger']` etc. directly via Jinja2 dict access; macro layer skipped since
+      the inline approach is equally DRY given the `@widget_component` decorator supplies values
+- [x] ~~Replace hardcoded `hx-post/target/swap/trigger` in all 10 widget blocks~~ — ✓ all widgets
+      use `hx-target="#mx-{{ comp.id }}"` / `hx-swap="outerHTML settle:100ms"` / `hx-include="[name]"`
+- [x] ~~Add new composite branches for `card`, `spinner`, `skeleton`, `progress`, `meter`~~ — ✓ done
+- [x] ~~Run all sample apps and confirm no visual or behavioral regression~~ — ✓ verified
+- [x] ~~Confirm `checkbox` `"click, change"` and `slider` `"change, input delay:500ms"` triggers~~ —
+      ✓ set via `@widget_component(htmx=_HTMX_CLICK)` / `_HTMX_SLIDER`; template reads from dict
 
 ### 7.3 Migrate Display-Only Components (no return value)
 
-Recommended order: `status.py` → `media.py` → `data.py` → `text.py` → `charts.py`
+**Phases 1 & 2 — complete for all files:**
 
-**Phase 1 — `BaseComponent` + `ComponentType` (prerequisite for Phase 2):**
-
-- [ ] Replace `from mxlit.context import get_context` with
-      `from mxlit.components.base import BaseComponent, ComponentType, OatProps`
-- [ ] Replace every manual boilerplate block with `BaseComponent(type=ComponentType.X, ...)`
-- [ ] Assign `_oat=OatProps(...)` where the component has a fixed OAT role
-
-**Phase 2 — `@component` decorator (apply after Phase 1 is verified):**
-
-- [ ] Add `component` to the import from `base`
-- [ ] Decorate each function with `@component(ComponentType.X, oat=...)` and strip the function
-      body down to `return (props_dict, fallback_fn)`
-- [ ] Apply `_make_status_variant` factory to collapse `error/warning/success/info` → 4 lines
-- [ ] Apply `_make_heading` factory to collapse `title/header/subheader` → 3 lines
-- [ ] Apply `_make_chart` factory to collapse the 4 chart functions → 4 lines
-- [ ] Remove `import hashlib` from `charts.py` after `_generate_key` calls are replaced
+- [x] ~~Replace boilerplate in `status.py`, `media.py`, `data.py`, `text.py`, `charts.py`~~ — ✓ zero
+      instances of `get_context` / `ctx.add_component` in any display component file
+- [x] ~~Apply `@component` decorator; strip bodies to `return (props_dict, fallback_fn)`~~ — ✓ done
+- [x] ~~Apply factory functions: `_make_status_variant`, `_make_heading`, `_make_chart`~~ — ✓ done
+- [x] ~~Remove `import hashlib` from component files~~ — ✓ none remaining
 
 ### 7.4 Migrate Widget Components (return value preserved)
 
-Files: `widgets.py`, `data.py::metric`, `text.py::write_stream`
+**Phases 1 & 2 — complete:**
 
-**Phase 1 — `BaseComponent` + `ComponentType`:**
-
-- [ ] Replace `_generate_key(label, type)` with `BaseComponent.generate_key(ComponentType.X, label)`
-- [ ] Replace `if ctx: ctx.add_component({...})` with `BaseComponent(..., _htmx=HtmxProps(...))`
-- [ ] Assign triggers: `checkbox → "click, change"`, `slider → "change, input delay:500ms"`,
-      all others → `HtmxProps()` default
-- [ ] Assign `_oat=OatProps(field=True)` to all form field widgets
-- [ ] Remove standalone `_generate_key` functions and `import hashlib`
-
-**Phase 2 — `@widget_component` decorator:**
-
-- [ ] Add `widget_component` to the import from `base`
-- [ ] Decorate each function with `@widget_component(ComponentType.X, htmx=..., oat=...)`
-- [ ] Strip the function body to session-state read + `return (props_dict, return_value)`
-- [ ] Move `HtmxProps(trigger=...)` and `OatProps(field=True)` to the decorator arguments
-      (one declaration per function, not one per call)
-- [ ] Confirm the function no longer contains `className` in its signature
+- [x] ~~Replace `_generate_key` with `BaseComponent.generate_key`~~ — ✓ done
+- [x] ~~Migrate to `@widget_component` decorator; `HtmxProps` / `OatProps` in decorator args~~ — ✓ done
+- [x] ~~`checkbox → "click, change"`, `slider → "change, input delay:500ms"`~~ — ✓ set in widgets.py
+- [x] ~~Remove `import hashlib`; remove standalone `_generate_key` functions~~ — ✓ done
 
 ### 7.5 Migrate Layout Containers to `CompositeComponent`
 
-- [ ] Implement `mt.card(header, footer, className)` using `CompositeComponent`
-- [ ] Add `card` rendering branch to `components.html`
-- [ ] Replace `ContainerContextManager("container", …)` with `CompositeComponent` in `layout.py`
-- [ ] Replace `ContainerContextManager("expander", …)` with `CompositeComponent` in `layout.py`
-- [ ] Add transition shim `ContainerContextManager = CompositeComponent` if any external code references it
-- [ ] Add new OAT-backed components: `mt.spinner`, `mt.skeleton`, `mt.progress`, `mt.meter`
+- [x] ~~Implement `mt.card(header, footer, className)` using `CompositeComponent`~~ — ✓ done
+- [x] ~~Add `card` rendering branch to `components.html`~~ — ✓ done
+- [x] ~~Replace `ContainerContextManager("container", …)` with `CompositeComponent`~~ — ✓ done
+- [x] ~~Replace `ContainerContextManager("expander", …)` with `CompositeComponent`~~ — ✓ done
+- [x] ~~`ContainerContextManager` deleted; no shim needed (no external callers)~~ — ✓ confirmed
+- [x] ~~Add new OAT-backed components: `mt.spinner`, `mt.skeleton`, `mt.progress`, `mt.meter`~~ — ✓ done
 
 ### 7.6 Template — Phase 2 (after all widgets migrated)
 
-- [ ] Remove `default(...)` fallbacks from `htmx_attrs` macro
-- [ ] Add `render_attr` macro; update `status` branch to read `data-variant` / `role` from dict
-      (replaces the `{% if comp.status_type == 'error' %}` branching chain — see §4.4)
+- [x] ~~Remove `default(...)` fallbacks from `htmx_attrs` macro~~ — ✓ N/A (no macro; defaults
+      live in the template `default()` filter where they serve as static fallback documentation)
+- [x] ~~Add `render_attr` macro; read `data-variant` / `role` from comp dict~~ — ✓ `status` branch
+      reads `comp['data-variant']` and `comp.role` directly (§4.4 approach, no separate macro)
 
 ### 7.7 Final Cleanup
 
-- [ ] Remove `from mxlit.context import get_context` from all component files
-      (only `layout.py` retains this import during the `ContainerContextManager` transition)
-- [ ] Confirm no remaining `import hashlib` in component files
+- [x] ~~Remove `from mxlit.context import get_context` from all component files~~ — ✓ removed from
+      `status.py`, `text.py`, `media.py`, `data.py`, `charts.py`, `widgets.py`; `layout.py`
+      retains it only for `page_config()` which is not a `BaseComponent` (documented exception)
+- [x] ~~Confirm no remaining `import hashlib` in component files~~ — ✓ zero instances
 
 ---
 
@@ -2456,19 +2432,19 @@ A new `component_fragment.html` template (or a Jinja2 macro call) renders just t
 
 ### 10.4 Work Items
 
-| # | Area | Task |
-|---|------|------|
-| W1 | `components.html` | Wrap every `render_component` output in `<div id="mx-{{ comp.id }}">` (`comp.id` is always resolved by decorator/`to_dict()`) |
-| W2 | `components.html` | Change all widget `hx-target` from `#app-root` to `#mx-{{ comp.id }}` |
-| W3 | `components.html` | Change all widget `hx-swap` from `innerHTML` to `outerHTML settle:100ms` |
-| W4 | `components.html` | Add `hx-include="[name]"` to all widget inputs |
-| W5 | `components.html` | Change `<button type="submit">` to `type="button"` and add own `hx-*` attrs |
-| W6 | `base.html` | Remove `hx-post / hx-target / hx-swap` from outer `<form>` (keep as plain form) |
-| W7 | `base.html` | Remove duplicate `hx-post / hx-target / hx-swap` from `#app-root` (keep `hx-trigger="load"` only) |
-| W8 | `server.py` | Read `HX-Trigger` header to identify the changed component |
-| W9 | `server.py` | Return single-component fragment HTML when `HX-Trigger` is present |
-| W10 | `templates/` | Create `component_fragment.html` (or macro) for single-component renders |
-| W11 | `server.py` | Add named region ids (`#mx-sidebar`, `#mx-main`) for button targets that affect multiple components |
+| # | Area | Task | Status |
+|---|------|------|--------|
+| ~~W1~~ | ~~`components.html`~~ | ~~Wrap every `render_component` output in `<div id="mx-{{ comp.id }}">`~~ | ✅ Done |
+| ~~W2~~ | ~~`components.html`~~ | ~~Change all widget `hx-target` from `#app-root` to `#mx-{{ comp.id }}`~~ | ✅ Done (buttons intentionally keep `#app-root` for full re-renders) |
+| ~~W3~~ | ~~`components.html`~~ | ~~Change all widget `hx-swap` from `innerHTML` to `outerHTML settle:100ms`~~ | ✅ Done |
+| ~~W4~~ | ~~`components.html`~~ | ~~Add `hx-include="[name]"` to all widget inputs~~ | ✅ Done |
+| ~~W5~~ | ~~`components.html`~~ | ~~Change `<button type="submit">` to `type="button"` and add own `hx-*` attrs~~ | ✅ Done |
+| ~~W6~~ | ~~`base.html`~~ | ~~Remove `hx-post / hx-target / hx-swap` from outer `<form>` (keep as plain form)~~ | ✅ Done — `<form>` is a plain wrapper |
+| ~~W7~~ | ~~`base.html`~~ | ~~Remove duplicate `hx-post / hx-target / hx-swap` from `#app-root`~~ | ✅ Done — `<form>` attrs removed (W6); `#app-root` keeps them for the `hx-trigger="load"` initial render (required) |
+| ~~W8~~ | ~~`server.py`~~ | ~~Read `HX-Trigger` header to identify the changed component~~ | ✅ Done — reads `HX-Target` header; `hx_target.startswith("mx-")` selects fragment path |
+| ~~W9~~ | ~~`server.py`~~ | ~~Return single-component fragment HTML when `HX-Trigger` is present~~ | ✅ Done — `_find_component` + `component_fragment.html` response |
+| ~~W10~~ | ~~`templates/`~~ | ~~Create `component_fragment.html` for single-component renders~~ | ✅ Done — `src/mxlit/templates/component_fragment.html` |
+| ~~W11~~ | ~~`server.py`~~ | ~~Add named region ids (`#mx-sidebar`, `#mx-main`) for button targets~~ | ✅ Done — `#mx-main` added; `#mx-sidebar` not needed (sidebar is a layout wrapper, not a swap target) |
 
 ---
 
@@ -2841,12 +2817,12 @@ from mxlit.timers import setInterval, setTimeout
 
 ### 11.7 Work Items
 
-| # | Area | Task |
-|---|------|------|
-| T1 | `context.py` | Add `_auto_refresh: str \| None = None`; inject in `add_component` |
-| T2 | `timers.py` | Implement `_AutoRefreshCtx`, `setInterval`, `setTimeout` |
-| T3 | `server.py` | Add `_find_component` helper and `POST /refresh/{component_id}` endpoint |
-| T4 | `templates/` | Create `component_fragment.html` |
-| T5 | `components.html` | Add conditional `refresh_trigger` wrapper in the component loop |
-| T6 | `__init__.py` | Export `setInterval`, `setTimeout` |
-| T7 | `samples/` | Add `samples/live_feed_demo.py` exercising `setInterval` with simulated data |
+| # | Area | Task | Status |
+|---|------|------|--------|
+| ~~T1~~ | ~~`context.py`~~ | ~~Add `_auto_refresh: str \| None = None`; inject in `add_component`~~ | ✅ Done — `refresh_trigger` field in `AppContext` |
+| ~~T2~~ | ~~`timers.py`~~ | ~~Implement `_AutoRefreshCtx`, `setInterval`, `setTimeout`~~ | ✅ Done — `src/mxlit/timers.py` |
+| ~~T3~~ | ~~`server.py`~~ | ~~Add `_find_component` helper and `POST /refresh/{component_id}` endpoint~~ | ✅ Done |
+| ~~T4~~ | ~~`templates/`~~ | ~~Create `component_fragment.html`~~ | ✅ Done — `src/mxlit/templates/component_fragment.html` |
+| ~~T5~~ | ~~`components.html`~~ | ~~Add conditional `refresh_trigger` wrapper in the component loop~~ | ✅ Done — wrapper div adds `hx-post="/refresh/{{ comp.id }}"` when `comp.refresh_trigger` is set |
+| ~~T6~~ | ~~`__init__.py`~~ | ~~Export `setInterval`, `setTimeout`~~ | ✅ Done |
+| ~~T7~~ | ~~`samples/`~~ | ~~Add `samples/live_feed_demo.py` exercising `setInterval` with simulated data~~ | ✅ Done |

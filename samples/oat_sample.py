@@ -11,6 +11,8 @@ Recipes demonstrated:
 import mxlit as mt
 
 # ── session state bootstrap ────────────────────────────────────────────────────
+_RECIPES = ["Split Button", "Form Card", "Empty State", "Stats Cards", "New Components"]
+
 for key, default in [
     ("save_action", None),
     ("profile_saved", False),
@@ -30,10 +32,8 @@ with mt.sidebar:
     mt.markdown("---")
     recipe = mt.radio(
         "Choose recipe",
-        ["Split Button", "Form Card", "Empty State", "Stats Cards"],
-        index=["Split Button", "Form Card", "Empty State", "Stats Cards"].index(
-            mt.session_state["active_recipe"]
-        ),
+        _RECIPES,
+        index=_RECIPES.index(mt.session_state["active_recipe"]),
         key="active_recipe",
     )
     mt.markdown("---")
@@ -81,11 +81,11 @@ elif recipe == "Form Card":
     mt.header("Form Card")
     mt.write("Group related form fields inside a card with a header and action footer.")
 
-    name = mt.text_input("Name", value=mt.session_state["profile_name"], key="profile_name")
-    email = mt.text_input("Email", value=mt.session_state["profile_email"], key="profile_email")
-    notif = mt.toggle("Email notifications", value=mt.session_state["notif_enabled"], key="notif_enabled")
+    with mt.card("Edit Profile", footer="All fields are required"):
+        name  = mt.text_input("Name",  value=mt.session_state["profile_name"],  key="profile_name")
+        email = mt.email_input("Email", value=mt.session_state["profile_email"], key="profile_email")
+        notif = mt.toggle("Email notifications", value=mt.session_state["notif_enabled"], key="notif_enabled")
 
-    mt.markdown("---")
     col_cancel, col_save = mt.columns([1, 1])
     with col_cancel:
         cancelled = mt.button("Cancel", key="btn_cancel")
@@ -113,19 +113,20 @@ elif recipe == "Empty State":
         "for list or result empty states."
     )
 
-    if not mt.session_state["created_something"]:
-        mt.info("Nothing here yet — why don't you create something?")
-        if mt.button("＋ New something", key="btn_create"):
-            mt.session_state["created_something"] = True
-            mt.rerun()
-    else:
-        mt.success("🎉 Something was created! The empty state is gone.")
-        col_l, col_r = mt.columns([1, 1])
-        with col_l:
-            mt.metric("Items", 1, "+1")
-        if mt.button("Reset", key="btn_reset_empty"):
-            mt.session_state["created_something"] = False
-            mt.rerun()
+    with mt.card():
+        if not mt.session_state["created_something"]:
+            mt.info("Nothing here yet — why don't you create something?")
+            if mt.button("＋ New something", key="btn_create"):
+                mt.session_state["created_something"] = True
+                mt.rerun()
+        else:
+            mt.success("🎉 Something was created! The empty state is gone.")
+            col_l, col_r = mt.columns([1, 1])
+            with col_l:
+                mt.metric("Items", 1, "+1")
+            if mt.button("Reset", key="btn_reset_empty"):
+                mt.session_state["created_something"] = False
+                mt.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Recipe 4 — Stats Cards
@@ -133,39 +134,105 @@ elif recipe == "Empty State":
 elif recipe == "Stats Cards":
     mt.header("Stats Cards")
     mt.write(
-        "Compose dashboard metrics using columns, metric, badge, and progress "
-        "components — mirroring the grid/card pattern from oat.ink."
+        "Compose dashboard metrics using `mt.card`, `mt.badge`, `mt.metric`, "
+        "`mt.progress`, and `mt.meter` — the new approach, no raw HTML."
     )
 
     col1, col2, col3 = mt.columns(3)
 
     with col1:
-        mt.subheader("Revenue")
-        mt.badge("+12%")
-        mt.metric("$42,200", "$42,200", "+$4,500 vs last month")
-        mt.html(
-            '<progress value="72" max="100" '
-            'style="width:100%;accent-color:var(--ot-color-success, #22c55e)"></progress>'
-        )
+        with mt.card("Revenue"):
+            mt.badge("+12%")
+            mt.metric("MRR", "$42,200", "+$4,500 vs last month")
+            mt.progress(0.72)
 
     with col2:
-        mt.subheader("Completion")
-        mt.badge("-2%")
-        mt.metric("4.6 %", "4.6%", "checkout completion")
-        mt.html(
-            '<meter value="0.46" min="0" max="1" low="0.3" high="0.7" optimum="1" '
-            'style="width:100%"></meter>'
-        )
+        with mt.card("Completion"):
+            mt.badge("-2%")
+            mt.metric("Checkout", "4.6%", "conversion rate")
+            mt.meter(0.46, low=0.3, high=0.7, optimum=1.0)
 
     with col3:
-        mt.subheader("Tickets")
-        mt.badge("14")
-        mt.metric("14", "14", "support queue")
-        mt.html(
-            '<progress value="35" max="100" '
-            'style="width:100%;accent-color:var(--ot-color-warning, #f59e0b)"></progress>'
-        )
+        with mt.card("Tickets"):
+            mt.badge("14")
+            mt.metric("Queue", "14", "support tickets")
+            mt.progress(0.35)
 
     mt.markdown("---")
-    mt.write("Each card uses `mt.subheader`, `mt.badge`, `mt.metric`, and raw `mt.html` "
-             "for the `<progress>` / `<meter>` elements — all native Oat ink components.")
+    mt.write(
+        "Each stat card uses `mt.card`, `mt.badge`, `mt.metric`, `mt.progress` / "
+        "`mt.meter` — all native mxlit components, no `mt.html()` needed."
+    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Recipe 5 — New Components
+# ══════════════════════════════════════════════════════════════════════════════
+elif recipe == "New Components":
+    mt.header("New OAT Components")
+    mt.write("All 19 new UI primitives and form variants added in the component gap fill.")
+
+    mt.breadcrumb([
+        {"label": "Recipes", "href": "#"},
+        {"label": "New Components"},
+    ])
+
+    mt.subheader("Spinner · Skeleton")
+    sp1, sp2, sp3 = mt.columns(3)
+    with sp1:
+        mt.write("Large spinner", class_="text-xs font-semibold")
+        mt.spinner("large")
+    with sp2:
+        mt.write("Small spinner", class_="text-xs font-semibold")
+        mt.spinner("small")
+    with sp3:
+        mt.write("Skeleton placeholders", class_="text-xs font-semibold")
+        mt.skeleton("line")
+        mt.skeleton("line")
+        mt.skeleton("box")
+
+    mt.subheader("Avatar · Avatar Group")
+    av1, av2 = mt.columns(2)
+    with av1:
+        mt.avatar(initials="JD")
+        mt.avatar(initials="AB", size="small")
+    with av2:
+        mt.avatar_group(avatars=[
+            {"initials": "JD"},
+            {"initials": "AB"},
+            {"initials": "MK"},
+        ])
+
+    mt.subheader("Button Group · Dropdown")
+    mt.button_group(["List", "Grid", "Table"], key_prefix="view_mode_")
+    mt.dropdown("Export", items=[
+        {"label": "Export as CSV"},
+        {"label": "Export as JSON"},
+        {"label": "Export as PDF"},
+    ])
+
+    mt.subheader("Dialog · Toast")
+    dlg_col, toast_col = mt.columns(2)
+    with dlg_col:
+        with mt.dialog("Confirm", trigger_label="Open modal"):
+            mt.write("This is a native `<dialog closedby='any'>` element.")
+            mt.info("Click outside or press Escape to dismiss.")
+    with toast_col:
+        if mt.button("Fire toast", key="recipe5_toast"):
+            mt.toast("Action completed!", title="Done", variant="success")
+
+    mt.subheader("Pagination")
+    _r5_page = mt.pagination(total_pages=8, current_page=1, key="r5_page")
+    mt.write(f"Page **{_r5_page}** of 8 selected")
+
+    mt.subheader("New form inputs")
+    fi1, fi2 = mt.columns(2)
+    with fi1:
+        mt.email_input("Work email", class_="max-w-sm")
+        mt.password_input("Password",  class_="max-w-sm")
+    with fi2:
+        mt.datetime_input("Schedule",  class_="max-w-sm")
+        mt.file_input("Attach file", accept=".pdf,.png", class_="max-w-sm")
+
+    mt.subheader("Input group")
+    with mt.input_group(prefix="https://", suffix=".io"):
+        mt.text_input("Subdomain", class_="w-full")

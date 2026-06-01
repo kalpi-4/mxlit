@@ -1,67 +1,39 @@
-from mxlit.context import get_context
+from typing import Callable
 
-def error(body: str, class_: str = ""):
-    """Display an error message.
+from mxlit.components.base import (
+    BaseComponent, ComponentType, OatProps, component,
+)
 
-    Args:
-        body: The error text.
-        class_: Optional Tailwind utility classes applied to the alert element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "error", "content": body, "class_": class_})
-    else:
-        print(f"[Error] {body}")
 
-def warning(body: str, class_: str = ""):
-    """Display a warning message.
+def _make_status_variant(status_type: str) -> Callable:
+    """Generate a status display function for the given OAT variant."""
+    preset_oat = OatProps(variant=status_type, role="alert")
 
-    Args:
-        body: The warning text.
-        class_: Optional Tailwind utility classes applied to the alert element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "warning", "content": body, "class_": class_})
-    else:
-        print(f"[Warning] {body}")
+    @component(ComponentType.STATUS, oat=preset_oat)
+    def _fn(body: str) -> tuple[dict, Callable]:
+        return (
+            {"content": body, "status_type": status_type},
+            lambda: print(f"[{status_type.upper()}] {body}"),
+        )
 
-def info(body: str, class_: str = ""):
-    """Display an informational message.
+    _fn.__name__     = status_type
+    _fn.__qualname__ = f"mxlit.components.status.{status_type}"
+    return _fn
 
-    Args:
-        body: The info text.
-        class_: Optional Tailwind utility classes applied to the alert element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "info", "content": body, "class_": class_})
-    else:
-        print(f"[Info] {body}")
 
-def success(body: str, class_: str = ""):
-    """Display a success message.
+error   = _make_status_variant("error")
+warning = _make_status_variant("warning")
+success = _make_status_variant("success")
+info    = _make_status_variant("info")
 
-    Args:
-        body: The success text.
-        class_: Optional Tailwind utility classes applied to the alert element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "success", "content": body, "class_": class_})
-    else:
-        print(f"[Success] {body}")
 
-def exception(e: Exception, class_: str = ""):
-    """Display an exception as an error alert.
-
-    Args:
-        e: The exception instance to display.
-        class_: Optional Tailwind utility classes applied to the alert element.
-    """
-    ctx = get_context()
+def exception(e: Exception, **kwargs):
+    """Display an exception as an error alert."""
     body = f"{type(e).__name__}: {str(e)}"
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "error", "content": body, "class_": class_})
-    else:
-        print(f"[Exception] {body}")
+    BaseComponent(
+        type         = ComponentType.STATUS,
+        className    = kwargs.pop("class_", kwargs.pop("className", "")),
+        props        = {"content": body, "status_type": "error"},
+        _oat         = OatProps(variant="error", role="alert"),
+        _fallback_fn = lambda: print(f"[EXCEPTION] {body}"),
+    )

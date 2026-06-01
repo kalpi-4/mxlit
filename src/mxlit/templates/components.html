@@ -1,17 +1,13 @@
 {# ── Theme CSS variables ──────────────────────────────────────────────────── #}
-{# Rendered on every response so the UI always reflects session_state theme.   #}
 {% if theme %}
-{# Core rendering tokens — dot-notation keys from Material Theme Builder JSON  #}
 {% set p   = theme["schemes.light.primary"] %}
 {% set s   = theme["schemes.light.secondary"] %}
 {% set bg  = theme["schemes.light.background"] %}
 {% set txt = theme["schemes.light.onBackground"] %}
-{# Derived danger/success/warning from Material error/tertiary tokens (with fallbacks) #}
 {% set err = theme.get("schemes.light.error", "#d32f2f") %}
 {% set ter = theme.get("schemes.light.tertiary", "#008032") %}
 <style>
 :root {
-    /* ── Core palette (oat.ink theme variables) ── */
     --primary:              {{ p }};
     --primary-foreground:   #ffffff;
     --secondary:            color-mix(in srgb, {{ s }} 18%, {{ bg }});
@@ -20,23 +16,15 @@
     --card:                 {{ bg }};
     --foreground:           {{ txt }};
     --card-foreground:      {{ txt }};
-
-    /* ── Borders & inputs ── */
     --border:               color-mix(in srgb, {{ txt }} 14%, {{ bg }});
     --input:                color-mix(in srgb, {{ txt }} 14%, {{ bg }});
     --ring:                 {{ p }};
-
-    /* ── Muted / faint surfaces ── */
     --muted:                color-mix(in srgb, {{ txt }} 6%,  {{ bg }});
     --muted-foreground:     color-mix(in srgb, {{ txt }} 55%, {{ bg }});
     --faint:                color-mix(in srgb, {{ txt }} 3%,  {{ bg }});
     --faint-foreground:     color-mix(in srgb, {{ txt }} 35%, {{ bg }});
-
-    /* ── Accent ── */
     --accent:               color-mix(in srgb, {{ p }} 10%, {{ bg }});
     --accent-foreground:    {{ p }};
-
-    /* ── Semantic colours (alerts, validation, badges) ── */
     --danger:               {{ err }};
     --danger-foreground:    #fafafa;
     --success:              {{ ter }};
@@ -99,8 +87,17 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 {% endfor %}
 {% endmacro %}
 
+
 {% macro render_component(comp) %}
-<div class="mx-component">
+<div {% if comp.id %}id="mx-{{ comp.id }}"{% endif %}
+     class="mx-component"
+     {% if comp.refresh_trigger %}
+     hx-post="/refresh/{{ comp.id }}"
+     hx-trigger="{{ comp.refresh_trigger }}"
+     hx-target="this"
+     hx-swap="outerHTML"
+     hx-include="[name]"
+     {% endif %}>
 
     {# ── Typography ──────────────────────────────────────────────────────── #}
     {% if comp.type == 'title' %}
@@ -125,7 +122,6 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         <div class="{{ comp.class_ | default('') }}">{{ comp.content | safe }}</div>
 
     {% elif comp.type == 'latex' %}
-        {# Raw LaTeX — swap for KaTeX script if needed #}
         <div class="mx-latex {{ comp.class_ | default('') }}">$${{ comp.content }}$$</div>
 
     {% elif comp.type == 'json' %}
@@ -134,17 +130,17 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# ── NER highlighting ────────────────────────────────────────────────── #}
     {% elif comp.type == 'ner' %}
         <div class="mx-ner {{ comp.class_ | default('') }}">
-            {% set text = comp.content %}
+            {% set text_content = comp.content %}
             {% set ns_ner = namespace(last_idx=0) %}
             {% for ent in comp.entities %}
-                {{ text[ns_ner.last_idx:ent.start] }}
+                {{ text_content[ns_ner.last_idx:ent.start] }}
                 <span class="mx-ner-entity">
-                    {{ text[ent.start:ent.end] }}
+                    {{ text_content[ent.start:ent.end] }}
                     <span class="mx-ner-label">{{ ent.label }}</span>
                 </span>
                 {% set ns_ner.last_idx = ent.end %}
             {% endfor %}
-            {{ text[ns_ner.last_idx:] }}
+            {{ text_content[ns_ner.last_idx:] }}
         </div>
 
     {# ── Streaming text ──────────────────────────────────────────────────── #}
@@ -158,7 +154,6 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Data / Table ────────────────────────────────────────────────────── #}
     {% elif comp.type == 'dataframe' or comp.type == 'table' %}
-        {# oat.ink wraps tables in .table for responsive horizontal scroll #}
         <div class="table {{ comp.class_ | default('') }}">{{ comp.content | safe }}</div>
 
     {# ── Metric card ─────────────────────────────────────────────────────── #}
@@ -177,26 +172,24 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         <span class="badge {{ comp.class_ | default('') }}">{{ comp.content }}</span>
 
     {# ── Status / Alert ──────────────────────────────────────────────────── #}
-    {# oat.ink: role="alert" with data-variant="success|warning|error" #}
     {% elif comp.type == 'status' %}
-        {% if comp.status_type == 'error' %}
-            <div role="alert" data-variant="error" class="{{ comp.class_ | default('') }}">{{ comp.content }}</div>
-        {% elif comp.status_type == 'warning' %}
-            <div role="alert" data-variant="warning" class="{{ comp.class_ | default('') }}">{{ comp.content }}</div>
-        {% elif comp.status_type == 'success' %}
-            <div role="alert" data-variant="success" class="{{ comp.class_ | default('') }}">{{ comp.content }}</div>
-        {% else %}
-            <div role="alert" class="{{ comp.class_ | default('') }}">{{ comp.content }}</div>
-        {% endif %}
+        <div role="{{ comp.role | default('alert') }}"
+             {% if comp['data-variant'] is defined %}data-variant="{{ comp['data-variant'] }}"{% elif comp.status_type and comp.status_type != 'info' %}data-variant="{{ comp.status_type }}"{% endif %}
+             class="{{ comp.class_ | default('') }}">{{ comp.content }}</div>
 
     {# ── Widgets ─────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'button' %}
-        {# oat.ink <button> is styled automatically; data-variant="secondary"
-           for a lighter look matching Streamlit's secondary button style.    #}
-        <button type="submit"
+        <button type="button"
                 data-variant="secondary"
                 name="{{ comp.key }}"
                 value="true"
+                {% if not comp.disabled %}
+                hx-post="/interact"
+                hx-target="#app-root"
+                hx-swap="innerHTML"
+                hx-include="[name]"
+                {% endif %}
+                {% if comp.disabled %}disabled aria-disabled="true"{% endif %}
                 class="{{ comp.class_ | default('') }}">{{ comp.label }}</button>
 
     {% elif comp.type == 'text_input' %}
@@ -206,112 +199,103 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                    id="{{ comp.key }}"
                    name="{{ comp.key }}"
                    value="{{ comp.value }}"
+                   {% if not comp.disabled %}
                    hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change">
+                   hx-target="#mx-{{ comp.id }}"
+                   hx-swap="outerHTML settle:100ms"
+                   hx-trigger="{{ comp['hx-trigger'] | default('change') }}"
+                   hx-include="[name]"
+                   {% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'email_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+            {{ comp.label }}
+            <input type="email" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'password_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+            {{ comp.label }}
+            <input type="password" id="{{ comp.key }}" name="{{ comp.key }}" autocomplete="current-password"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'datetime_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+            {{ comp.label }}
+            <input type="datetime-local" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
         </label>
 
     {% elif comp.type == 'text_area' %}
         <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
             {{ comp.label }}
-            <textarea id="{{ comp.key }}"
-                      name="{{ comp.key }}"
-                      hx-post="/interact"
-                      hx-target="#app-root"
-                      hx-swap="innerHTML"
-                      hx-trigger="change">{{ comp.value }}</textarea>
+            <textarea id="{{ comp.key }}" name="{{ comp.key }}"
+                      {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                      {% if comp.disabled %}disabled{% endif %}>{{ comp.value }}</textarea>
         </label>
 
     {% elif comp.type == 'number_input' %}
         <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
             {{ comp.label }}
-            <input type="number"
-                   id="{{ comp.key }}"
-                   name="{{ comp.key }}"
-                   value="{{ comp.value }}"
+            <input type="number" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if comp.step is not none %}step="{{ comp.step }}"{% else %}step="any"{% endif %}
                    {% if comp.min_value is not none %}min="{{ comp.min_value }}"{% endif %}
                    {% if comp.max_value is not none %}max="{{ comp.max_value }}"{% endif %}
-                   hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change">
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
         </label>
 
     {% elif comp.type == 'date_input' %}
         <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
             {{ comp.label }}
-            <input type="date"
-                   id="{{ comp.key }}"
-                   name="{{ comp.key }}"
-                   value="{{ comp.value }}"
-                   hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change">
+            <input type="date" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
         </label>
 
     {% elif comp.type == 'color_picker' %}
         <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
             {{ comp.label }}
-            <input type="color"
-                   id="{{ comp.key }}"
-                   name="{{ comp.key }}"
-                   value="{{ comp.value }}"
-                   hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change">
+            <input type="color" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
         </label>
 
     {% elif comp.type == 'checkbox' %}
-        {# Hidden input ensures an unchecked box still submits "false" #}
         <label data-field class="{{ comp.class_ | default('') }}">
             <input type="hidden" name="{{ comp.key }}" value="false">
-            <input type="checkbox"
-                   id="{{ comp.key }}"
-                   name="{{ comp.key }}"
-                   value="true"
+            <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true"
                    {% if comp.value %}checked{% endif %}
-                   hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change">
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
             {{ comp.label }}
         </label>
 
     {% elif comp.type == 'toggle' %}
-        {# oat.ink: role="switch" on a checkbox renders a toggle switch #}
         <label class="{{ comp.class_ | default('') }}">
             <input type="hidden" name="{{ comp.key }}" value="false">
-            <input type="checkbox"
-                   role="switch"
-                   id="{{ comp.key }}"
-                   name="{{ comp.key }}"
-                   value="true"
+            <input type="checkbox" role="switch" id="{{ comp.key }}" name="{{ comp.key }}" value="true"
                    {% if comp.value %}checked{% endif %}
-                   hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change">
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
             {{ comp.label }}
         </label>
 
     {% elif comp.type == 'slider' %}
         <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
             {{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.value }}</span>
-            <input type="range"
-                   id="{{ comp.key }}"
-                   name="{{ comp.key }}"
-                   min="{{ comp.min_value }}"
-                   max="{{ comp.max_value }}"
-                   value="{{ comp.value }}"
+            <input type="range" id="{{ comp.key }}" name="{{ comp.key }}"
+                   min="{{ comp.min_value }}" max="{{ comp.max_value }}" value="{{ comp.value }}"
                    oninput="document.getElementById('{{ comp.key }}-val').textContent = this.value"
-                   hx-post="/interact"
-                   hx-target="#app-root"
-                   hx-swap="innerHTML"
-                   hx-trigger="change, input delay:500ms">
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change, input delay:500ms') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
         </label>
 
     {% elif comp.type == 'radio' %}
@@ -319,15 +303,17 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             <legend>{{ comp.label }}</legend>
             {% for option in comp.options %}
                 <label>
-                    <input type="radio"
-                           id="{{ comp.key }}_{{ loop.index }}"
-                           name="{{ comp.key }}"
-                           value="{{ option }}"
+                    <input type="radio" id="{{ comp.key }}_{{ loop.index }}"
+                           name="{{ comp.key }}" value="{{ option }}"
                            {% if comp.value == option %}checked{% endif %}
+                           {% if not comp.disabled %}
                            hx-post="/interact"
-                           hx-target="#app-root"
-                           hx-swap="innerHTML"
-                           hx-trigger="change">
+                           hx-target="{{ comp['hx-target'] | default('#app-root') }}"
+                           hx-swap="{{ comp['hx-swap'] | default('innerHTML') }}"
+                           hx-trigger="{{ comp['hx-trigger'] | default('change') }}"
+                           hx-include="[name]"
+                           {% endif %}
+                           {% if comp.disabled %}disabled{% endif %}>
                     {{ option }}
                 </label>
             {% endfor %}
@@ -336,13 +322,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {% elif comp.type == 'selectbox' %}
         <div data-field class="{{ comp.class_ | default('') }}">
             <label for="{{ comp.key }}">{{ comp.label }}</label>
-            <select id="{{ comp.key }}"
-                    name="{{ comp.key }}"
-                    aria-label="{{ comp.label }}"
-                    hx-post="/interact"
-                    hx-target="#app-root"
-                    hx-swap="innerHTML"
-                    hx-trigger="change">
+            <select id="{{ comp.key }}" name="{{ comp.key }}" aria-label="{{ comp.label }}"
+                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                    {% if comp.disabled %}disabled{% endif %}>
                 {% for option in comp.options %}
                     <option value="{{ option }}" {% if comp.value == option %}selected{% endif %}>{{ option }}</option>
                 {% endfor %}
@@ -373,8 +355,8 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             <video controls src="{{ comp.url }}" class="{{ comp.class_ | default('') }}"></video>
         </div>
 
-    {# ── Chart ───────────────────────────────────────────────────────────── #}
-    {% elif comp.type == 'chart' %}
+    {# ── Charts ──────────────────────────────────────────────────────────── #}
+    {% elif comp.type in ('line_chart', 'bar_chart', 'area_chart', 'scatter_chart', 'chart') %}
         <div class="mx-chart {{ comp.class_ | default('') }}">
             <canvas id="chart-{{ comp.key }}"></canvas>
             <script>
@@ -400,14 +382,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             </script>
         </div>
 
-    {# ── Layout: container (horizontal / vertical) ───────────────────────── #}
+    {# ── Layout: container ───────────────────────────────────────────────── #}
     {% elif comp.type == 'container' %}
         <div class="{% if comp.horizontal %}hstack{% endif %} {{ comp.class_ | default('') }}">
             {{ render_children(comp.children) }}
         </div>
 
     {# ── Layout: expander ────────────────────────────────────────────────── #}
-    {# oat.ink uses native <details>/<summary> — no JS or CSS hacks needed.  #}
     {% elif comp.type == 'expander' %}
         <details class="{{ comp.class_ | default('') }}">
             <summary>{% if comp.icon %}{{ comp.icon }} {% endif %}{{ comp.label }}</summary>
@@ -416,7 +397,403 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             </div>
         </details>
 
-    {# column / tab / sidebar are handled by the outer loop below #}
+    {# ── Layout: card (CompositeComponent) ───────────────────────────────── #}
+    {% elif comp.type == 'card' %}
+        <article class="card {{ comp.class_ | default('') }}">
+            {% if comp.header %}
+                <header><h3>{{ comp.header }}</h3></header>
+            {% endif %}
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+            {% if comp.footer %}
+                <footer>{{ comp.footer }}</footer>
+            {% endif %}
+        </article>
+
+    {# ── OAT UI primitives ───────────────────────────────────────────────── #}
+    {% elif comp.type == 'spinner' %}
+        <div aria-busy="true"
+             data-spinner="{{ comp.size | default('large') }}"
+             class="{{ comp.class_ | default('') }}"></div>
+
+    {% elif comp.type == 'progress' %}
+        {% if comp.value is not none %}
+            <progress value="{{ comp.value }}" max="{{ comp.max | default(1.0) }}"
+                      class="{{ comp.class_ | default('') }}"></progress>
+        {% else %}
+            <progress class="{{ comp.class_ | default('') }}"></progress>
+        {% endif %}
+
+    {% elif comp.type == 'skeleton' %}
+        <div role="status"
+             class="skeleton {{ comp.variant | default('line') }} {{ comp.class_ | default('') }}"></div>
+
+    {% elif comp.type == 'meter' %}
+        <meter value="{{ comp.value }}"
+               min="{{ comp.min | default(0.0) }}"
+               max="{{ comp.max | default(1.0) }}"
+               {% if comp.low is not none %}low="{{ comp.low }}"{% endif %}
+               {% if comp.high is not none %}high="{{ comp.high }}"{% endif %}
+               {% if comp.optimum is not none %}optimum="{{ comp.optimum }}"{% endif %}
+               class="{{ comp.class_ | default('') }}"></meter>
+
+    {# ── Avatar ──────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'avatar' %}
+        <figure data-variant="avatar"
+                class="{{ ([comp.size, comp.class_] | select | join(' ')) | default('') }}"
+                {% if comp.initials %}aria-label="{{ comp.initials }}"{% endif %}>
+            {% if comp.src %}
+                <img src="{{ comp.src }}" alt="{{ comp.initials | default('') }}">
+            {% else %}
+                <abbr title="{{ comp.initials | default('') }}">{{ comp.initials | default('') }}</abbr>
+            {% endif %}
+        </figure>
+
+    {% elif comp.type == 'avatar_group' %}
+        <figure data-variant="avatar" role="group"
+                class="{{ ([comp.size, comp.class_] | select | join(' ')) | default('') }}">
+            {% for av in comp.avatars %}
+                <figure data-variant="avatar"
+                        {% if av.size %}class="{{ av.size }}"{% endif %}
+                        {% if av.initials %}aria-label="{{ av.initials }}"{% endif %}>
+                    {% if av.src %}
+                        <img src="{{ av.src }}" alt="{{ av.initials | default('') }}">
+                    {% else %}
+                        <abbr title="{{ av.initials | default('') }}">{{ av.initials | default('') }}</abbr>
+                    {% endif %}
+                </figure>
+            {% endfor %}
+        </figure>
+
+    {# ── Breadcrumb ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'breadcrumb' %}
+        <nav aria-label="Breadcrumb" class="{{ comp.class_ | default('') }}">
+            <ol class="unstyled hstack" style="font-size: var(--text-7)">
+                {% for item in comp['items'] %}
+                    {% if not loop.first %}<li aria-hidden="true">/</li>{% endif %}
+                    <li {% if loop.last %}aria-current="page"{% endif %}>
+                        {% if item.href is defined and item.href and not loop.last %}
+                            <a href="{{ item.href }}" class="unstyled">{{ item.label }}</a>
+                        {% elif loop.last %}
+                            <strong>{{ item.label }}</strong>
+                        {% else %}
+                            {{ item.label }}
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+        </nav>
+
+    {# ── Button Group ────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'button_group' %}
+        <menu class="buttons {{ comp.class_ | default('') }}">
+            {% for btn in comp.buttons %}
+                <li>
+                    <button type="button"
+                            class="outline"
+                            name="{{ btn.key }}"
+                            value="true"
+                            hx-post="/interact"
+                            hx-target="#app-root"
+                            hx-swap="innerHTML"
+                            hx-include="[name]">{{ btn.label }}</button>
+                </li>
+            {% endfor %}
+        </menu>
+
+    {# ── Toast ───────────────────────────────────────────────────────────── #}
+    {# oat.ink API: ot.toast(message, title?, options?)                      #}
+    {% elif comp.type == 'toast' %}
+        <div style="display:none" class="{{ comp.class_ | default('') }}">
+            <script>
+                (function () {
+                    function _showToast() {
+                        if (window.ot && window.ot.toast) {
+                            ot.toast(
+                                {{ comp.message | tojson }},
+                                {{ comp.title | default('') | tojson }},
+                                {
+                                    {% if comp.variant %}variant:   {{ comp.variant | tojson }},{% endif %}
+                                    placement: {{ comp.placement | default('top-right') | tojson }},
+                                    duration:  {{ comp.duration | default(4000) }}
+                                }
+                            );
+                        }
+                    }
+                    if (document.readyState !== 'loading') { setTimeout(_showToast, 50); }
+                    else { document.addEventListener('DOMContentLoaded', _showToast); }
+                })();
+            </script>
+        </div>
+
+    {# ── Pagination ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'pagination' %}
+        <nav aria-label="Pagination" class="{{ comp.class_ | default('') }}">
+            <menu class="buttons">
+                {% for page in range(1, comp.total_pages + 1) %}
+                    <li>
+                        <button type="button"
+                                name="{{ comp.key }}"
+                                value="{{ page }}"
+                                class="small{{ '' if page == comp.current_page else ' outline' }}"
+                                {% if page == comp.current_page %}aria-current="page"{% endif %}
+                                hx-post="/interact"
+                                hx-target="#app-root"
+                                hx-swap="innerHTML"
+                                hx-include="[name]">{{ page }}</button>
+                    </li>
+                {% endfor %}
+            </menu>
+        </nav>
+
+    {# ── Dialog ──────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'dialog' %}
+        {% set _dlg_id = "dlg-" ~ comp.id %}
+        <button type="button"
+                onclick="document.getElementById('{{ _dlg_id }}').showModal()"
+                class="{{ comp.class_ | default('') }}">{{ comp.trigger_label | default('Open') }}</button>
+        <dialog id="{{ _dlg_id }}" closedby="any">
+            <form method="dialog">
+                {% if comp.title %}
+                    <header><h3>{{ comp.title }}</h3></header>
+                {% endif %}
+                <div>
+                    {% for child in comp.children %}
+                        {{ render_component(child) }}
+                    {% endfor %}
+                </div>
+                <footer>
+                    <button type="button" onclick="this.closest('dialog').close()" class="outline">Close</button>
+                </footer>
+            </form>
+        </dialog>
+
+    {# ── Dropdown ────────────────────────────────────────────────────────── #}
+    {# oat.ink uses popovertarget/popover — NOT slot="trigger"              #}
+    {% elif comp.type == 'dropdown' %}
+        {% set _menu_id = "menu-" ~ comp.id %}
+        <ot-dropdown class="{{ comp.class_ | default('') }}">
+            <button type="button" popovertarget="{{ _menu_id }}" class="outline">
+                {{ comp.label }}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <menu popover id="{{ _menu_id }}">
+                {% for item in comp['items'] %}
+                    {% if item.href is defined and item.href %}
+                        <a href="{{ item.href }}" role="menuitem">{{ item.label }}</a>
+                    {% else %}
+                        <button role="menuitem" type="button">{{ item.label }}</button>
+                    {% endif %}
+                {% endfor %}
+            </menu>
+        </ot-dropdown>
+
+    {# ── Grid ────────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'grid' %}
+        <div class="container {{ comp.class_ | default('') }}">
+            <div class="row">
+                {% for child in comp.children %}
+                    {{ render_component(child) }}
+                {% endfor %}
+            </div>
+        </div>
+
+    {# ── File Input ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'file_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+            {{ comp.label }}
+            <input type="file" id="{{ comp.key }}" name="{{ comp.key }}"
+                   {% if comp.accept %}accept="{{ comp.accept }}"{% endif %}
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]" hx-encoding="multipart/form-data"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {# ── Input Group ─────────────────────────────────────────────────────── #}
+    {# oat.ink: <fieldset class="group"><legend>prefix</legend><input><button>suffix</button></fieldset> #}
+    {# Children that are form inputs are rendered as bare <input> elements    #}
+    {# (no <label data-field> wrapper) so they sit flush in the group strip.  #}
+    {% elif comp.type == 'input_group' %}
+        {%- set _type_map = {
+            'text_input':     'text',
+            'email_input':    'email',
+            'password_input': 'password',
+            'number_input':   'number',
+            'date_input':     'date',
+            'datetime_input': 'datetime-local'
+        } -%}
+        <fieldset class="group {{ comp.class_ | default('') }}">
+            {% if comp.prefix %}
+                <legend>{{ comp.prefix }}</legend>
+            {% endif %}
+            {% for child in comp.children %}
+                {% if child.type in _type_map %}
+                    <input type="{{ _type_map[child.type] }}"
+                           name="{{ child.key }}"
+                           value="{{ child.value | default('') }}"
+                           placeholder="{{ child.label }}"
+                           class="{{ child.class_ | default('') }}"
+                           hx-post="/interact"
+                           hx-target="{{ child['hx-target'] | default('#app-root') }}"
+                           hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+                           hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+                           hx-include="[name]">
+                {% else %}
+                    {{ render_component(child) }}
+                {% endif %}
+            {% endfor %}
+            {% if comp.suffix %}
+                <span>{{ comp.suffix }}</span>
+            {% endif %}
+        </fieldset>
+
+    {# ── Multiselect ─────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'multiselect' %}
+        <div data-field class="{{ comp.class_ | default('') }}">
+            <label for="{{ comp.key }}">{{ comp.label }}</label>
+            <select id="{{ comp.key }}" name="{{ comp.key }}" multiple aria-label="{{ comp.label }}"
+                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                    {% if comp.disabled %}disabled{% endif %}>
+                {% for option in comp.options %}
+                    <option value="{{ option }}" {% if option in comp.value %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+    {# ── Select Slider ───────────────────────────────────────────────────── #}
+    {% elif comp.type == 'select_slider' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+            {{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.display_value }}</span>
+            <input type="range" id="{{ comp.key }}" name="{{ comp.key }}"
+                   list="{{ comp.key }}-opts"
+                   min="0" max="{{ comp.options | length - 1 }}" step="1"
+                   value="{{ comp.index }}"
+                   oninput="document.getElementById('{{ comp.key }}-val').textContent = {{ comp.options | tojson }}[+this.value]"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change, input delay:500ms') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+            <datalist id="{{ comp.key }}-opts">
+                {% for opt in comp.options %}
+                    <option value="{{ loop.index0 }}">{{ opt }}</option>
+                {% endfor %}
+            </datalist>
+        </label>
+
+    {# ── Time Input ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'time_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+            {{ comp.label }}
+            <input type="time" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {# ── Link Button ─────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'link_button' %}
+        <a href="{{ comp.url }}"
+           {% if comp.new_tab %}target="_blank" rel="noopener noreferrer"{% endif %}
+           role="button"
+           class="{{ comp.class_ | default('') }}">{{ comp.label }}</a>
+
+    {# ── Download Button ─────────────────────────────────────────────────── #}
+    {% elif comp.type == 'download_button' %}
+        <a href="{{ comp.href }}"
+           download="{{ comp.file_name }}"
+           role="button"
+           class="{{ comp.class_ | default('') }}">{{ comp.label }}</a>
+
+    {# ── Pills ───────────────────────────────────────────────────────────── #}
+    {# Single-select pill buttons — styled like radio but rendered as chips   #}
+    {% elif comp.type == 'pills' %}
+        <fieldset class="{{ comp.class_ | default('') }}">
+            <legend>{{ comp.label }}</legend>
+            <menu class="buttons">
+                {% for option in comp.options %}
+                    <li>
+                        <button type="button"
+                                name="{{ comp.key }}"
+                                value="{{ option }}"
+                                class="{% if comp.value != option %}outline {% endif %}small"
+                                {% if comp.value == option %}aria-pressed="true"{% endif %}
+                                {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]"{% endif %}
+                                {% if comp.disabled %}disabled{% endif %}>{{ option }}</button>
+                    </li>
+                {% endfor %}
+            </menu>
+        </fieldset>
+
+    {# ── Feedback ────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'feedback' %}
+        <fieldset class="{{ comp.class_ | default('') }}">
+            {% if comp.label %}<legend>{{ comp.label }}</legend>{% endif %}
+            <menu class="buttons">
+                {% if comp.sentiment == 'thumbs' %}
+                    <li>
+                        <button type="button" name="{{ comp.key }}" value="up"
+                                class="{% if comp.value != 'up' %}outline {% endif %}small"
+                                {% if comp.value == 'up' %}aria-pressed="true"{% endif %}
+                                hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]">👍</button>
+                    </li>
+                    <li>
+                        <button type="button" name="{{ comp.key }}" value="down"
+                                class="{% if comp.value != 'down' %}outline {% endif %}small"
+                                {% if comp.value == 'down' %}aria-pressed="true"{% endif %}
+                                hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]">👎</button>
+                    </li>
+                {% else %}
+                    {% for star in [1, 2, 3, 4, 5] %}
+                        <li>
+                            <button type="button" name="{{ comp.key }}" value="{{ star }}"
+                                    class="{% if comp.value != star | string %}outline {% endif %}small"
+                                    {% if comp.value == star | string %}aria-pressed="true"{% endif %}
+                                    hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]">{{ '★' * star }}{{ '☆' * (5 - star) }}</button>
+                        </li>
+                    {% endfor %}
+                {% endif %}
+            </menu>
+        </fieldset>
+
+    {# ── Space ───────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'space' %}
+        <div style="margin-block: {{ comp.n | default(1) }}rem;" aria-hidden="true"></div>
+
+    {# ── Empty placeholder ───────────────────────────────────────────────── #}
+    {% elif comp.type == 'empty' %}
+        <div class="{{ comp.class_ | default('') }}" aria-hidden="true"></div>
+
+    {# ── Popover ─────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'popover' %}
+        {% set _pop_id = "pop-" ~ comp.id %}
+        <button type="button" popovertarget="{{ _pop_id }}"
+                class="{{ comp.class_ | default('') }}">{{ comp.label }}</button>
+        <div id="{{ _pop_id }}" popover class="mx-popover">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── Status container ────────────────────────────────────────────────── #}
+    {% elif comp.type == 'status_box' %}
+        {% set _state_icon = {'running': '', 'complete': '✓', 'error': '✗'} %}
+        <details class="mx-status {{ comp.class_ | default('') }}"
+                 {% if comp.state == 'complete' or comp.state == 'error' %}open{% endif %}>
+            <summary>
+                {% if comp.state == 'running' %}
+                    <span aria-busy="true" data-spinner="small"></span>
+                {% elif comp.state == 'complete' %}
+                    <span style="color: var(--success)">✓</span>
+                {% else %}
+                    <span style="color: var(--danger)">✗</span>
+                {% endif %}
+                {{ comp.label }}
+            </summary>
+            <div>
+                {% for child in comp.children %}
+                    {{ render_component(child) }}
+                {% endfor %}
+            </div>
+        </details>
+
+    {# column / tab / sidebar are handled by the outer loop #}
     {% elif comp.type == 'column' %}{% elif comp.type == 'tab' %}{% elif comp.type == 'sidebar' %}
 
     {% else %}
@@ -430,9 +807,6 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
 
 {# ── Sidebar ──────────────────────────────────────────────────────────────── #}
-{# oat.ink sidebar: <aside data-sidebar> is a direct child of [data-sidebar-layout]
-   (which is #app-root in base.html).  On mobile, oat.js adds a slide-out overlay.
-   We only emit the <aside> when the user script actually called mt.sidebar.        #}
 {% set ns = namespace(has_sidebar=false) %}
 {% for comp in components %}
     {% if comp.type == 'sidebar' %}{% set ns.has_sidebar = true %}{% endif %}
@@ -454,48 +828,32 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
 {# ── Main content ─────────────────────────────────────────────────────────── #}
 <main class="mx-main {{ main_class | default('') }}">
-    {# Counter used to give each <ot-tabs> a stable data-tab-group key so that
-       the localStorage tab-state script in base.html can identify it after swaps. #}
     {% set tab_group_ns = namespace(count=0) %}
     {% for comp in components %}
         {% if comp.type != 'sidebar' %}
 
-            {# ── Columns: bundle contiguous column components ─────────────── #}
             {% if comp.type == 'column' %}
                 {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'column' %}
                     <div class="mx-columns {{ comp.columns_class_ | default('') }}">
                 {% endif %}
-
                 <div class="mx-column {{ comp.class_ | default('') }}" style="flex: {{ comp.weight | default(1) }}">
                     {{ render_children(comp.children) }}
                 </div>
-
                 {% if loop.last or components[loop.index0 + 1].type != 'column' %}
-                    </div>{# end mx-columns #}
+                    </div>
                 {% endif %}
 
-            {# ── Tabs: use oat.ink <ot-tabs> WebComponent ─────────────────── #}
-            {# oat.ink tabs require: <ot-tabs> > [role=tablist] > [role=tab]   #}
-            {# and sibling [role=tabpanel] elements.  We open <ot-tabs> on the #}
-            {# first tab and close it on the last.                             #}
             {% elif comp.type == 'tab' %}
                 {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'tab' %}
-                    {# Assign a stable key for this tab group so the localStorage
-                       restore script (base.html) can identify it after HTMX swaps. #}
                     {% set tab_group_ns.count = tab_group_ns.count + 1 %}
                     <ot-tabs data-tab-group="mxlit-tabs-{{ tab_group_ns.count }}"
                              class="{{ comp.tabs_class_ | default('') }}">
                         <div role="tablist">
-                            {# Look-ahead: emit all tab headers in one pass. #}
                             {% set tab_start = loop.index0 %}
                             {% set hdr_ns = namespace(stop=false) %}
                             {% for fc in components[tab_start:] %}
                                 {% if not hdr_ns.stop %}
                                     {% if fc.type == 'tab' %}
-                                        {# type="button" prevents this button from
-                                           submitting the outer <form> on click, which
-                                           would trigger an HTMX re-render and reset the
-                                           active tab back to 0 on every tab switch. #}
                                         <button role="tab" type="button">{{ fc.label }}</button>
                                     {% else %}
                                         {% set hdr_ns.stop = true %}
@@ -504,11 +862,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                             {% endfor %}
                         </div>
                 {% endif %}
-
                 <div role="tabpanel">
                     {{ render_children(comp.children) }}
                 </div>
-
                 {% if loop.last or components[loop.index0 + 1].type != 'tab' %}
                     </ot-tabs>
                 {% endif %}

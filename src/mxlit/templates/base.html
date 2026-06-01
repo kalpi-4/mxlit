@@ -85,20 +85,18 @@
 </head>
 <body>
     <!--
-      The outer <form> ensures every named input inside #app-root is included
-      in HTMX form submissions without needing individual hx-include directives.
-      margin/padding are zeroed so oat.ink's layout takes full control.
+      The outer <form> is a plain wrapper — its only role is to collect every
+      named input so hx-include="[name]" on each widget can send the full
+      form state. HTMX attrs are NOT on the form; each widget controls its own
+      request (targeted outerHTML swap). Buttons use hx-target="#app-root" for
+      full-page re-renders when application state changes.
     -->
-    <form hx-post="/interact"
-          hx-target="#app-root"
-          hx-swap="innerHTML"
-          style="margin:0; padding:0; width:100%;">
+    <form style="margin:0; padding:0; width:100%;">
 
         <!--
-          #app-root is the HTMX swap target AND the SSE listener.
-          data-sidebar-layout is the oat.ink sidebar host attribute —
-          components.html outputs <aside data-sidebar> + <main> as its children
-          when the user script defines a sidebar.
+          #app-root: HTMX swap target for full-page renders (initial load,
+          button clicks) AND SSE listener for server-pushed updates.
+          The hx-trigger="load" fires once on page load to populate the UI.
         -->
         <div id="app-root"
              data-sidebar-layout

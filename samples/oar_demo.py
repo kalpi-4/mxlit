@@ -5,20 +5,17 @@ import pandas as pd
 if "save_success" not in mt.session_state:
     mt.session_state["save_success"] = False
 
-if "show_delete_confirm" not in mt.session_state:
-    mt.session_state["show_delete_confirm"] = False
-
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with mt.sidebar:
     mt.title("Oat Demo", class_="text-lg font-bold")
     mt.markdown("---")
 
-    mt.write("Navigation", class_="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2")
+    mt.write("Navigation", class_="text-xs font-semibold uppercase tracking-wide mb-2")
     mt.radio("", ["Dashboard", "Analytics", "Orders", "Settings"], key="nav_section")
 
     mt.markdown("---")
 
-    mt.write("Theme", class_="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2")
+    mt.write("Theme", class_="text-xs font-semibold uppercase tracking-wide mb-2")
     mt.selectbox("Color scheme", ["Default", "Slate", "Stone", "Rose", "Blue", "Green", "Orange"], key="theme_choice")
 
     auto_refresh = mt.toggle("Auto-refresh", value=False, key="auto_refresh")
@@ -26,25 +23,22 @@ with mt.sidebar:
         mt.info("Auto-refresh is on.")
 
     mt.markdown("---")
-    mt.write("mxlit · FastAPI + HTMX", class_="text-xs text-slate-400")
+    mt.write("mxlit · FastAPI + HTMX", class_="text-xs")
 
 # ── PAGE TITLE ────────────────────────────────────────────────────────────────
 mt.title("Dashboard", class_="text-3xl font-bold")
 mt.write(
     "This kitchensink dashboard shows various UI components and layouts built with **mxlit**.",
-    class_="text-slate-500 mb-6",
+    class_="mb-6",
 )
 
 # ── TOP METRICS ───────────────────────────────────────────────────────────────
-m1, m2, m3, m4 = mt.columns(4)
-with m1:
-    mt.metric("Revenue",      "$42,128", "+12.5% vs last month", class_="w-full")
-with m2:
-    mt.metric("Active Users", "2,847",   "-3.2% vs last month",  class_="w-full")
-with m3:
-    mt.metric("Retention",    "3.24%",   "+0.8% vs last month",  class_="w-full")
-with m4:
-    mt.metric("Uptime",       "99.99%",  "Healthy",              class_="w-full")
+with mt.card():
+    m1, m2, m3, m4 = mt.columns(4)
+    with m1: mt.metric("Revenue",      "$42,128", "+12.5% vs last month")
+    with m2: mt.metric("Active Users", "2,847",   "-3.2% vs last month")
+    with m3: mt.metric("Retention",    "3.24%",   "+0.8% vs last month")
+    with m4: mt.metric("Uptime",       "99.99%",  "Healthy")
 
 mt.markdown("---")
 
@@ -57,7 +51,7 @@ with tab_overview:
     mt.write(
         "This dummy kitchensink dashboard page shows various UI components and "
         "layouts built with mxlit.",
-        class_="text-slate-500 mb-3",
+        class_="mb-3",
     )
     mt.line_chart(
         {"Mon": 420, "Tue": 380, "Wed": 510, "Thu": 460, "Fri": 590, "Sat": 340, "Sun": 280},
@@ -86,12 +80,9 @@ with tab_overview:
     ]
     for actor, desc, ts in activities:
         with mt.container(horizontal=True, class_="items-center gap-3 py-2 border-b last:border-0"):
-            mt.badge(
-                actor[0].upper(),
-                class_="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0",
-            )
+            mt.avatar(initials=actor[0].upper(), size="small")
             mt.write(f"**{actor}** — {desc}", class_="flex-1 text-sm")
-            mt.write(ts, class_="text-xs text-slate-400 shrink-0")
+            mt.write(ts, class_="text-xs shrink-0")
 
 # ── Performance ───────────────────────────────────────────────────────────────
 with tab_performance:
@@ -103,20 +94,23 @@ with tab_performance:
         mt.metric("Error Rate",   "0.03%",     "-0.01% this week",  class_="w-full")
     with p3:
         mt.metric("Throughput",   "1,240 req/s", "+5% this week",   class_="w-full")
-    mt.info("Fetching latest benchmark data…")
+    mt.spinner("small")
 
     mt.markdown("---")
     mt.subheader("Server Status")
+    # Each stat rendered as label + meter (semantic colour cue) + detail line
     server_stats = [
-        ("CPU Usage",   "34%", "8-core / 3.2 GHz"),
-        ("Memory",      "61%", "9.8 GB / 16 GB"),
-        ("Disk I/O",    "12%", "Read: 42 MB/s"),
-        ("Network In",  "8%",  "128 Mbps"),
-        ("Network Out", "15%", "240 Mbps"),
+        ("CPU Usage",   0.34, "8-core / 3.2 GHz"),
+        ("Memory",      0.61, "9.8 GB / 16 GB"),
+        ("Disk I/O",    0.12, "Read: 42 MB/s"),
+        ("Network In",  0.08, "128 Mbps"),
+        ("Network Out", 0.15, "240 Mbps"),
     ]
-    for col, (label, pct, detail) in zip(mt.columns(len(server_stats)), server_stats):
+    for col, (label, val, detail) in zip(mt.columns(len(server_stats)), server_stats):
         with col:
-            mt.metric(label, pct, detail, class_="w-full")
+            mt.write(label, class_="text-xs font-semibold")
+            mt.meter(val, low=0.5, high=0.75, optimum=0.2)
+            mt.write(f"{int(val*100)}% — {detail}", class_="text-xs")
 
     mt.markdown("---")
     mt.subheader("Response Time — last 7 days")
@@ -132,6 +126,10 @@ with tab_performance:
 
 # ── Reports ───────────────────────────────────────────────────────────────────
 with tab_reports:
+    mt.breadcrumb([
+        {"label": "Dashboard", "href": "#"},
+        {"label": "Reports"},
+    ])
     mt.subheader("Recent Orders")
     orders_df = pd.DataFrame({
         "Order ID":  ["#1042", "#1041", "#1040", "#1039", "#1038"],
@@ -152,6 +150,9 @@ with tab_reports:
             orders_df[orders_df["Status"].isin(["Shipped", "Delivered"])].reset_index(drop=True),
             class_="w-full",
         )
+
+    _order_page = mt.pagination(total_pages=5, current_page=1, key="orders_page")
+    mt.write(f"Page **{_order_page}** of 5", class_="text-xs")
 
     mt.markdown("---")
     mt.subheader("Notifications")
@@ -201,7 +202,7 @@ col_left, col_right = mt.columns(2)
 with col_left:
     mt.subheader("Profile", class_="font-semibold mb-2")
     name  = mt.text_input("Full Name",   value="Alice Brown",            key="acc_name")
-    email = mt.text_input("Email",       value="alice@example.com",      key="acc_email")
+    email = mt.email_input("Email",      value="alice@example.com",      key="acc_email")
     role  = mt.selectbox("Role", ["Admin", "Editor", "Viewer"],           key="acc_role")
     start = mt.date_input("Start Date",  value="2024-01-15",              key="acc_start")
     bio   = mt.text_area("Bio",          value="Product designer at Oat.", key="acc_bio")
@@ -225,28 +226,20 @@ with col_right:
 
 mt.markdown("---")
 
+# Action buttons — Save / Cancel / Delete (delete uses mt.dialog for confirmation)
 btn_save, btn_cancel, btn_delete = mt.columns([2, 1, 1])
 with btn_save:
     if mt.button("Save Changes", class_="w-full"):
         mt.session_state["save_success"] = True
-        mt.session_state["show_delete_confirm"] = False
 with btn_cancel:
-    if mt.button("Cancel", key="btn_cancel", class_="w-full"):
-        mt.session_state["save_success"] = False
+    mt.button("Cancel", key="btn_cancel", class_="w-full")
 with btn_delete:
-    if mt.button("Delete Account", key="btn_delete", class_="w-full"):
-        mt.session_state["show_delete_confirm"] = True
-
-if mt.session_state.get("save_success"):
-    mt.success(f"Changes saved for **{name}** ({email}).")
-
-if mt.session_state.get("show_delete_confirm"):
-    mt.warning("Are you sure? This action cannot be undone.")
-    c_confirm, c_abort = mt.columns(2)
-    with c_confirm:
-        if mt.button("Yes, delete", key="confirm_delete", class_="w-full"):
+    with mt.dialog("Delete Account", trigger_label="Delete Account"):
+        mt.warning("Are you sure? All data will be permanently removed.")
+        if mt.button("Yes, delete my account", key="confirm_delete"):
             mt.error("Account deletion is disabled in this demo.")
-            mt.session_state["show_delete_confirm"] = False
-    with c_abort:
-        if mt.button("Cancel", key="abort_delete", class_="w-full"):
-            mt.session_state["show_delete_confirm"] = False
+
+# Toast replaces the inline success banner
+if mt.session_state.get("save_success"):
+    mt.toast(f"Changes saved for {name}.", title="Saved", variant="success")
+    mt.session_state["save_success"] = False

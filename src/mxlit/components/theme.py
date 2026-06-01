@@ -1,5 +1,4 @@
-from mxlit.state import session_state
-from mxlit.constants import THEME_KEY, _DEFAULTS, _FLAT_KEYS  # noqa: F401
+from mxlit.constants import THEME_KEY, _DEFAULTS, _FLAT_KEYS, theme_manager  # noqa: F401
 
 
 def theme(tokens: dict | None = None) -> dict[str, str]:
@@ -73,29 +72,7 @@ def theme(tokens: dict | None = None) -> dict[str, str]:
             "schemes.light.onBackground": "#1e293b",
         })
     """
-    # 1. Start from the stored theme, falling back to built-in defaults
-    current: dict[str, str] = {**_DEFAULTS, **session_state.get(THEME_KEY, {})}
-
-    # 2. Absorb transient flat keys written by color-picker widgets, then
-    #    delete them so they don't shadow future preset / explicit overrides.
-    for flat_key, theme_key in _FLAT_KEYS.items():
-        if flat_key in session_state:
-            current[theme_key] = session_state[flat_key]
-            del session_state[flat_key]
-
-    # 3. Merge explicit caller overrides (highest priority)
-    if tokens:
-        for key, value in tokens.items():
-            if key not in _DEFAULTS:
-                raise ValueError(
-                    f"mt.theme(): unknown key {key!r}. "
-                    f"Valid keys: {sorted(_DEFAULTS)}"
-                )
-            current[key] = value
-
-    # 4. Persist as the single canonical theme — the template reads this and
-    #    emits the <style> block automatically on every render, so the UI is
-    #    always in sync without any extra work from the user script.
-    session_state[THEME_KEY] = current
-
-    return dict(current)
+    # Delegate all merge/absorb/persist logic to the canonical ThemeManager.
+    # This eliminates the duplication that previously existed between here and
+    # server.py's _resolve_theme() helper.
+    return theme_manager.apply(tokens)

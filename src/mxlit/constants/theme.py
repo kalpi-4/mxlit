@@ -73,3 +73,86 @@ _FLAT_KEYS: dict[str, str] = {
     f"theme_{key.replace('.', '_')}": key
     for key in _DEFAULTS
 }
+
+
+# ── ThemeManager ───────────────────────────────────────────────────────────────
+
+class ThemeManager:
+    """Single authoritative owner of theme merge logic.
+
+    Two consumers previously duplicated the same dict-merge rule:
+
+    * ``server.py :: _resolve_theme()``  — a lightweight read used by the
+      Jinja2 template on every HTTP response.
+    * ``components/theme.py :: theme()`` — the user-facing API that also
+      absorbs color-picker widget keys and persists the result.
+
+    Both now delegate here, eliminating the duplication.
+    """
+
+    @staticmethod
+    def _ss():
+        """Lazy accessor for session_state (avoids circular import at module level)."""
+        from mxlit.state import session_state  # noqa: PLC0415
+        return session_state
+
+    def resolve(self) -> dict[str, str]:
+        """Lightweight read — merge session overrides onto defaults.
+
+        No side effects: does **not** absorb widget keys, does **not** persist.
+        Called by server endpoints on every HTTP response to build the
+        ``theme_vars`` dict injected into the Jinja2 template context.
+
+        Returns:
+            Full resolved token dict (386 Material + any session overrides).
+        """
+        ss = self._ss()
+        return {**_DEFAULTS, **ss.get(THEME_KEY, {})}
+
+    def apply(self, tokens: dict[str, str] | None = None) -> dict[str, str]:
+        """Full apply — absorb widget keys, merge explicit overrides, persist.
+
+        This is the implementation of the user-facing ``mt.theme()`` API.
+
+        Steps:
+        1. Read current stored theme (or fall back to ``_DEFAULTS``).
+        2. Absorb transient flat keys written by ``color_picker`` widgets.
+        3. Merge explicit *tokens* argument (highest priority).
+        4. Persist result back to ``session_state[THEME_KEY]``.
+        5. Return the complete resolved dict.
+
+        Args:
+            tokens: Optional ``{dot.notation.path: "#RRGGBB"}`` overrides.
+                    Unknown keys raise :class:`ValueError`.
+
+        Returns:
+            Full resolved token dict after all merges and persistence.
+
+        Raises:
+            ValueError: If *tokens* contains a key not in ``_DEFAULTS``.
+        """
+        ss = self._ss()
+        current: dict[str, str] = {**_DEFAULTS, **ss.get(THEME_KEY, {})}
+
+        # Absorb transient flat keys (color-picker widget side-effects)
+        for flat_key, theme_key in _FLAT_KEYS.items():
+            if flat_key in ss:
+                current[theme_key] = ss[flat_key]
+                del ss[flat_key]
+
+        # Merge explicit caller overrides (highest priority)
+        if tokens:
+            for key, value in tokens.items():
+                if key not in _DEFAULTS:
+                    raise ValueError(
+                        f"mt.theme(): unknown key {key!r}. "
+                        f"Valid keys: {sorted(_DEFAULTS)}"
+                    )
+                current[key] = value
+
+        ss[THEME_KEY] = current
+        return dict(current)
+
+
+#: Module-level singleton — import this from ``mxlit.constants``.
+theme_manager = ThemeManager()

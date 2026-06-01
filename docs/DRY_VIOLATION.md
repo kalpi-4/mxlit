@@ -4,20 +4,18 @@
 
 - [Executive Summary](#executive-summary)
 - [Section 1 — Identified Violations](#section-1--identified-violations)
-  - [1A · Component Registration Boilerplate](#1a--component-registration-boilerplate-43-repetitions-across-7-files)
-  - [1B · Theme Resolution Split](#1b--theme-resolution-split-3-sources-of-truth)
-  - [1C · Script Execution & Error Handling](#1c--script-execution--error-handling-verbatim-copy-paste-between-two-endpoints)
-  - [1D · Path Constants & Package Manifest](#1d--path-constants--package-manifest)
-- [Section 2 — Proposed Solutions](#section-2--proposed-solutions)
-  - [Solution A: `register_component` Helper + `_registry.py`](#solution-a-register_component-helper--_registrypy)
-  - [Solution B: `ThemeManager` in `constants/theme.py`](#solution-b-thememanager-in-constantsthemepy)
-  - [Solution C: `_run_script` & `_coerce_form_value` in `server.py`](#solution-c-_run_script--_coerce_form_value-in-serverpy)
-  - [Solution D: Consolidate Paths via `_paths.py`](#solution-d-consolidate-paths-via-_pathspy)
+  - [1A · Component Registration Boilerplate ✅](#1a--component-registration-boilerplate-43-repetitions--resolved)
+  - [1B · Theme Resolution Split ✅](#1b--theme-resolution-split-3-sources-of-truth--resolved)
+  - [1C · Script Execution & Error Handling ✅](#1c--script-execution--error-handling-verbatim-copy-paste--resolved)
+  - [1D · Path Constants & Package Manifest ✅](#1d--path-constants--package-manifest--fully-resolved)
+  - [1E · Parallel Container Patterns ✅](#1e--parallel-container-patterns--fully-resolved)
+- [Section 2 — Solutions](#section-2--proposed-solutions)
+  - [Solution A: Decorator Architecture ✅](#solution-a-decorator-architecture-in-basepy--implemented--supersedes-original-proposal)
+  - [Solution B: `ThemeManager` ✅](#solution-b-thememanager-in-constantsthemepy--implemented)
+  - [Solution C: `_run_script` & helpers ✅](#solution-c-_run_script--_coerce_form_value--implemented-in-serverpy)
+  - [Solution D: `_paths.py` ✅](#solution-d-_pathspy-shared-constants--implemented)
+  - [Solution E: Migrate Containers ✅](#solution-e-migrate-containercontextmanager-to-compositecomponent--implemented)
 - [Section 3 — Implementation Roadmap](#section-3--implementation-roadmap)
-  - [Priority 1 — Immediate](#priority-1--immediate-zero-behavioral-risk)
-  - [Priority 2 — Short-Term](#priority-2--short-term-cross-file-low-risk)
-  - [Priority 3 — Medium-Term](#priority-3--medium-term-architectural)
-  - [Priority 4 — Long-Term](#priority-4--long-term-structural)
 - [Dependency Map](#dependency-map)
 - [Quick-Reference: Violation → Solution Matrix](#quick-reference-violation--solution-matrix)
 
@@ -25,296 +23,308 @@
 
 ## Executive Summary
 
-The audit found **four distinct categories** of DRY violations. None individually break correctness,
-but together they mean that every future feature, bug-fix, or new component type must be applied in
-multiple places simultaneously or risk silent divergence. The most impactful is the
-component-registration boilerplate, which recurs **43 times** across seven files; the second most
-impactful is the duplicated script-execution block in `server.py`.
+The original audit found **four distinct categories** of DRY violations.  Since then, significant
+refactoring has resolved the majority of them:
 
-**Since the original audit**, one violation has been resolved: `setup.py` has been deleted and
-`pytailwindcss` is now properly declared in `pyproject.toml` as a dev extra (task 1.3 ✓).
+| Category | Original severity | Current status |
+|---|---|---|
+| 1A — Component registration boilerplate (43×) | Critical | ✅ **Fully resolved** |
+| 1B — Theme resolution split (3 sources) | Medium | ✅ **Fully resolved** |
+| 1C — Script execution & form-coercion copy-paste | High | ✅ **Fully resolved** |
+| 1D — Path constants & package manifest | Low | ✅ **Fully resolved** |
+| 1E — Parallel container patterns | Low | ✅ **Fully resolved** |
+
+**All violations are now closed.** The codebase has zero instances of the original boilerplate patterns.
 
 ---
 
 ## Section 1 — Identified Violations
 
-### 1A · Component Registration Boilerplate *(43 repetitions across 7 files)*
+### 1A · Component Registration Boilerplate *(43 repetitions — ✅ RESOLVED)*
 
-Every component function across `text.py`, `data.py`, `widgets.py`, `charts.py`, `media.py`,
-`status.py`, and `layout.py` opens with an identical three-part ritual:
+**Original violation:** Every component function opened with an identical three-part ritual:
 
 ```python
 def write(*args, class_: str = ""):
-    ctx = get_context()            # ① lookup  — repeated 43×
-    if ctx:                        # ② guard   — repeated 43×
-        ctx.add_component({...})   # ③ register — repeated 41×
+    ctx = get_context()            # ① repeated 43×
+    if ctx:                        # ② repeated 43×
+        ctx.add_component({...})   # ③ repeated 41×
     else:
-        print(*args)               # ④ fallback — repeated ~40×
+        print(*args)               # ④ repeated ~40×
 ```
 
-The only part that differs is the component dict payload. Adding cross-cutting behaviour (e.g.,
-component IDs, render hooks, performance tracing) requires 43 edits.
+**Resolution:** `src/mxlit/components/base.py` introduces two factory decorators and a base class
+hierarchy that encapsulate the entire boilerplate:
 
-**Breakdown by file (recalculated from source):**
+| Class / Decorator | Replaces | Used by |
+|---|---|---|
+| `@component(ComponentType.X)` | ①②③④ for display components | `text.py`, `charts.py`, `data.py`, `media.py`, `status.py`, new OAT primitives in `layout.py` |
+| `@widget_component(ComponentType.X, htmx=…, oat=…)` | ①②③ for stateful widgets | all 16 widget functions in `widgets.py` |
+| `BaseComponent` dataclass | Manual dict construction + `ctx.add_component()` | `status.exception()`, composite factories |
+| `CompositeComponent(BaseComponent)` | `ContainerContextManager` boilerplate for nested-child components | `card`, `dialog`, `grid`, `input_group` in `layout.py` |
+
+**Current function counts (all boilerplate eliminated):**
 
 | File | Functions | Pattern |
 |------|-----------|---------|
-| `text.py` | 12 | ①②③④ (display functions) |
-| `widgets.py` | 11 | ①②③ (no `else` fallback; returns value) |
-| `charts.py` | 4 | ①②③④ |
-| `data.py` | 4 | ①②③④ |
-| `media.py` | 4 | ①②③④ |
-| `status.py` | 5 | ①②③④ |
-| `layout.py` | 3 | ①② in `__enter__`/`__exit__`/`page_config`; ③ in `__exit__` only |
-| **Total** | **43** | |
+| `text.py` | 12 | `@component` (3 via `_make_heading` factory) |
+| `widgets.py` | 16 | `@widget_component` |
+| `charts.py` | 4 | `@component` via `_make_chart` factory |
+| `data.py` | 4 | `@component` |
+| `media.py` | 4 | `@component` |
+| `status.py` | 5 | 4 via `@component` + `_make_status_variant`; 1 (`exception`) via `BaseComponent` directly |
+| `layout.py` | 14 OAT primitives | `@component` or `CompositeComponent` factory |
+| **Total** | **59** | Zero instances of the old boilerplate |
 
-The only part that differs between instances is the component dict payload.
-
-**Sub-violation: duplicated `_generate_key` utility.**
-The helper exists independently in `widgets.py` (line 5) and `charts.py` (line 4) with different
-signatures and reversed argument order:
-
-```python
-# widgets.py  — (label, component_type) → md5("component_type-label")
-def _generate_key(label: str, component_type: str) -> str:
-    return hashlib.md5(f"{component_type}-{label}".encode()).hexdigest()
-
-# charts.py   — (component_type, data) → md5("component_type-str(data)")
-def _generate_key(component_type: str, data) -> str:
-    return hashlib.md5(f"{component_type}-{str(data)}".encode()).hexdigest()
-```
+**Sub-violation `_generate_key` — ✅ RESOLVED.**
+`BaseComponent.generate_key(component_type, discriminator)` is the single canonical implementation.
+Both `widgets.py` and `charts.py` import and call it from `base.py`.  The two incompatible private
+`_generate_key` helpers no longer exist.
 
 ---
 
-### 1B · Theme Resolution Split *(3 sources of truth)*
+### 1B · Theme Resolution Split *(✅ FULLY RESOLVED)*
 
-**`server.py` lines 15–17** — thin helper called by both `/interact` and `/modify`:
+**Resolution:**
 
-```python
-def _resolve_theme() -> dict:
-    return {**_THEME_DEFAULTS, **session_state.get(THEME_KEY, {})}
-```
-
-**`components/theme.py` line 77** — the user-facing `mt.theme()` opens with the *identical* merge:
-
-```python
-current: dict[str, str] = {**_DEFAULTS, **session_state.get(THEME_KEY, {})}
-```
-
-`_THEME_DEFAULTS` and `_DEFAULTS` are the same object (`_DEFAULTS` is imported with an alias in
-`server.py`). The merge rule — and its precedence — lives in two places.
-
-**CSS layer divergence.** The theme's default values are hardcoded a third time in `static/input.css`
-as **46 build-time CSS custom properties (23 light, 23 dark)**. These hex values already exist in
-`theme.json`. They must be kept in sync manually whenever the palette seed changes.
-
-The runtime override block in `components.html` (lines 12–48) then overwrites **all 23** of those
-variables on every HTMX response via `color-mix()` expressions, making the `:root {}` block in
-`input.css` entirely redundant at runtime (it serves only as a no-JavaScript fallback).
+- **`server.py`** — the `_resolve_theme()` helper was removed. All three endpoints now call
+  `theme_manager.resolve()` from `mxlit.constants`.
+- **`components/theme.py`** — the inline merge + absorb + persist block was replaced with a single
+  delegation call `return theme_manager.apply(tokens)`.
+- **`constants/theme.py`** — `ThemeManager` is the single authoritative owner of the merge logic:
+  `resolve()` for lightweight reads, `apply()` for the full absorb-merge-persist cycle.
+- **`static/input.css`** — the 34 hardcoded CSS custom-property values are now regenerated from
+  `oat.min.css` via `mxlit sync-css-tokens` (Task 3.2), eliminating the manual sync risk.
 
 ---
 
-### 1C · Script Execution & Error Handling *(verbatim copy-paste between two endpoints)*
+### 1C · Script Execution & Error Handling *(verbatim copy-paste — ✅ RESOLVED)*
 
-The following 12-line block is copy-pasted **without modification** between `/interact` (lines 95–110)
-and `/modify` (lines 190–202):
+**Original violation:** A 12-line block (runpy + AppContext + error handler) was copy-pasted
+between `/interact` and `/modify`.  The form-value type-coercion block (3 `isinstance` checks,
+22 lines) was also duplicated.  `RerunException` was a fragile local class caught by string name.
+
+**Resolution:** Three helpers now live at the top of `server.py`:
 
 ```python
-script_path = get_script_path()
-ctx = AppContext()
-token = _current_context.set(ctx)
-try:
-    runpy.run_path(script_path, run_name="__main__")
-except Exception as e:
-    if type(e).__name__ == "RerunException":
+# src/mxlit/server.py
+
+def _coerce_form_value(key: str, value: str) -> object:  # single canonical type coercion
+    ...
+
+def _apply_form_data(form_data) -> None:                 # single write-to-session call site
+    for key, value in form_data.items():
+        session_state[key] = _coerce_form_value(key, value)
+
+def _run_script(script_path: str) -> AppContext:         # single canonical script executor
+    reset_render_counts()
+    ctx = AppContext()
+    token = _current_context.set(ctx)
+    try:
+        runpy.run_path(script_path, run_name="__main__")
+    except RerunException:   # ← caught by type, not by string comparison
         pass
-    else:
+    except Exception as e:
         ctx.add_component({"type": "write", "content": f"Error executing script: {e}"})
-finally:
-    _current_context.reset(token)
+    finally:
+        _current_context.reset(token)
+    return ctx
 ```
 
-Two embedded problems:
-1. **`type(e).__name__ == "RerunException"`** is a fragile string-comparison guard. `RerunException`
-   is defined as a *local class* inside `mxlit.rerun()`, so it cannot be imported and caught
-   normally. Any unrelated exception with that name would be silently swallowed.
-2. The **form-value type-coercion block** (3 `isinstance` checks, 22 lines) is also copy-pasted
-   between `/interact` (lines 65–86) and `/modify` (lines 167–188).
+`RerunException` is a module-level `BaseException` subclass in `src/mxlit/_exceptions.py`,
+imported by name in `server.py`.  All three endpoints (`/interact`, `/refresh/{id}`, `/modify`)
+call `_apply_form_data` + `_run_script` without any duplication.
 
 ---
 
-### 1D · Path Constants & Package Manifest
+### 1D · Path Constants & Package Manifest *(✅ FULLY RESOLVED)*
 
-**Resolved:** `setup.py` has been deleted; `pyproject.toml` (hatchling) is the sole build config
-and correctly declares `pytailwindcss` in `[project.optional-dependencies] dev`. Task 1.3 ✓
+- **Task 1.3 ✓** — `setup.py` deleted; `pyproject.toml` (hatchling) is the sole build config with
+  `pytailwindcss` in `[project.optional-dependencies] dev`.
 
-**Remaining:** Three path constants are computed independently across two modules:
+- **Task 1.4 ✓** — `src/mxlit/_paths.py` centralises all five path constants:
 
-```python
-# cli.py lines 10–12
-_STATIC_DIR = Path(__file__).parent / "static"
-_INPUT_CSS  = _STATIC_DIR / "input.css"
-_OUTPUT_CSS = _STATIC_DIR / "style.css"
+  ```python
+  # src/mxlit/_paths.py
+  PACKAGE_DIR   = Path(__file__).parent
+  STATIC_DIR    = PACKAGE_DIR / "static"
+  TEMPLATES_DIR = PACKAGE_DIR / "templates"
+  INPUT_CSS     = STATIC_DIR / "input.css"
+  OUTPUT_CSS    = STATIC_DIR / "style.css"
+  ```
 
-# server.py lines 34, 38
-STATIC_DIR    = Path(__file__).parent / "static"
-TEMPLATES_DIR = Path(__file__).parent / "templates"
-```
+  `cli.py` imports `INPUT_CSS, OUTPUT_CSS`; `server.py` imports `STATIC_DIR, TEMPLATES_DIR`.
+  No path is computed independently in any module.
 
-`STATIC_DIR` is duplicated; `TEMPLATES_DIR` and the CSS paths are single-use but would also benefit
-from a shared constants module for consistency and IDE navigation.
+---
+
+### 1E · Parallel Container Patterns *(✅ FULLY RESOLVED)*
+
+**Resolution:** `ContainerContextManager` has been deleted from `layout.py`. Every composite
+container now uses `CompositeComponent`:
+
+| Function | Type | Return |
+|---|---|---|
+| `columns(spec)` | `ComponentType.COLUMN` | `list[CompositeComponent]` |
+| `tabs(labels)` | `ComponentType.TAB` | `list[CompositeComponent]` |
+| `expander(label)` | `ComponentType.EXPANDER` | `CompositeComponent` |
+| `container(horizontal)` | `ComponentType.CONTAINER` | `CompositeComponent` |
+| `sidebar` singleton | `ComponentType.SIDEBAR` | `CompositeComponent` (via `Sidebar.__enter__`) |
+| `card(header, footer)` | `ComponentType.CARD` | `CompositeComponent` |
+| `dialog(title)` | `ComponentType.DIALOG` | `CompositeComponent` |
+| `grid()` | `ComponentType.GRID` | `CompositeComponent` |
+| `input_group(prefix)` | `ComponentType.INPUT_GROUP` | `CompositeComponent` |
+
+`ComponentType.COLUMN = "column"` and `ComponentType.TAB = "tab"` were added to `base.py` so
+all types are registered in the exhaustive enum.  `page_config()` retains its direct
+`get_context()` call — it is not a container and has no equivalent in either pattern.
 
 ---
 
 ## Section 2 — Proposed Solutions
 
-### Solution A: `register_component` Helper + `_registry.py`
+### Solution A: Decorator Architecture in `base.py` *(✅ IMPLEMENTED — supersedes original proposal)*
 
-Replace the 43-repetition boilerplate with a single function:
-
-```python
-# src/mxlit/components/_registry.py
-from mxlit.context import get_context
-
-def register_component(payload: dict, *, fallback=None) -> None:
-    ctx = get_context()
-    if ctx:
-        ctx.add_component(payload)
-    elif fallback is not None:
-        fallback()
-```
-
-Every display-only component collapses from 5 lines to 2–3:
+The original proposal was a `register_component` helper in `_registry.py`.  The actual
+implementation is architecturally superior: `base.py` provides a full `BaseComponent` dataclass
+hierarchy with two factory decorators.
 
 ```python
-def title(text: str, class_: str = ""):
-    register_component(
-        {"type": "title", "content": text, "class_": class_},
-        fallback=lambda: print(f"# {text}"),
-    )
+# src/mxlit/components/base.py  (implemented)
+
+@dataclass
+class BaseComponent:
+    type: ComponentType
+    props: dict
+    _htmx: HtmxProps | None
+    _oat:  OatProps  | None
+    def __post_init__(self): self._register()   # single registration point
+
+@dataclass
+class CompositeComponent(BaseComponent):        # deferred registration via with block
+    ...
+
+def component(component_type, *, htmx=None, oat=None):
+    """Decorator for display-only components."""
+    ...
+
+def widget_component(component_type, *, htmx=None, oat=None):
+    """Decorator for stateful widgets (reads + writes session_state)."""
+    ...
 ```
 
-Move the single canonical `_generate_key` here and import it from both `widgets.py` and `charts.py`.
+Key advantages over the original proposal:
+- `HtmxProps` and `OatProps` dataclasses make HTMX/OAT attributes type-safe and discoverable
+- `ComponentType(str, Enum)` is the authoritative registry of all component strings
+- `BaseComponent.generate_key()` is the single canonical key generator
+- `CompositeComponent` handles nested-children collection without any boilerplate
 
 ---
 
-### Solution B: `ThemeManager` in `constants/theme.py`
+### Solution B: `ThemeManager` in `constants/theme.py` *(✅ IMPLEMENTED)*
+
+Extracted the common merge rule from `_resolve_theme()` (server.py) and `theme()` (theme.py)
+into a single object:
 
 ```python
+# proposed: src/mxlit/constants/theme.py
+
 class ThemeManager:
     def resolve(self) -> dict[str, str]:
-        """Merge session overrides onto defaults. Used by templates."""
+        """Lightweight read used by server templates. No side effects."""
         return {**_DEFAULTS, **session_state.get(THEME_KEY, {})}
 
     def apply(self, tokens: dict | None = None) -> dict[str, str]:
-        """Full apply: absorb widget keys, merge overrides, persist."""
+        """Full apply: absorb color-picker widget keys, merge overrides, persist."""
         current = self.resolve()
-        # … widget absorption + explicit override logic …
+        for flat_key, theme_key in _FLAT_KEYS.items():
+            if flat_key in session_state:
+                current[theme_key] = session_state[flat_key]
+                del session_state[flat_key]
+        if tokens:
+            for key, value in tokens.items():
+                if key not in _DEFAULTS:
+                    raise ValueError(f"Unknown token key: {key!r}")
+                current[key] = value
         session_state[THEME_KEY] = current
         return dict(current)
 
 theme_manager = ThemeManager()
 ```
 
-`server.py` drops `_resolve_theme()` and calls `theme_manager.resolve()`.
-`components/theme.py::theme()` delegates to `theme_manager.apply()`.
+`server.py` replaced `_resolve_theme()` with `theme_manager.resolve()`.
+`components/theme.py::theme()` delegates its merge + persist logic to `theme_manager.apply()`.
 
-**CSS sync:** Add a `mxlit sync-css-tokens` CLI sub-command that writes the `:root {}` and
-`[data-theme="dark"] {}` blocks in `input.css` directly from `_DEFAULTS`, eliminating manual hex
-maintenance.
-
----
-
-### Solution C: `_run_script` & `_coerce_form_value` in `server.py`
-
-```python
-async def _run_script() -> AppContext:
-    script_path = get_script_path()
-    ctx = AppContext()
-    token = _current_context.set(ctx)
-    try:
-        runpy.run_path(script_path, run_name="__main__")
-    except RerunException:         # caught by type, not string
-        pass
-    except Exception as e:
-        ctx.add_component({"type": "write", "content": f"Error: {e}"})
-    finally:
-        _current_context.reset(token)
-    return ctx
-
-def _coerce_form_value(value: str, current) -> object:
-    if isinstance(current, bool):
-        return str(value).lower() in ("true", "1", "yes", "on")
-    if isinstance(current, int):
-        try: return int(value)
-        except ValueError: return value
-    if isinstance(current, float):
-        try: return float(value)
-        except ValueError: return value
-    return value
-
-async def _apply_form_data(form_data) -> None:
-    for key, value in form_data.items():
-        session_state[key] = _coerce_form_value(value, session_state.get(key, value))
-```
-
-**Fix `RerunException`:** Move the class to `src/mxlit/_exceptions.py` at module level as a
-`BaseException` subclass (consistent with Python's control-flow signal convention — `SystemExit`,
-`KeyboardInterrupt`). Import and catch it by type everywhere.
+**CSS sync:** `mxlit sync-css-tokens` (Task 3.2) parses `oat.min.css` and regenerates the
+`:root {}` and `[data-theme="dark"] {}` blocks in `input.css`, eliminating the 22+ hand-maintained
+values. Run after upgrading `oat.min.css` to keep the fallback CSS in sync.
 
 ---
 
-### Solution D: Consolidate Paths via `_paths.py`
+### Solution C: `_run_script` & `_coerce_form_value` *(✅ IMPLEMENTED in `server.py`)*
 
-- Create `src/mxlit/_paths.py` with `PACKAGE_DIR`, `STATIC_DIR`, `TEMPLATES_DIR`, `INPUT_CSS`,
-  `OUTPUT_CSS`; import from it in both `cli.py` and `server.py`.
+Implemented exactly as proposed.  See `server.py` lines 31–70.  All three endpoints call the
+shared helpers; `RerunException` is caught by type via `_exceptions.py`.
 
-```python
-# src/mxlit/_paths.py
-from pathlib import Path
+---
 
-PACKAGE_DIR   = Path(__file__).parent
-STATIC_DIR    = PACKAGE_DIR / "static"
-TEMPLATES_DIR = PACKAGE_DIR / "templates"
-INPUT_CSS     = STATIC_DIR / "input.css"
-OUTPUT_CSS    = STATIC_DIR / "style.css"
-```
+### Solution D: `_paths.py` shared constants *(✅ IMPLEMENTED)*
+
+`src/mxlit/_paths.py` exists with all five constants.  Both `cli.py` and `server.py` import from
+it.  No module computes its own path constants.
+
+---
+
+### Solution E: Migrate `ContainerContextManager` to `CompositeComponent` *(✅ IMPLEMENTED)*
+
+`ContainerContextManager` has been deleted.  All containers now use `CompositeComponent`:
+
+- `columns(spec)` returns a **list** of `CompositeComponent(type=COLUMN)`.  Each element is an
+  independent context manager; the template's look-ahead grouping logic is unchanged.
+- `tabs(labels)` returns a **list** of `CompositeComponent(type=TAB)`.  Same pattern as columns.
+- `expander(label)` returns a single `CompositeComponent(type=EXPANDER)`.
+- `container(horizontal)` returns a single `CompositeComponent(type=CONTAINER)`.
+- `sidebar` singleton delegates `__enter__` / `__exit__` to a fresh `CompositeComponent(type=SIDEBAR)`
+  created per `with` block — no cross-request state on the singleton object.
+- `ComponentType.COLUMN = "column"` and `ComponentType.TAB = "tab"` added to `base.py`.
+- `page_config()` keeps its direct `get_context()` call — it is not a container.
 
 ---
 
 ## Section 3 — Implementation Roadmap
 
-Tasks ordered by **impact-to-risk ratio** (highest isolation, lowest breakage risk first).
+Tasks ordered by **impact-to-risk ratio**.
 
 ### Priority 1 — Immediate (Zero Behavioral Risk)
 
 | Task | Action | Effort | Status |
 |------|--------|--------|--------|
-| 1.1 | Extract `_run_script` and `_coerce_form_value` / `_apply_form_data` in `server.py` | 1 h | ○ |
-| 1.2 | Move `RerunException` to `src/mxlit/_exceptions.py`; catch by type | 30 min | ○ |
-| ~~1.3~~ | ~~Delete `setup.py`; add `pytailwindcss` dev extra to `pyproject.toml`~~ | ~~15 min~~ | ✓ |
-| 1.4 | Create `src/mxlit/_paths.py`; update `cli.py` and `server.py` imports | 20 min | ○ |
+| ~~1.1~~ | ~~Extract `_run_script`, `_coerce_form_value`, `_apply_form_data` in `server.py`~~ | ~~1 h~~ | ✅ |
+| ~~1.2~~ | ~~Move `RerunException` to `src/mxlit/_exceptions.py`; catch by type~~ | ~~30 min~~ | ✅ |
+| ~~1.3~~ | ~~Delete `setup.py`; add `pytailwindcss` dev extra to `pyproject.toml`~~ | ~~15 min~~ | ✅ |
+| ~~1.4~~ | ~~Create `src/mxlit/_paths.py`; update `cli.py` and `server.py` imports~~ | ~~20 min~~ | ✅ |
 
 ### Priority 2 — Short-Term (Cross-File, Low Risk)
 
 | Task | Action | Effort | Status |
 |------|--------|--------|--------|
-| 2.1 | Create `src/mxlit/components/_registry.py` with `register_component` and unified `_generate_key` | 1 h | ○ |
-| 2.2 | Migrate all display-only components (text, media, status, data, charts) to `register_component` | 2–3 h | ○ |
-| 2.3 | Migrate widget functions (return-value functions) to use `register_component` inline | 1 h | ○ |
+| ~~2.1~~ | ~~`BaseComponent` + `@component` / `@widget_component` decorators in `base.py`~~ | ~~2 h~~ | ✅ |
+| ~~2.2~~ | ~~Migrate display-only components (text, media, status, data, charts)~~ | ~~2–3 h~~ | ✅ |
+| ~~2.3~~ | ~~Migrate widget functions to `@widget_component`~~ | ~~1 h~~ | ✅ |
+| ~~2.4~~ | ~~Migrate `ContainerContextManager` usages to `CompositeComponent` (columns, tabs, expander, sidebar)~~ | ~~3–4 h~~ | ✅ |
 
 ### Priority 3 — Medium-Term (Architectural)
 
 | Task | Action | Effort | Status |
 |------|--------|--------|--------|
-| 3.1 | Introduce `ThemeManager`; retire `_resolve_theme()` in `server.py` | 2 h | ○ |
-| 3.2 | Add `mxlit sync-css-tokens` CLI command to generate `:root {}` from `_DEFAULTS` | 3–4 h | ○ |
+| ~~3.1~~ | ~~Introduce `ThemeManager`; retire `_resolve_theme()` in `server.py`~~ | ~~2 h~~ | ✅ |
+| ~~3.2~~ | ~~Add `mxlit sync-css-tokens` CLI command to regenerate oat.ink CSS vars from code~~ | ~~3–4 h~~ | ✅ |
 
 ### Priority 4 — Long-Term (Structural)
 
 | Task | Action | Effort | Status |
 |------|--------|--------|--------|
-| 4.1 | Add `ComponentMiddleware` hook in `register_component` for IDs, tracing, conditional rendering | variable | ○ |
+| 4.1 | Add `ComponentMiddleware` hook in `BaseComponent._register()` for IDs, tracing, conditional rendering | variable | ○ |
 | 4.2 | Move `runpy.run_path` to `asyncio.to_thread` to unblock the SSE event loop | 2 h | ○ |
 
 ---
@@ -322,11 +332,10 @@ Tasks ordered by **impact-to-risk ratio** (highest isolation, lowest breakage ri
 ## Dependency Map
 
 ```
-Task 1.2 (RerunException)   ──► Task 1.1 (_run_script)
-Task 1.4 (_paths.py)        ──► cli.py + server.py cleanup
-Task 2.1 (_registry.py)     ──► Task 2.2, Task 2.3
-Task 3.1 (ThemeManager)     ──► Task 1.1 (uses resolve() in _run_script)
-Task 3.2 (sync-css-tokens)  ──► Task 3.1 (ThemeManager exposes _DEFAULTS)
+Task 2.4 (ContainerContextManager migration) ──► requires CompositeComponent ✅
+Task 3.1 (ThemeManager)     ──► can replace _resolve_theme() independently
+Task 3.2 (sync-css-tokens)  ──► ThemeManager exposes _DEFAULTS cleanly (optional dep)
+Task 4.1 (ComponentMiddleware) ──► requires Task 2.1 complete ✅
 ```
 
 ---
@@ -335,12 +344,13 @@ Task 3.2 (sync-css-tokens)  ──► Task 3.1 (ThemeManager exposes _DEFAULTS)
 
 | # | Violation | Location | Repetitions | Solution | Tasks | Status |
 |---|-----------|----------|-------------|---------|-------|--------|
-| 1A | `get_context()` / `add_component` boilerplate | 7 component files | 43 | `register_component` helper | 2.1, 2.2, 2.3 | ○ |
-| 1A | `_generate_key` duplicated (different signatures) | `widgets.py`, `charts.py` | 2 | Merge into `_registry.py` | 2.1 | ○ |
-| 1B | `_resolve_theme` vs `theme()` merge logic | `server.py`, `theme.py` | 2 | `ThemeManager.resolve()` | 3.1 | ○ |
-| 1B | CSS tokens hardcoded in `input.css` + `theme.json` | `input.css`, `theme.json` | 46 values | Generated `:root {}` block | 3.2 | ○ |
-| 1C | `runpy` + `AppContext` + error handling block | `server.py` | 2 | `_run_script()` helper | 1.1 | ○ |
-| 1C | Form value type-coercion block (3 checks, 22 lines) | `server.py` | 2 | `_coerce_form_value` + `_apply_form_data` | 1.1 | ○ |
-| 1C | `type(e).__name__ == "RerunException"` string check | `server.py` | 2 | Module-level `RerunException` | 1.2 | ○ |
-| ~~1D~~ | ~~Dual `setup.py` + `pyproject.toml` manifests~~ | ~~root~~ | ~~2~~ | ~~Delete `setup.py`~~ | ~~1.3~~ | ✓ |
-| 1D | `STATIC_DIR` / `TEMPLATES_DIR` computed independently | `cli.py`, `server.py` | 2–3 | `_paths.py` shared constants | 1.4 | ○ |
+| ~~1A~~ | ~~`get_context()` / `add_component` boilerplate~~ | ~~7 files~~ | ~~43~~ | ~~`@component` / `@widget_component` decorators~~ | ~~2.1–2.3~~ | ✅ |
+| ~~1A~~ | ~~`_generate_key` duplicated (incompatible signatures)~~ | ~~`widgets.py`, `charts.py`~~ | ~~2~~ | ~~`BaseComponent.generate_key()`~~ | ~~2.1~~ | ✅ |
+| ~~1B~~ | ~~`_resolve_theme` vs `theme()` identical merge rule~~ | ~~`server.py`, `theme.py`~~ | ~~2~~ | ~~`ThemeManager.resolve()`~~ | ~~3.1~~ | ✅ |
+| ~~1B~~ | ~~34 CSS custom property values hardcoded in `input.css`~~ | ~~`input.css`~~ | ~~34 values~~ | ~~Generated blocks via `mxlit sync-css-tokens`~~ | ~~3.2~~ | ✅ |
+| ~~1C~~ | ~~`runpy` + AppContext + error handling block~~ | ~~`server.py`~~ | ~~2~~ | ~~`_run_script()` helper~~ | ~~1.1~~ | ✅ |
+| ~~1C~~ | ~~Form value type-coercion block (3 checks, 22 lines)~~ | ~~`server.py`~~ | ~~2~~ | ~~`_coerce_form_value` + `_apply_form_data`~~ | ~~1.1~~ | ✅ |
+| ~~1C~~ | ~~`type(e).__name__ == "RerunException"` string check~~ | ~~`server.py`~~ | ~~2~~ | ~~Module-level `RerunException` in `_exceptions.py`~~ | ~~1.2~~ | ✅ |
+| ~~1D~~ | ~~Dual `setup.py` + `pyproject.toml` manifests~~ | ~~root~~ | ~~2~~ | ~~Delete `setup.py`~~ | ~~1.3~~ | ✅ |
+| ~~1D~~ | ~~`STATIC_DIR` / `TEMPLATES_DIR` computed independently~~ | ~~`cli.py`, `server.py`~~ | ~~2–3~~ | ~~`_paths.py` shared constants~~ | ~~1.4~~ | ✅ |
+| ~~1E~~ | ~~Parallel container patterns: `ContainerContextManager` alongside `CompositeComponent`~~ | ~~`layout.py`~~ | ~~2 patterns~~ | ~~Migrate legacy containers to `CompositeComponent`~~ | ~~2.4~~ | ✅ |

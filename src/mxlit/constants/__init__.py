@@ -14,6 +14,7 @@ from mxlit.constants.theme import (  # noqa: F401
     _FLAT_KEYS,
     _RAW,
     _flatten_theme,
+    theme_manager,
 )
 
-__all__ = ["THEME_KEY", "_DEFAULTS", "_FLAT_KEYS", "_RAW", "_flatten_theme"]
+__all__ = ["THEME_KEY", "_DEFAULTS", "_FLAT_KEYS", "_RAW", "_flatten_theme", "theme_manager"]

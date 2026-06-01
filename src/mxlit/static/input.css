@@ -1,11 +1,21 @@
-/* ── Tailwind v4 ─────────────────────────────────────────────────────────────
-   This file is the Tailwind CSS entry point.
+/* ── Tailwind v4 — utilities only, NO preflight ──────────────────────────────
+   oat.min.css ships a complete @layer base reset (box-sizing, margins,
+   typography, link colours, form elements, etc.).  Importing the full
+   `tailwindcss` bundle injects Tailwind's own @layer base preflight into
+   style.css, which loads AFTER oat.min.css in base.html.  Within the same
+   cascade layer, later source order wins — so Tailwind's preflight silently
+   overrides every oat.ink base style (headings lose size/weight, links lose
+   colour/underline, inputs lose borders, lists lose markers, etc.).
+
+   Fix: import only the theme tokens and utility classes.  oat.min.css already
+   serves as the global reset; Tailwind's preflight is not needed.
+
    Build:  python -m pytailwindcss -i src/mxlit/static/input.css \
                                    -o src/mxlit/static/style.css
-   Watch:  python -m pytailwindcss -i src/mxlit/static/input.css \
-                                   -o src/mxlit/static/style.css --watch
+   Watch:  add --watch to the command above
    ─────────────────────────────────────────────────────────────────────────── */
-@import "tailwindcss";
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
 
 /* Tell Tailwind v4 where to scan for utility classes */
 @source "../templates/**/*.html";   /* Jinja2 templates                    */
@@ -17,80 +27,61 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 /* ── oat.ink default theme ────────────────────────────────────────────────────
-   Values sourced directly from oat.min.css @layer theme {:root { light-dark(…) }}
+   Values sourced directly from oat.min.css :root { light-dark(…) } declarations.
    Light values are the first argument; dark values are the second.
+   Run `mxlit sync-css-tokens` after upgrading oat.min.css to regenerate.
    ─────────────────────────────────────────────────────────────────────────── */
 
 /* Light (:root) ────────────────────────────────────────────────────────────── */
 :root {
-  --background:           #FFFFFF;   /* light-dark(#fff,     #09090b) */
-  --foreground:           #09090B;   /* light-dark(#09090b,  #fafafa) */
-  --card:                 #FFFFFF;   /* light-dark(#fff,     #18181b) */
-  --card-foreground:      #09090B;   /* light-dark(#09090b,  #fafafa) */
-
-  --primary:              #574747;   /* light-dark(#574747,  #fafafa) — warm neutral */
-  --primary-foreground:   #FAFAFA;   /* light-dark(#fafafa,  #18181b) */
-
-  --secondary:            #F4F4F5;   /* light-dark(#f4f4f5,  #27272a) */
-  --secondary-foreground: #574747;   /* light-dark(#574747,  #fafafa) */
-
-  --muted:                #F4F4F5;   /* light-dark(#f4f4f5,  #27272a) */
-  --muted-foreground:     #71717A;   /* light-dark(#71717a,  #a1a1aa) */
-
-  --faint:                #FAFAFA;   /* light-dark(#fafafa,  #1e1e21) */
-  --faint-foreground:     #A1A1AA;   /* light-dark(#a1a1aa,  #71717a) */
-
-  --accent:               #F4F4F5;   /* light-dark(#f4f4f5,  #27272a) */
-  --accent-foreground:    #574747;   /* light-dark(#574747,  #fafafa) */
-
-  --danger:               #D32F2F;   /* light-dark(#d32f2f,  #f4807b) */
-  --danger-foreground:    #FAFAFA;   /* light-dark(#fafafa,  #18181b) */
-
-  --success:              #008032;   /* light-dark(#008032,  #6cc070) */
-  --success-foreground:   #FAFAFA;   /* light-dark(#fafafa,  #18181b) */
-
-  --warning:              #A65B00;   /* light-dark(#a65b00,  #f0a030) */
-  --warning-foreground:   #09090B;   /* #09090b (same both modes)     */
-
-  --border:               #D4D4D8;   /* light-dark(#d4d4d8,  #52525b) */
-  --input:                #D4D4D8;   /* light-dark(#d4d4d8,  #52525b) */
-  --ring:                 #574747;   /* light-dark(#574747,  #d4d4d8) */
+  --background          : #FFF;
+  --foreground          : #09090B;
+  --card                : #FFF;
+  --card-foreground     : #09090B;
+  --primary             : #574747;
+  --primary-foreground  : #FAFAFA;
+  --secondary           : #F4F4F5;
+  --secondary-foreground: #574747;
+  --muted               : #F4F4F5;
+  --muted-foreground    : #71717A;
+  --faint               : #FAFAFA;
+  --faint-foreground    : #A1A1AA;
+  --accent              : #F4F4F5;
+  --danger              : #D32F2F;
+  --danger-foreground   : #FAFAFA;
+  --success             : #008032;
+  --success-foreground  : #FAFAFA;
+  --warning             : #A65B00;
+  --border              : #D4D4D8;
+  --input               : #D4D4D8;
+  --ring                : #574747;
+  --warning-foreground  : #09090B;
 }
 
 /* Dark ─────────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --background:           #09090B;   /* dark bg  */
-  --foreground:           #FAFAFA;   /* dark fg  */
-  --card:                 #18181B;
-  --card-foreground:      #FAFAFA;
-
-  --primary:              #FAFAFA;
-  --primary-foreground:   #18181B;
-
-  --secondary:            #27272A;
+  --background          : #09090B;
+  --foreground          : #FAFAFA;
+  --card                : #18181B;
+  --card-foreground     : #FAFAFA;
+  --primary             : #FAFAFA;
+  --primary-foreground  : #18181B;
+  --secondary           : #27272A;
   --secondary-foreground: #FAFAFA;
-
-  --muted:                #27272A;
-  --muted-foreground:     #A1A1AA;
-
-  --faint:                #1E1E21;
-  --faint-foreground:     #71717A;
-
-  --accent:               #27272A;
-  --accent-foreground:    #FAFAFA;
-
-  --danger:               #F4807B;
-  --danger-foreground:    #18181B;
-
-  --success:              #6CC070;
-  --success-foreground:   #18181B;
-
-  --warning:              #F0A030;
-  --warning-foreground:   #09090B;
-
-  --border:               #52525B;
-  --input:                #52525B;
-  --ring:                 #D4D4D8;
+  --muted               : #27272A;
+  --muted-foreground    : #A1A1AA;
+  --faint               : #1E1E21;
+  --faint-foreground    : #71717A;
+  --accent              : #27272A;
+  --danger              : #F4807B;
+  --danger-foreground   : #18181B;
+  --success             : #6CC070;
+  --success-foreground  : #18181B;
+  --warning             : #F0A030;
+  --border              : #52525B;
+  --input               : #52525B;
+  --ring                : #D4D4D8;
+  --warning-foreground  : #09090B;
 }
 
 /* ── Base font size ──────────────────────────────────────────────────────────
@@ -261,65 +252,42 @@ ot-tabs[hidden-until-ready] {
   }
 }
 
-/* ── Form element fix ────────────────────────────────────────────────────────
-   Root cause: oat.min.css puts form styles in @layer base.  Tailwind v4 also
-   uses @layer base for its * { border: 0 solid; padding: 0; } preflight reset.
-   Since style.css loads AFTER oat.min.css, Tailwind's @layer base rules appear
-   later in source order within the shared layer, and — at equal (0,0,0)
-   specificity — they win, stripping all borders and padding from inputs and
-   selects.  Re-asserting in @layer components (higher priority than base) fixes
-   this without touching oat.min.css or adding any !important overrides.
+/* ── Form element fix removed ────────────────────────────────────────────────
+   Previously this block re-declared oat.ink form styles inside @layer
+   components to win the specificity race against Tailwind's @layer base
+   preflight.  Now that we import only tailwindcss/theme + tailwindcss/utilities
+   (no preflight), oat.min.css owns the form element styles without conflict.
    ─────────────────────────────────────────────────────────────────────────── */
-@layer components {
-  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]),
-  textarea,
-  select {
-    width: 100%;
-    margin-block-start: var(--space-1);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-7);
-    line-height: var(--leading-normal);
-    background-color: var(--background);
-    color: var(--foreground);
-    border: 1px solid var(--input);
-    border-radius: var(--radius-medium);
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  }
 
-  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color])::placeholder,
-  textarea::placeholder {
-    color: var(--muted-foreground);
-  }
+/* ── Date / time picker indicator (calendar + clock icons) ───────────────────
+   Chromium-based browsers render ::-webkit-calendar-picker-indicator as a
+   dark-coloured glyph regardless of the page colour scheme.  On a dark
+   background the icon becomes invisible.  The fixes below:
+     1. Ensure the cursor is a pointer so users know it's clickable.
+     2. In light mode keep the icon at slightly reduced opacity (feels polished).
+     3. In dark mode invert the icon to white so it's legible on dark inputs.
+   Firefox uses its own internal rendering and is unaffected by these rules.
+   ─────────────────────────────────────────────────────────────────────────── */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.75;
+  border-radius: 3px;
+  padding: 2px;
+  transition: opacity 0.12s ease, background-color 0.12s ease;
+}
 
-  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]):focus,
-  textarea:focus,
-  select:focus {
-    outline: none;
-    border-color: var(--ring);
-    box-shadow: 0 0 0 2px rgb(from var(--ring) r g b / 0.2);
-    z-index: 1;
-  }
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--accent);
+}
 
-  input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]):disabled,
-  textarea:disabled,
-  select:disabled {
-    background-color: var(--muted);
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-
-  textarea {
-    height: auto;
-    min-height: 5rem;
-    padding: var(--space-3);
-    resize: vertical;
-  }
-
-  select {
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right var(--space-2) center;
-    padding-inline-end: var(--space-6);
-  }
+/* Dark mode: invert the glyph from dark to light */
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
 }

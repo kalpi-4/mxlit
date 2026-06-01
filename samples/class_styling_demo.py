@@ -183,17 +183,12 @@ with tb:
     mt.text("mt.text() — fixed-width paragraph")
 
 mt.subheader("Badges")
-_badge_defs = [
-    (tert,    p_on,      "stable",     "font-weight:600;"),
-    (t_ctr,   t_ctr_on,  "beta",       ""),
-    (err_ctr, err_ctr_on,"deprecated", "text-decoration:line-through;"),
-    (p_ctr,   p_ctr_on,  "new",        "font-weight:700;"),
-]
-_bh = '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">'
-for _bc, _fc, _lbl, _xtra in _badge_defs:
-    _bh += f'<span class="badge" style="background:{_bc};color:{_fc};{_xtra}">{_lbl}</span>'
-_bh += '</div>'
-mt.html(_bh)
+# mt.badge() uses OAT's <span class="badge"> — no hardcoded colour needed
+_b1, _b2, _b3, _b4 = mt.columns(4)
+with _b1: mt.badge("stable")
+with _b2: mt.badge("beta")
+with _b3: mt.badge("deprecated")
+with _b4: mt.badge("new")
 
 mt.subheader("Code, Markdown, LaTeX")
 mt.code('mt.theme({"schemes.light.primary": "#9333ea"})', class_="max-w-xl")
@@ -248,6 +243,19 @@ with col6:
     mt.checkbox("Subscribe",          class_="mt-1")
 with col7:
     mt.radio("Plan", ["Free", "Pro", "Enterprise"], class_="mt-2")
+
+mt.subheader("New inputs — email · password · datetime · file")
+col8, col9 = mt.columns(2)
+with col8:
+    mt.email_input("Email address",   class_="max-w-sm")
+    mt.password_input("Password",     class_="max-w-sm")
+with col9:
+    mt.datetime_input("Appointment",  class_="max-w-sm")
+    mt.file_input("Upload document",  accept=".pdf,.docx", class_="max-w-sm")
+
+mt.subheader("Input group — prefix / suffix")
+with mt.input_group(prefix="https://", suffix=".com"):
+    mt.text_input("Domain", class_="w-full")
 mt.markdown("---")
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -255,12 +263,13 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 mt.header("4 · Data", class_="font-bold border-b pb-1")
 
-mt.subheader("Metric cards")
-m1, m2, m3, m4 = mt.columns(4)
-with m1: mt.metric("Revenue",  "$84,200", "+12%",  class_="w-full")
-with m2: mt.metric("Users",    "3,412",   "+5%",   class_="w-full")
-with m3: mt.metric("Churn",    "1.8%",    "-0.3%", class_="w-full")
-with m4: mt.metric("Uptime",   "99.97%",  "Good",  class_="w-full")
+mt.subheader("Metric cards — wrapped in mt.card()")
+with mt.card("Dashboard Overview"):
+    m1, m2, m3, m4 = mt.columns(4)
+    with m1: mt.metric("Revenue", "$84,200", "+12%")
+    with m2: mt.metric("Users",   "3,412",   "+5%")
+    with m3: mt.metric("Churn",   "1.8%",    "-0.3%")
+    with m4: mt.metric("Uptime",  "99.97%",  "Good")
 
 mt.subheader("Dataframe & Table")
 df = pd.DataFrame({
@@ -335,26 +344,31 @@ with mt.expander("Raw API response", class_="border rounded-lg mt-2"):
     mt.code('{"id": "chatcmpl-abc123", "object": "chat.completion"}',
             class_="text-xs")
 
-mt.subheader("Horizontal container — tech-stack pills")
-_tech = [
-    (p_ctr,   p_ctr_on,   "Python 3.12"),
-    (t_ctr,   t_ctr_on,   "FastAPI 0.111"),
-    (surf,    outl,        "Tailwind v4"),
-    (s_ctr,   s_ctr_on,   "oat.ink"),
-    (err_ctr, err_ctr_on, "HTMX 2.x"),
-]
-_tp = (
-    f'<div style="display:flex;gap:0.75rem;flex-wrap:wrap;padding:1rem;'
-    f'background:{surf_low};border-radius:0.75rem;'
-    f'border:1px solid {outl}22;margin-top:0.5rem;">'
-)
-for _bc, _fc, _lbl in _tech:
-    _tp += (
-        f'<span class="badge" style="background:{_bc};color:{_fc};'
-        f'font-size:0.875rem;padding:0.2em 0.85em;">{_lbl}</span>'
-    )
-_tp += '</div>'
-mt.html(_tp)
+mt.subheader("Tech-stack badges — mt.badge() instead of raw HTML")
+for _lbl in ["Python 3.12", "FastAPI 0.111", "Tailwind v4", "oat.ink", "HTMX 2.x"]:
+    mt.badge(_lbl)
+
+mt.subheader("Breadcrumb navigation")
+mt.breadcrumb([
+    {"label": "Home",       "href": "/"},
+    {"label": "Components", "href": "/components"},
+    {"label": "Layout"},
+])
+
+mt.subheader("Button group — segmented control")
+mt.button_group(["Day", "Week", "Month", "Year"], key_prefix="time_")
+
+mt.subheader("Dropdown menu")
+mt.dropdown("Actions", items=[
+    {"label": "Edit",      "href": "#"},
+    {"label": "Duplicate"},
+    {"label": "Delete"},
+])
+
+mt.subheader("Modal dialog")
+with mt.dialog("Confirm Action", trigger_label="Open Dialog"):
+    mt.write("Are you sure you want to proceed with this action?")
+    mt.info("This action cannot be undone.")
 
 mt.markdown("---")
 
@@ -376,9 +390,67 @@ mt.ner_text(
 )
 
 mt.markdown("---")
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 8 · NEW UI PRIMITIVES
+# ═════════════════════════════════════════════════════════════════════════════
+mt.header("8 · New UI Primitives", class_="font-bold border-b pb-1")
+
+mt.subheader("Spinner & Skeleton")
+sp1, sp2, sp3 = mt.columns(3)
+with sp1:
+    mt.write("Spinner — large", class_="text-xs font-semibold")
+    mt.spinner("large")
+with sp2:
+    mt.write("Spinner — small", class_="text-xs font-semibold")
+    mt.spinner("small")
+with sp3:
+    mt.write("Skeleton placeholders", class_="text-xs font-semibold")
+    mt.skeleton("line")
+    mt.skeleton("line")
+    mt.skeleton("box")
+
+mt.subheader("Progress & Meter")
+pr1, pr2 = mt.columns(2)
+with pr1:
+    mt.write("Progress bar (72 %)", class_="text-xs")
+    mt.progress(0.72)
+    mt.write("Indeterminate", class_="text-xs mt-2")
+    mt.progress()
+with pr2:
+    mt.write("Meter — green zone (0.75)", class_="text-xs")
+    mt.meter(0.75, low=0.3, high=0.7, optimum=1.0)
+    mt.write("Meter — warning zone (0.45)", class_="text-xs mt-2")
+    mt.meter(0.45, low=0.3, high=0.7, optimum=1.0)
+
+mt.subheader("Avatar & Avatar Group")
+av1, av2 = mt.columns(2)
+with av1:
+    mt.write("Single avatar — initials", class_="text-xs font-semibold")
+    mt.avatar(initials="JD")
+    mt.write("Small avatar", class_="text-xs mt-2")
+    mt.avatar(initials="AB", size="small")
+with av2:
+    mt.write("Avatar group", class_="text-xs font-semibold")
+    mt.avatar_group(avatars=[
+        {"initials": "JD"},
+        {"initials": "AB"},
+        {"initials": "MK"},
+    ])
+
+mt.subheader("Pagination")
+_page = mt.pagination(total_pages=5, current_page=1, key="demo_page")
+mt.write(f"Selected page: **{_page}**")
+
+mt.subheader("Toast notification")
+mt.write("Click the button to fire a toast:", class_="text-sm")
+if mt.button("Show success toast", key="demo_toast"):
+    mt.toast("Changes saved successfully!", title="Saved", variant="success")
+
+mt.markdown("---")
 mt.write(
-    "All styles were applied via class_ — no custom CSS written. "
-    "Theme tokens are sourced from constants/theme.json (schemes.light.*). "
-    "Change the palette in the sidebar to see every component update live.",
+    "All components use OAT semantic attributes — no hardcoded Tailwind colour classes. "
+    "Theme tokens from constants/theme.json (schemes.light.*). "
+    "Edit colours in the sidebar to see every element update live.",
     class_="text-center text-sm pb-8",
 )

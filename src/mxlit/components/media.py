@@ -1,54 +1,27 @@
-from mxlit.context import get_context
+from typing import Callable
 
-def image(image, width=None, class_: str = ""):
-    """Display an image.
+from mxlit.components.base import ComponentType, component
 
-    Args:
-        image: A URL or file-path string pointing to the image.
-        width: Optional CSS width value (e.g. ``'200px'``, ``'50%'``).
-        class_: Optional Tailwind utility classes applied to the <img> element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "image", "url": image, "width": width, "class_": class_})
-    else:
-        print(f"[Image: {image}]")
 
-def audio(data, class_: str = ""):
-    """Display an audio player.
+@component(ComponentType.IMAGE)
+def image(url, width=None) -> tuple[dict, Callable]:
+    """Display an image."""
+    return ({"url": url, "width": width}, lambda: print(f"[Image: {url}]"))
 
-    Args:
-        data: A URL or file-path string pointing to the audio file.
-        class_: Optional Tailwind utility classes applied to the <audio> element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "audio", "url": data, "class_": class_})
-    else:
-        print(f"[Audio: {data}]")
 
-def video(data, class_: str = ""):
-    """Display a video player.
+@component(ComponentType.AUDIO)
+def audio(url) -> tuple[dict, Callable]:
+    """Display an audio player."""
+    return ({"url": url}, lambda: print(f"[Audio: {url}]"))
 
-    Args:
-        data: A URL or file-path string pointing to the video file.
-        class_: Optional Tailwind utility classes applied to the <video> element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "video", "url": data, "class_": class_})
-    else:
-        print(f"[Video: {data}]")
 
-def logo(image, class_: str = ""):
-    """Display a logo image.
+@component(ComponentType.VIDEO)
+def video(url) -> tuple[dict, Callable]:
+    """Display a video player."""
+    return ({"url": url}, lambda: print(f"[Video: {url}]"))
 
-    Args:
-        image: A URL or file-path string pointing to the logo.
-        class_: Optional Tailwind utility classes applied to the <img> element.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "logo", "url": image, "class_": class_})
-    else:
-        print(f"[Logo: {image}]")
+
+@component(ComponentType.LOGO)
+def logo(url) -> tuple[dict, Callable]:
+    """Display a logo image."""
+    return ({"url": url}, lambda: print(f"[Logo: {url}]"))
