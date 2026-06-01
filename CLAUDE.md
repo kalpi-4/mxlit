@@ -28,7 +28,7 @@ mxlit/                              ← repository root
 ├── CLAUDE.md                       ← this file (Claude project guide)
 ├── docs/
 │   ├── PLAN.md                     ← component architecture plan + gap analysis
-│   ├── DRY_VIOLATION.md            ← 43-instance boilerplate tracker
+│   ├── DRY_VIOLATION.md            ← 43-instance boilerplate tracker (resolved)
 │   ├── functionalities.md          ← Streamlit API reference
 │   └── TODO.md                     ← implementation coverage tracker
 ├── samples/                        ← example user apps
@@ -42,19 +42,33 @@ mxlit/                              ← repository root
 ├── src/
 │   └── mxlit/                      ← installable package
 │       ├── __init__.py             ← public API surface
+│       ├── _exceptions.py          ← RerunException(BaseException)
+│       ├── _paths.py               ← PACKAGE_DIR, STATIC_DIR, TEMPLATES_DIR, INPUT_CSS, OUTPUT_CSS
 │       ├── cli.py                  ← `mxlit run` entry point
-│       ├── server.py               ← FastAPI app (routes, SSE, state)
-│       ├── context.py              ← per-request AppContext
+│       ├── server.py               ← FastAPI app (routes, SSE, state, /refresh/{id})
+│       ├── context.py              ← per-request AppContext (+ _auto_refresh field)
 │       ├── state.py                ← SessionState (global, in-memory)
+│       ├── timers.py               ← setInterval(sync_time), setTimeout(delay) context managers
 │       ├── components/
+│       │   ├── base.py             ← ComponentType, HtmxProps, OatProps, BaseComponent,
+│       │   │                           CompositeComponent, @component, @widget_component,
+│       │   │                           reset_render_counts()
 │       │   ├── charts.py           ← line/bar/area/scatter charts
 │       │   ├── data.py             ← dataframe, table, json, metric
-│       │   ├── layout.py           ← sidebar, columns, tabs, expander
+│       │   ├── layout.py           ← sidebar, columns, tabs, expander, container, card,
+│       │   │                           spinner, progress, skeleton, meter, avatar,
+│       │   │                           avatar_group, breadcrumb, button_group, toast,
+│       │   │                           dialog, dropdown, grid, input_group, space, empty,
+│       │   │                           popover, status, page_config
 │       │   ├── media.py            ← image, audio, video, logo
-│       │   ├── status.py           ← error, warning, info, success
-│       │   ├── text.py             ← write, markdown, title, latex …
+│       │   ├── status.py           ← error, warning, info, success, exception
+│       │   ├── text.py             ← write, markdown, title, latex, badge, ner_text …
 │       │   ├── theme.py            ← mt.theme() — live theme API
-│       │   └── widgets.py          ← button, slider, selectbox …
+│       │   └── widgets.py          ← button, slider, selectbox, email_input,
+│       │                               password_input, datetime_input, file_input,
+│       │                               pagination, multiselect, select_slider,
+│       │                               time_input, link_button, download_button,
+│       │                               pills, feedback …
 │       ├── constants/
 │       │   ├── __init__.py         ← re-exports THEME_KEY, _DEFAULTS, _FLAT_KEYS
 │       │   ├── theme.json          ← 386-token Material Theme Builder palette
@@ -68,7 +82,8 @@ mxlit/                              ← repository root
 │       │   └── style.css           ← compiled Tailwind output
 │       └── templates/
 │           ├── base.html           ← app shell (HTMX, oat.ink, Chart.js, SSE)
-│           └── components.html     ← Jinja2 macro component renderer
+│           ├── components.html     ← Jinja2 macro component renderer
+│           └── component_fragment.html ← single-component fragment for targeted outerHTML swaps
 ├── pyproject.toml                  ← build config (hatchling)
 ├── uv.lock                         ← locked dependency graph
 └── README.md
@@ -545,7 +560,7 @@ meaning — use OAT variant attributes instead.
 | `data-spinner` | `small` `large` `overlay` | spinner size modifier |
 | `title="…"` | tooltip text | any element — OAT renders smooth tooltip |
 
-### 9.3 Current Component → OAT Mapping (implemented)
+### 9.3 Component → OAT Mapping
 
 | mxlit function | OAT element |
 |---|---|
@@ -553,110 +568,176 @@ meaning — use OAT variant attributes instead.
 | `mt.button` | `<button data-variant="secondary">` |
 | `mt.toggle` | `<input type="checkbox" role="switch">` |
 | `mt.text_input` / `mt.text_area` / etc. | `<input>` inside `<label data-field>` |
+| `mt.email_input` / `mt.password_input` / `mt.datetime_input` | `<input type="email|password|datetime-local">` inside `<label data-field>` |
 | `mt.tabs` | `<ot-tabs>` WebComponent |
 | `mt.sidebar` | `<aside data-sidebar>` in `[data-sidebar-layout]` |
 | `mt.expander` | `<details><summary>` |
 | `mt.badge` | `<span class="badge" data-variant="…">` |
+| `mt.card` | `<article class="card">` |
+| `mt.spinner` | `<div aria-busy="true" data-spinner="…">` |
+| `mt.progress` | Native `<progress value max>` |
+| `mt.skeleton` | `<div role="status" class="skeleton line\|box">` |
+| `mt.meter` | Native `<meter>` |
+| `mt.avatar` | `<figure data-variant="avatar">` |
+| `mt.dropdown` | `<ot-dropdown>` WebComponent |
 
 ---
 
-## 10. Component Architecture Roadmap (`docs/PLAN.md`)
+## 10. Component Architecture (`src/mxlit/components/base.py`)
 
-### 10.1 Current Pattern (use this today)
+### 10.1 Current Pattern (use this for all new components)
 
-Every component function in `components/*.py` follows this boilerplate:
+All components use the `@component` / `@widget_component` decorator pattern from
+`src/mxlit/components/base.py`. The raw boilerplate pattern is retired.
+
+**Display component** (no return value):
 
 ```python
-def my_component(label: str, class_: str = "") -> None:
-    from mxlit.context import get_context
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "my_component", "label": label, "class_": class_})
-    else:
-        print(f"[MY_COMPONENT] {label}")
+from mxlit.components.base import component, ComponentType
+
+@component(ComponentType.MY_COMPONENT)
+def my_component(label: str) -> tuple:
+    props = {"label": label}
+    fallback = lambda: print(f"[MY_COMPONENT] {label}")
+    return props, fallback
 ```
 
-For **widgets** (return a value from `session_state`):
+**Widget** (returns a value from `session_state`):
 
 ```python
-def my_widget(label: str, value: str = "", key: str = None, class_: str = "") -> str:
-    import hashlib
-    widget_key = key or hashlib.md5(f"my_widget-{label}".encode()).hexdigest()
-    from mxlit.context import get_context
-    from mxlit.state import session_state
+from mxlit.components.base import widget_component, ComponentType, BaseComponent
+from mxlit.state import session_state
+
+@widget_component(ComponentType.MY_WIDGET)
+def my_widget(label: str, value: str = "", key: str = None) -> tuple:
+    widget_key = key or BaseComponent.generate_key(ComponentType.MY_WIDGET, label)
     current = session_state.get(widget_key, value)
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "my_widget", "label": label, "value": current,
-                           "key": widget_key, "class_": class_})
-    return current
+    props = {"label": label, "value": current, "key": widget_key}
+    return props, current
 ```
 
-### 10.2 Planned Refactor — `BaseComponent` (Phase 1 + 2)
+Both decorators accept `id=`, `className=`, and `class_=` (compat alias) as kwargs.
 
-`docs/PLAN.md` §2 specifies a `BaseComponent` dataclass in `src/mxlit/components/base.py`
-that eliminates the 43-instance boilerplate. Key types:
+### 10.2 `base.py` Type Reference
 
-| Class | Purpose |
+| Class / Function | Purpose |
 |---|---|
-| `ComponentType(str, Enum)` | Typed registry of all component type strings |
-| `HtmxProps` dataclass | All HTMX attributes (`hx-post`, `hx-target`, `hx-swap`, `hx-trigger`, …) |
-| `OatProps` dataclass | OAT semantic attrs (`data-variant`, `role`, `data-field`, `aria-busy`, …) |
-| `BaseComponent` dataclass | Root: constructs, registers in `__post_init__`, serializes via `to_dict()` |
-| `CompositeComponent(BaseComponent)` | Deferred registration via `with` block; nests children |
-| `@component` decorator | Turns a props-builder into a display component (no return value) |
-| `@widget_component` decorator | Turns a props-builder into a stateful widget (returns value) |
+| `ComponentType(str, Enum)` | Exhaustive typed registry of all component type strings |
+| `HtmxProps` dataclass | Strongly-typed container for every `hx-*` attribute; `.to_attrs()` → dict |
+| `OatProps` dataclass | OAT semantic attrs (`data-variant`, `role`, `data-field`, `aria-busy`, …); `.to_attrs()` → dict |
+| `BaseComponent` dataclass | Root: constructs, registers in `__post_init__` via `ctx.add_component(self.to_dict())` |
+| `CompositeComponent(BaseComponent)` | Deferred registration via `with` block; nests children in `d["children"]` |
+| `@component(type, *, htmx, oat)` | Turns a props-builder into a registered display component |
+| `@widget_component(type, *, htmx, oat)` | Turns a props-builder into a stateful widget (return value preserved) |
+| `reset_render_counts()` | Clears per-type render-order counters; called before each script execution |
+| `BaseComponent.generate_key(type, discriminator)` | Stable MD5-based widget key |
 
-**Do not implement `base.py` yet** — existing components still use the boilerplate pattern.
-New components added before the migration should also use the boilerplate pattern for consistency.
-See `docs/PLAN.md` §7 (Migration Checklist) for the step-by-step migration guide.
+### 10.3 Targeted Update Strategy (implemented)
 
-### 10.3 Targeted Update Strategy (Section 10 of PLAN.md)
+Every widget interaction targets only its own wrapper — not the full `#app-root`.
 
-Currently every widget interaction replaces all of `#app-root` (full re-render).
-The plan is for each widget to target only its own wrapper via `hx-target="#mx-{key}"` and
-`hx-swap="outerHTML"`. This requires:
+- Every rendered component is wrapped in `<div id="mx-{{ comp.id }}>` in `components.html`
+- Widgets use `hx-target="#mx-{{ comp.id }}"` + `hx-swap="outerHTML settle:100ms"` + `hx-include="[name]"`
+- Buttons use `type="button"` + `hx-target="#app-root"` (full re-render intent is explicit)
+- `#app-root` div uses `hx-trigger="load"` for initial render only
+- `component_fragment.html` handles single-component fragment responses for targeted swaps
+- Auto-refresh wrappers emit HTMX poll attributes when `comp.refresh_trigger` is set
 
-1. Wrap every rendered component in `<div id="mx-{{ comp.id }}">` in `components.html`
-2. Widgets switch from `hx-target="#app-root"` → `hx-target="#mx-{{ comp.id }}"`
-3. Buttons use `type="button"` + `hx-target="#mx-main"` + `hx-include="[name]"`
-4. `#app-root` div keeps only `hx-trigger="load"` for initial render (no duplicate `hx-post`)
+### 10.4 Auto-Refresh — `mt.setInterval` / `mt.setTimeout`
+
+```python
+import mxlit as mt
+
+# Refresh components in this block every 10 seconds
+with mt.setInterval(sync_time=10):
+    mt.scatter_chart(data, id="live_chart")
+
+# Re-fetch once after 5 seconds
+with mt.setTimeout(delay=5):
+    mt.info("Checking status…", id="status_msg")
+```
+
+Both are context managers from `src/mxlit/timers.py`. They set `ctx._auto_refresh` on
+the active `AppContext`; `components.html` emits the HTMX poll trigger on each wrapped component.
+
+### 10.5 Utility APIs
+
+```python
+mt.stop()                     # sys.exit(0) — halt script execution
+mt.rerun()                    # raise RerunException — immediately re-run script
+
+@mt.cache_data                # lru_cache for data-producing functions
+def load_df(path): ...
+
+@mt.cache_resource            # lru_cache for singleton objects (models, connections)
+def load_model(): ...
+
+mt.get_option("client.showErrorDetails")  # read a mxlit option
+mt.set_option("server.maxUploadSize", 50) # set a mxlit option
+```
 
 ---
 
-## 11. oat.ink Gap Analysis — Missing Components
+## 11. Component Inventory
 
-Audited against [oat.ink/components](https://oat.ink/components/) on 2026-05-28.
-Full details in `docs/PLAN.md` §5.4.
+All components from the original gap analysis are now implemented. Full public API:
 
-### 11.1 Missing UI Primitives (14 items)
+### 11.1 Layout & Containers
 
-| # | Function | Priority | Implementation |
-|---|----------|----------|----------------|
-| 1 | `mt.card(header, footer)` | 🔴 High | `<article class="card">` — CompositeComponent |
-| 2 | `mt.spinner(size)` | 🔴 High | `<div aria-busy="true" data-spinner="…">` |
-| 3 | `mt.progress(value, max)` | 🔴 High | Native `<progress value max>` |
-| 4 | `mt.skeleton(variant)` | 🟡 Medium | `<div role="status" class="skeleton line\|box">` |
-| 5 | `mt.avatar(src, initials, size)` | 🟡 Medium | `<figure data-variant="avatar">` |
-| 6 | `mt.avatar_group(size)` | 🟡 Medium | CompositeComponent |
-| 7 | `mt.meter(value, min, max, …)` | 🟡 Medium | Native `<meter>` |
-| 8 | `mt.breadcrumb(items)` | 🟡 Medium | `<nav aria-label="Breadcrumb"><ol class="unstyled hstack">` |
-| 9 | `mt.button_group(labels)` | 🟡 Medium | `<menu class="buttons">` |
-| 10 | `mt.toast(message, variant, …)` | 🟡 Medium | `ot.toast()` JS call via SSE |
-| 11 | `mt.pagination(total, current)` | 🟡 Medium | Widget — returns new page number |
-| 12 | `mt.dialog(id, title)` | 🟠 Low | `<dialog closedby="any">` — CompositeComponent |
-| 13 | `mt.dropdown(label)` | 🟠 Low | `<ot-dropdown>` WebComponent |
-| 14 | `mt.grid(cols)` | 🟠 Low | `<div class="container"><div class="row">` |
+| Function | OAT / HTML element | Notes |
+|---|---|---|
+| `mt.sidebar()` | `<aside data-sidebar>` in `[data-sidebar-layout]` | `with` block |
+| `mt.columns(n)` | flex column slots | `with` block, returns list of contexts |
+| `mt.tabs(labels)` | `<ot-tabs>` WebComponent | `with` block |
+| `mt.expander(label)` | `<details><summary>` | `with` block |
+| `mt.container()` | `<div>` wrapper | `with` block |
+| `mt.card(header, footer)` | `<article class="card">` | `with` block — CompositeComponent |
+| `mt.dialog(id, title)` | `<dialog closedby="any">` | `with` block — CompositeComponent |
+| `mt.avatar_group(size)` | `<figure>` grouping | `with` block — CompositeComponent |
+| `mt.grid(cols)` | `<div class="container"><div class="row">` | `with` block |
+| `mt.input_group(prefix, suffix)` | `<fieldset class="group">` | `with` block |
 
-### 11.2 Missing Form Input Variants (5 items)
+### 11.2 OAT UI Primitives
 
-| # | Function | Priority | Notes |
-|---|----------|----------|-------|
-| 15 | `mt.email_input(label, value, key)` | 🔴 High | `type="email"` — browser validation |
-| 16 | `mt.password_input(label, key)` | 🔴 High | `type="password"` — never stored in session |
-| 17 | `mt.datetime_input(label, value, key)` | 🟡 Medium | `type="datetime-local"` |
-| 18 | `mt.file_input(label, accept, key)` | 🟡 Medium | `type="file"` — needs multipart encoding |
-| 19 | `mt.input_group(prefix, suffix)` | 🟠 Low | `<fieldset class="group">` |
+| Function | OAT / HTML element |
+|---|---|
+| `mt.spinner(size)` | `<div aria-busy="true" data-spinner="…">` |
+| `mt.progress(value, max)` | Native `<progress value max>` |
+| `mt.skeleton(variant)` | `<div role="status" class="skeleton line\|box">` |
+| `mt.meter(value, min, max, low, high, optimum)` | Native `<meter>` |
+| `mt.avatar(src, initials, size)` | `<figure data-variant="avatar">` |
+| `mt.breadcrumb(items)` | `<nav aria-label="Breadcrumb"><ol class="unstyled hstack">` |
+| `mt.button_group(labels)` | `<menu class="buttons">` |
+| `mt.toast(message, variant)` | `ot.toast()` JS call via SSE |
+| `mt.dropdown(label)` | `<ot-dropdown>` WebComponent |
+| `mt.space()` / `mt.empty()` | Spacer / placeholder |
+| `mt.popover()` | Popover wrapper |
+| `mt.status()` | Status indicator |
 
-> **Implementation order:** Start with High-priority leaf components (spinner, progress,
-> email_input, password_input) — each is a single PR with no dependency on CompositeComponent.
+### 11.3 Widgets (return values from `session_state`)
+
+| Function | Input type | Notes |
+|---|---|---|
+| `mt.button(label)` | click → bool | `type="button"`, full re-render |
+| `mt.text_input(label, value, key)` | `type="text"` | |
+| `mt.email_input(label, value, key)` | `type="email"` | browser validation |
+| `mt.password_input(label, key)` | `type="password"` | never stored in session |
+| `mt.datetime_input(label, value, key)` | `type="datetime-local"` | |
+| `mt.date_input(label, value, key)` | `type="date"` | |
+| `mt.time_input(label, value, key)` | `type="time"` | |
+| `mt.number_input(label, value, key)` | `type="number"` | |
+| `mt.text_area(label, value, key)` | `<textarea>` | |
+| `mt.checkbox(label, value, key)` | `type="checkbox"` | |
+| `mt.toggle(label, value, key)` | `role="switch"` | |
+| `mt.radio(label, options, key)` | radio group | |
+| `mt.selectbox(label, options, key)` | `<select>` | |
+| `mt.multiselect(label, options, key)` | multi-select | |
+| `mt.select_slider(label, options, key)` | slider over discrete options | |
+| `mt.slider(label, min, max, key)` | `type="range"` | |
+| `mt.color_picker(label, value, key)` | `type="color"` | integrates with theme system |
+| `mt.file_input(label, accept, key)` | `type="file"` | multipart encoding |
+| `mt.pagination(total, current, key)` | page nav | returns current page number |
+| `mt.pills(options, key)` | pill selector | |
+| `mt.feedback(key)` | star/emoji feedback | |
+| `mt.link_button(label, url)` | `<a>` styled as button | |
+| `mt.download_button(label, data, key)` | download trigger | |
