@@ -179,13 +179,13 @@ elif recipe == "New Components":
     mt.subheader("Spinner · Skeleton")
     sp1, sp2, sp3 = mt.columns(3)
     with sp1:
-        mt.write("Large spinner", class_="text-xs font-semibold")
+        mt.write("Large spinner", className="text-xs font-semibold")
         mt.spinner("large")
     with sp2:
-        mt.write("Small spinner", class_="text-xs font-semibold")
+        mt.write("Small spinner", className="text-xs font-semibold")
         mt.spinner("small")
     with sp3:
-        mt.write("Skeleton placeholders", class_="text-xs font-semibold")
+        mt.write("Skeleton placeholders", className="text-xs font-semibold")
         mt.skeleton("line")
         mt.skeleton("line")
         mt.skeleton("box")
@@ -227,12 +227,12 @@ elif recipe == "New Components":
     mt.subheader("New form inputs")
     fi1, fi2 = mt.columns(2)
     with fi1:
-        mt.email_input("Work email", class_="max-w-sm")
-        mt.password_input("Password",  class_="max-w-sm")
+        mt.email_input("Work email", className="max-w-sm")
+        mt.password_input("Password",  className="max-w-sm")
     with fi2:
-        mt.datetime_input("Schedule",  class_="max-w-sm")
-        mt.file_input("Attach file", accept=".pdf,.png", class_="max-w-sm")
+        mt.datetime_input("Schedule",  className="max-w-sm")
+        mt.file_input("Attach file", accept=".pdf,.png", className="max-w-sm")
 
     mt.subheader("Input group")
     with mt.input_group(prefix="https://", suffix=".io"):
-        mt.text_input("Subdomain", class_="w-full")
+        mt.text_input("Subdomain", className="w-full")

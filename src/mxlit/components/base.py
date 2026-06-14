@@ -81,6 +81,7 @@ class ComponentType(str, Enum):
     PILLS              = "pills"
     FEEDBACK           = "feedback"
     # Layout — composite containers
+    NAVBAR         = "navbar"
     CONTAINER      = "container"
     SIDEBAR        = "sidebar"
     COLUMN         = "column"   # individual slot produced by columns()
@@ -299,7 +300,7 @@ class BaseComponent:
         """
         resolved_id = self.id or self.props.get("key", "")
         type_val = self.type.value if isinstance(self.type, ComponentType) else str(self.type)
-        d: dict[str, Any] = {"type": type_val, "id": resolved_id, "class_": self.className}
+        d: dict[str, Any] = {"type": type_val, "id": resolved_id, "className": self.className}
         d.update(self.props)
         if self._htmx is not None:
             d.update(self._htmx.to_attrs())
@@ -372,7 +373,7 @@ def component(
         @functools.wraps(fn)
         def wrapper(*args, **kwargs) -> None:
             custom_id = kwargs.pop("id", "")
-            className = kwargs.pop("className", kwargs.pop("class_", ""))
+            className = kwargs.pop("className", "")
             props, fallback_fn = fn(*args, **kwargs)
             if custom_id:
                 resolved_id = custom_id
@@ -409,7 +410,7 @@ def widget_component(
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             custom_id = kwargs.pop("id", "")
-            className = kwargs.pop("className", kwargs.pop("class_", ""))
+            className = kwargs.pop("className", "")
             props, return_value = fn(*args, **kwargs)
             BaseComponent(
                 type      = component_type,

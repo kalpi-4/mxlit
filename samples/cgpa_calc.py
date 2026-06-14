@@ -46,20 +46,20 @@ with mt.expander("Grade Table"):
     """)
 
 cols = mt.columns(2)
-previous_cgpa = cols[0].number_input(
-    label="Previous CGPA",
-    help="Enter Your CGPA upto previous semester",
-    min_value=0.00,
-    value=0.00,
-    step=0.01,
-)
-previous_credit = cols[1].number_input(
-    label="Previous Credit",
-    help="Enter the total number of credits you have taken upto previous semester",
-    min_value=0.0,
-    value=0.0,
-    step=0.5,
-)
+with cols[0]:
+    previous_cgpa = mt.number_input(
+        label="Previous CGPA",
+        min_value=0.00,
+        value=0.00,
+        step=0.01,
+    )
+with cols[1]:
+    previous_credit = mt.number_input(
+        label="Previous Credit",
+        min_value=0.0,
+        value=0.0,
+        step=0.5,
+    )
 
 number_of_subjects = mt.number_input(
     label="Number of Subjects",
@@ -74,22 +74,22 @@ credit = [0.0] * number_of_subjects
 for i in range(number_of_subjects):
     mt.subheader(f"Subject #{i + 1}")
     cols = mt.columns(2)
-    
-    grade[i] = cols[0].selectbox(
-        label="Grade",
-        options=grades,
-        key=f"grade_{i}",
-        index=0,
-    )
-
-    credit[i] = cols[1].number_input(
-        label="Credit",
-        min_value=1.0,
-        max_value=10.0,
-        value=4.0,
-        step=0.5,
-        key=f"credit_{i}",
-    )
+    with cols[0]:
+        grade[i] = mt.selectbox(
+            label="Grade",
+            options=grades,
+            key=f"grade_{i}",
+            index=0,
+        )
+    with cols[1]:
+        credit[i] = mt.number_input(
+            label="Credit",
+            min_value=1.0,
+            max_value=10.0,
+            value=4.0,
+            step=0.5,
+            key=f"credit_{i}",
+        )
 
 if mt.button("Calculate"):
     grade_points = [grade_to_point[x] for x in grade]

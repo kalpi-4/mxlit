@@ -18,17 +18,17 @@ class Sidebar:
             mt.title("Nav")
 
         # As a callable returning a configured context manager
-        with mt.sidebar(class_="w-64"):
+        with mt.sidebar(className="w-64"):
             mt.title("Nav")
 
     Internally each ``with`` block creates a fresh :class:`CompositeComponent`
     so there is no cross-request state leak on the singleton object.
     """
 
-    def __call__(self, class_: str = "") -> CompositeComponent:
+    def __call__(self, className: str = "") -> CompositeComponent:
         return CompositeComponent(
             type=ComponentType.SIDEBAR,
-            className=class_,
+            className=className,
             props={},
         )
 
@@ -43,7 +43,7 @@ class Sidebar:
 sidebar = Sidebar()
 
 
-def columns(spec, vertical_alignment: str = "top", class_: str = "") -> list[CompositeComponent]:
+def columns(spec, vertical_alignment: str = "top", className: str = "") -> list[CompositeComponent]:
     """Create a set of columns backed by :class:`CompositeComponent`.
 
     Each returned element is a context manager that collects its children
@@ -52,7 +52,7 @@ def columns(spec, vertical_alignment: str = "top", class_: str = "") -> list[Com
     Args:
         spec: Number of equal columns (int) or list of relative weights.
         vertical_alignment: ``'top'`` (default), ``'center'``, or ``'bottom'``.
-        class_: Tailwind classes applied to the outer columns wrapper ``<div>``.
+        className: Tailwind classes applied to the outer columns wrapper ``<div>``.
 
     Example::
 
@@ -68,7 +68,7 @@ def columns(spec, vertical_alignment: str = "top", class_: str = "") -> list[Com
             type=ComponentType.COLUMN,
             props={
                 "weight": w,
-                "columns_class_": class_,
+                "columnsClassName": className,
                 "vertical_alignment": vertical_alignment,
             },
         )
@@ -76,7 +76,7 @@ def columns(spec, vertical_alignment: str = "top", class_: str = "") -> list[Com
     ]
 
 
-def tabs(tabs_spec: list[str], class_: str = "") -> list[CompositeComponent]:
+def tabs(tabs_spec: list[str], className: str = "") -> list[CompositeComponent]:
     """Create a set of tab panels backed by :class:`CompositeComponent`.
 
     Each returned element is a context manager that collects its children
@@ -84,7 +84,7 @@ def tabs(tabs_spec: list[str], class_: str = "") -> list[CompositeComponent]:
 
     Args:
         tabs_spec: List of tab label strings.
-        class_: Tailwind classes applied to the outer ``<ot-tabs>`` element.
+        className: Tailwind classes applied to the outer ``<ot-tabs>`` element.
 
     Example::
 
@@ -97,37 +97,37 @@ def tabs(tabs_spec: list[str], class_: str = "") -> list[CompositeComponent]:
     return [
         CompositeComponent(
             type=ComponentType.TAB,
-            props={"label": label, "tabs_class_": class_},
+            props={"label": label, "tabsClassName": className},
         )
         for label in tabs_spec
     ]
 
 
-def expander(label: str, icon: str = None, class_: str = "") -> CompositeComponent:
+def expander(label: str, icon: str = None, className: str = "") -> CompositeComponent:
     """Create an expandable ``<details>`` container.
 
     Args:
-        label: Text shown in the ``<summary>`` element.
-        icon:  Optional emoji or icon prepended to the label.
-        class_: Extra CSS classes on the ``<details>`` element.
+        label:     Text shown in the ``<summary>`` element.
+        icon:      Optional emoji or icon prepended to the label.
+        className: Extra CSS classes on the ``<details>`` element.
     """
     return CompositeComponent(
         type=ComponentType.EXPANDER,
-        className=class_,
+        className=className,
         props={"label": label, "icon": icon},
     )
 
 
-def container(horizontal: bool = False, class_: str = "") -> CompositeComponent:
+def container(horizontal: bool = False, className: str = "") -> CompositeComponent:
     """Create a general-purpose layout container.
 
     Args:
         horizontal: If ``True``, renders children in a horizontal ``hstack`` row.
-        class_:     Extra CSS classes on the wrapping ``<div>``.
+        className:  Extra CSS classes on the wrapping ``<div>``.
     """
     return CompositeComponent(
         type=ComponentType.CONTAINER,
-        className=class_,
+        className=className,
         props={"horizontal": horizontal},
     )
 
@@ -140,6 +140,26 @@ def page_config(main_class: str = "", aside_class: str = ""):
         ctx.aside_class = aside_class
 
 
+# ── navbar — CompositeComponent ───────────────────────────────────────────────
+
+def navbar(**kwargs) -> CompositeComponent:
+    """Full-width top navbar rendered above the sidebar layout.
+
+    Usage::
+
+        with mt.navbar():
+            mt.write("My App")
+    """
+    className = kwargs.pop("className", "")
+    custom_id = kwargs.pop("id", "")
+    return CompositeComponent(
+        type      = ComponentType.NAVBAR,
+        id        = custom_id,
+        className = className,
+        props     = {},
+    )
+
+
 # ── card — CompositeComponent via BaseComponent ───────────────────────────────
 
 def card(header: str = "", footer: str = "", **kwargs) -> CompositeComponent:
@@ -150,7 +170,7 @@ def card(header: str = "", footer: str = "", **kwargs) -> CompositeComponent:
         with mt.card("Sales Summary"):
             mt.metric("Revenue", "$42k", delta="+8%")
     """
-    className = kwargs.pop("className", kwargs.pop("class_", ""))
+    className = kwargs.pop("className", "")
     custom_id = kwargs.pop("id", "")
     return CompositeComponent(
         type      = ComponentType.CARD,
@@ -309,8 +329,7 @@ def toast(message: str, title: str = "", variant: str = "",
 
 # ── Dialog ────────────────────────────────────────────────────────────────────
 
-def dialog(title: str = "", trigger_label: str = "Open",
-           class_: str = "", **kwargs) -> CompositeComponent:
+def dialog(title: str = "", trigger_label: str = "Open", **kwargs) -> CompositeComponent:
     """Create a modal dialog using OAT's ``<dialog closedby="any">`` pattern.
 
     A trigger button is rendered immediately before the ``<dialog>`` element.
@@ -323,7 +342,7 @@ def dialog(title: str = "", trigger_label: str = "Open",
             mt.button("Yes, delete")
     """
     custom_id = kwargs.pop("id", "")
-    className = kwargs.pop("className", class_)
+    className = kwargs.pop("className", "")
     return CompositeComponent(
         type      = ComponentType.DIALOG,
         id        = custom_id,
@@ -355,10 +374,10 @@ def dropdown(label: str, items: list = None) -> tuple[dict, None]:
 
 # ── Grid ──────────────────────────────────────────────────────────────────────
 
-def grid(class_: str = "", **kwargs) -> CompositeComponent:
+def grid(**kwargs) -> CompositeComponent:
     """Wrap children in OAT's 12-column grid container (``<div class="container">``).
 
-    Children receive a ``<div class="mx-component">`` wrapper; use ``class_`` on
+    Children receive a ``<div class="mx-component">`` wrapper; use ``className`` on
     each child to apply column-span classes (``col-6``, ``col-4``, etc.).
 
     Usage::
@@ -367,7 +386,7 @@ def grid(class_: str = "", **kwargs) -> CompositeComponent:
             mt.write("Full-width content")
     """
     custom_id = kwargs.pop("id", "")
-    className = kwargs.pop("className", class_)
+    className = kwargs.pop("className", "")
     return CompositeComponent(
         type      = ComponentType.GRID,
         id        = custom_id,
@@ -378,8 +397,7 @@ def grid(class_: str = "", **kwargs) -> CompositeComponent:
 
 # ── Input Group ───────────────────────────────────────────────────────────────
 
-def input_group(prefix: str = "", suffix: str = "",
-                class_: str = "", **kwargs) -> CompositeComponent:
+def input_group(prefix: str = "", suffix: str = "", **kwargs) -> CompositeComponent:
     """Combine an input with a prefix label or suffix action using ``<fieldset class="group">``.
 
     Usage::
@@ -388,7 +406,7 @@ def input_group(prefix: str = "", suffix: str = "",
             mt.text_input("Domain")
     """
     custom_id = kwargs.pop("id", "")
-    className = kwargs.pop("className", class_)
+    className = kwargs.pop("className", "")
     return CompositeComponent(
         type      = ComponentType.INPUT_GROUP,
         id        = custom_id,
@@ -420,7 +438,7 @@ def empty() -> tuple[dict, None]:
 
 # ── Popover ───────────────────────────────────────────────────────────────────
 
-def popover(label: str, class_: str = "", **kwargs) -> CompositeComponent:
+def popover(label: str, **kwargs) -> CompositeComponent:
     """Create a popover panel triggered by a button (HTML Popover API).
 
     Usage::
@@ -432,11 +450,11 @@ def popover(label: str, class_: str = "", **kwargs) -> CompositeComponent:
     Popover content is rendered inside the popover panel.
 
     Args:
-        label:  Text shown on the trigger button.
-        class_: Extra CSS classes on the trigger button.
+        label:     Text shown on the trigger button.
+        className: Extra CSS classes on the trigger button.
     """
     custom_id = kwargs.pop("id", "")
-    className = kwargs.pop("className", class_)
+    className = kwargs.pop("className", "")
     return CompositeComponent(
         type      = ComponentType.POPOVER,
         id        = custom_id,
@@ -447,8 +465,7 @@ def popover(label: str, class_: str = "", **kwargs) -> CompositeComponent:
 
 # ── Status container ──────────────────────────────────────────────────────────
 
-def status(label: str, state: str = "running", class_: str = "",
-           **kwargs) -> CompositeComponent:
+def status(label: str, state: str = "running", **kwargs) -> CompositeComponent:
     """Create an expandable status container with a state indicator.
 
     Renders as an OAT ``<details>`` with a spinner, check-mark, or error icon
@@ -465,7 +482,7 @@ def status(label: str, state: str = "running", class_: str = "",
             mt.write("Connecting to API…")
     """
     custom_id = kwargs.pop("id", "")
-    className = kwargs.pop("className", class_)
+    className = kwargs.pop("className", "")
     return CompositeComponent(
         type      = ComponentType.STATUS_BOX,
         id        = custom_id,

@@ -324,7 +324,7 @@ elif section == "Layout":
         mt.write("1 part")
 
     mt.subheader("Container")
-    with mt.container(class_="rounded-lg border p-4"):
+    with mt.container(className="rounded-lg border p-4"):
         mt.write("Content inside `mt.container` with a custom CSS class.")
         mt.badge("contained")
 
@@ -357,7 +357,7 @@ elif section == "Layout":
 
     mt.subheader("Input group")
     with mt.input_group(prefix="https://", suffix=".io"):
-        mt.text_input("Subdomain", key="ks_subdomain", class_="w-full")
+        mt.text_input("Subdomain", key="ks_subdomain", className="w-full")
 
     mt.subheader("Popover")
     with mt.popover("Settings"):

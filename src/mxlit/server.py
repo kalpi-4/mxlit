@@ -111,7 +111,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("base.html", {"request": request})
+    return templates.TemplateResponse(request, "base.html")
 
 
 @app.post("/interact", response_class=HTMLResponse)
@@ -134,17 +134,20 @@ async def interact(request: Request):
         comp = _find_component(ctx.components, target_id)
         if comp is not None:
             return templates.TemplateResponse(
+                request,
                 "component_fragment.html",
-                {"request": request, "comp": comp, "theme": theme_manager.resolve()},
+                {"comp": comp, "theme": theme_manager.resolve(),
+                 "dark_mode": session_state.get("_mx_dark_mode", False)},
             )
 
     # Full render (initial load, button clicks, fallback)
     return templates.TemplateResponse(
+        request,
         "components.html",
         {
-            "request":     request,
             "components":  ctx.components,
             "theme":       theme_manager.resolve(),
+            "dark_mode":   session_state.get("_mx_dark_mode", False),
             "main_class":  ctx.main_class,
             "aside_class": ctx.aside_class,
         },
@@ -169,8 +172,10 @@ async def refresh_component(request: Request, component_id: str):
         return HTMLResponse(f'<div id="mx-{component_id}"></div>')
 
     return templates.TemplateResponse(
+        request,
         "component_fragment.html",
-        {"request": request, "comp": comp, "theme": theme_manager.resolve()},
+        {"comp": comp, "theme": theme_manager.resolve(),
+         "dark_mode": session_state.get("_mx_dark_mode", False)},
     )
 
 
@@ -218,6 +223,7 @@ async def modify_state(request: Request):
         "request":     request,
         "components":  ctx.components,
         "theme":       theme_manager.resolve(),
+        "dark_mode":   session_state.get("_mx_dark_mode", False),
         "main_class":  ctx.main_class,
         "aside_class": ctx.aside_class,
     })

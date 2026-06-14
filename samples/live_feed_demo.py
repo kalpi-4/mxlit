@@ -59,7 +59,7 @@ with col_scatter:
         mt.scatter_chart(
             {"x": [p["x"] for p in points], "y": [p["y"] for p in points]},
             id="lf_scatter",
-            class_="h-48",
+            className="h-48",
         )
     mt.write(f"Points buffered: **{len(points)}** / {history_len}")
 
@@ -69,7 +69,7 @@ with col_line:
         mt.line_chart(
             [p["y"] for p in sine_points],
             id="lf_sine",
-            class_="h-48",
+            className="h-48",
         )
     mt.write(f"Points buffered: **{len(sine_points)}** / {history_len}")
 

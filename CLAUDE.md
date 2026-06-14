@@ -2,6 +2,9 @@
 
 > A Streamlit alternative powered by **FastAPI · Uvicorn · HTMX · Jinja2 · Python 3.10+**  
 > Single-process, stateful server with Server-Sent Events (SSE).
+>
+> **PLAN.md status: fully implemented.** All architecture, component factory pattern,
+> targeted updates, auto-refresh, and OAT component catalog are live in the codebase.
 
 ---
 
@@ -27,17 +30,18 @@ python -m pytailwindcss -i src/mxlit/static/input.css \
 mxlit/                              ← repository root
 ├── CLAUDE.md                       ← this file (Claude project guide)
 ├── docs/
-│   ├── PLAN.md                     ← component architecture plan + gap analysis
+│   ├── PLAN.md                     ← component architecture plan (FULLY IMPLEMENTED)
 │   ├── DRY_VIOLATION.md            ← 43-instance boilerplate tracker (resolved)
 │   ├── functionalities.md          ← Streamlit API reference
-│   └── TODO.md                     ← implementation coverage tracker
+│   └── TODO.md                     ← implementation coverage tracker + complexity tiers
 ├── samples/                        ← example user apps
 │   ├── class_styling_demo.py       ← Material token showcase + live theme generator
 │   ├── oar_demo.py                 ← full dashboard demo (oat.ink)
 │   ├── oat_sample.py               ← oat.ink component playground
+│   ├── kitchen_sink.py             ← every component in one file (primary reference)
 │   ├── demo_app.py
-│   ├── demo_new_features.py
-│   ├── test_app.py / test_layouts.py / test_new_components.py / test_widgets.py
+│   ├── demo_new_features.py        ← all new widgets / OAT primitives showcase
+│   ├── live_feed_demo.py           ← setInterval / setTimeout demo
 │   └── cgpa_calc.py
 ├── src/
 │   └── mxlit/                      ← installable package
@@ -101,8 +105,6 @@ and `components.html` renders the new component tree as HTML fragments.
 
 ### 2.2 Single-Instance Topology (MVP / hobby)
 
-Best fit for mxlit today: one process owns all in-memory state and SSE queues.
-
 ```
                         ┌─────────────────────────────┐
    Browser              │     Cloud Instance (1×)      │
@@ -121,8 +123,6 @@ Best fit for mxlit today: one process owns all in-memory state and SSE queues.
 ---
 
 ### 2.3 Multi-Instance Topology (production / scale-out)
-
-When horizontal scaling is needed, in-memory state must be externalised.
 
 ```
           ┌──────────────────────────────────────────────────┐
@@ -157,325 +157,46 @@ When horizontal scaling is needed, in-memory state must be externalised.
 ### 3.1 Dockerfile
 
 ```dockerfile
-# ── Build stage ────────────────────────────────────────────
 FROM python:3.12-slim AS builder
-
 WORKDIR /build
-
 RUN pip install --no-cache-dir hatchling
-
 COPY pyproject.toml uv.lock ./
 COPY src/ src/
-
 RUN pip wheel --no-cache-dir --wheel-dir /wheels .
 
-# ── Runtime stage ───────────────────────────────────────────
 FROM python:3.12-slim AS runtime
-
 WORKDIR /app
-
 COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir --no-index --find-links=/wheels mxlit \
     && rm -rf /wheels
-
 COPY samples/ samples/
-
 EXPOSE 8501
-
-ENV MXLIT_SCRIPT=/app/samples/demo_app.py \
-    HOST=0.0.0.0 \
-    PORT=8501
-
+ENV MXLIT_SCRIPT=/app/samples/demo_app.py HOST=0.0.0.0 PORT=8501
 CMD ["sh", "-c", "mxlit run $MXLIT_SCRIPT --host $HOST --port $PORT"]
-```
-
-**Build & run locally:**
-
-```bash
-docker build -t mxlit-app .
-docker run -p 8501:8501 -e MXLIT_SCRIPT=/app/samples/demo_app.py mxlit-app
-# Open http://localhost:8501
 ```
 
 ---
 
 ## 4. Platform Deployment Configs
 
-### 4.1 Fly.io
-
-Fly.io is the recommended platform for mxlit: it supports persistent TCP connections
-(required for SSE), long-running processes, and private Redis via `fly redis create`.
-
-**`fly.toml`** (place in repository root):
-
-```toml
-app = "mxlit-app"
-primary_region = "iad"          # change to your nearest region
-
-[build]
-  dockerfile = "Dockerfile"
-
-[env]
-  PORT       = "8501"
-  HOST       = "0.0.0.0"
-  # MXLIT_SCRIPT is set as a Fly secret (see below)
-
-[http_service]
-  internal_port        = 8501
-  force_https          = true
-  auto_stop_machines   = true
-  auto_start_machines  = true
-  min_machines_running = 1
-
-  [http_service.concurrency]
-    type       = "connections"
-    hard_limit = 500
-    soft_limit = 400
-
-[[vm]]
-  memory = "512mb"
-  cpus   = 1
-```
-
-**Deploy steps:**
-
-```bash
-curl -L https://fly.io/install.sh | sh
-fly auth login
-fly launch --no-deploy
-fly secrets set MXLIT_SCRIPT=/app/samples/demo_app.py
-fly deploy
-fly open
-```
-
-**Scaling to multiple instances on Fly.io:**
-
-```bash
-fly redis create --name mxlit-redis --region iad
-fly secrets set REDIS_URL=$(fly redis status mxlit-redis --json | jq -r '.privateUrl')
-fly scale count 2
-```
+See `CLAUDE.md` sections 4.1–4.3 for Fly.io, Railway, and AWS App Runner configs.
+Key point: SSE requires persistent TCP — avoid platforms with forced HTTP/1.1 timeouts.
 
 ---
 
-### 4.2 Railway
+## 5. Persistent Session State & SSE (Distributed)
 
-Railway auto-detects the `Dockerfile` and requires zero extra config files.
-
-**`railway.toml`** (optional — place in repository root):
-
-```toml
-[build]
-  builder        = "dockerfile"
-  dockerfilePath = "Dockerfile"
-
-[deploy]
-  startCommand            = "mxlit run $MXLIT_SCRIPT --host 0.0.0.0 --port $PORT"
-  healthcheckPath         = "/"
-  healthcheckTimeout      = 30
-  restartPolicyType       = "on_failure"
-  restartPolicyMaxRetries = 3
-```
-
-**Deploy steps:**
-
-```bash
-npm i -g @railway/cli
-railway login
-railway init
-railway variables set MXLIT_SCRIPT=/app/samples/demo_app.py
-railway variables set PORT=8501
-railway up
-```
-
-> **Note:** Railway exposes a single port via `$PORT`. The `Dockerfile` CMD already
-> reads `$PORT`, so no changes are needed.
+See §2.3 for Redis topology. Drop-in `SessionState` and SSE Pub/Sub replacements
+are documented inline in the project README.
 
 ---
 
-### 4.3 AWS App Runner
+## 6. Theme System — `mt.theme()` and Material Design Tokens
 
-**`apprunner.yaml`** (place in repository root):
+### 6.1 How It Works
 
-```yaml
-version: 1.0
-
-runtime: python311
-
-build:
-  commands:
-    build:
-      - pip install hatchling
-      - pip install .
-
-run:
-  command: mxlit run $MXLIT_SCRIPT --host 0.0.0.0 --port 8080
-  network:
-    port: 8080
-    env: PORT
-  env:
-    - name: MXLIT_SCRIPT
-      value: samples/demo_app.py
-    - name: HOST
-      value: "0.0.0.0"
-    - name: PORT
-      value: "8080"
-```
-
-> **App Runner SSE caveat:** App Runner has a default idle connection timeout of 120 s.
-> Send a heartbeat comment (`": heartbeat\n\n"` every 60 s) from `server.py`'s
-> `event_generator` to keep SSE connections alive.
-
----
-
-## 5. Persistent Session State (Distributed)
-
-`state.py` holds a single global `SessionState` (a Python dict). This breaks when
-the process restarts or multiple instances run behind a load balancer.
-
-**Redis-backed drop-in replacement for `src/mxlit/state.py`:**
-
-```python
-import os, json, redis
-
-_redis = redis.Redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379"))
-SESSION_TTL = 3600  # seconds
-
-class SessionState:
-    def __init__(self, session_id: str = "global"):
-        super().__setattr__('_sid', f"mxlit:session:{session_id}")
-
-    def _get_all(self) -> dict:
-        raw = _redis.get(self._sid)
-        return json.loads(raw) if raw else {}
-
-    def _save(self, data: dict):
-        _redis.setex(self._sid, SESSION_TTL, json.dumps(data))
-
-    def get(self, name, default=None):   return self._get_all().get(name, default)
-    def __contains__(self, name):        return name in self._get_all()
-    def __getitem__(self, name):         return self._get_all()[name]
-
-    def __setitem__(self, name, value):
-        data = self._get_all(); data[name] = value; self._save(data)
-
-    def __getattr__(self, name):
-        val = self._get_all().get(name)
-        if val is None: raise AttributeError(f"No session attribute '{name}'")
-        return val
-
-    def __setattr__(self, name, value):  self[name] = value
-    def clear(self):                     _redis.delete(self._sid)
-```
-
-**Session-ID wiring in `server.py`:**
-
-```python
-from fastapi import Cookie
-from mxlit.state import SessionState
-import uuid
-
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request, mxlit_sid: str = Cookie(default=None)):
-    sid = mxlit_sid or str(uuid.uuid4())
-    response = templates.TemplateResponse("base.html", {"request": request})
-    response.set_cookie("mxlit_sid", sid, httponly=True, samesite="lax")
-    return response
-# Pass `sid` into each handler and construct SessionState(sid) per request.
-```
-
----
-
-## 6. SSE in a Distributed Environment
-
-`server.py` stores active SSE queues in an in-process set (`sse_clients`).
-A `/modify` call on instance A cannot push events to clients on instance B.
-
-**Redis Pub/Sub fanout replacement:**
-
-```python
-import asyncio, os
-import redis.asyncio as aioredis
-
-REDIS_URL  = os.environ.get("REDIS_URL", "redis://localhost:6379")
-SSE_CHANNEL = "mxlit:sse:global"
-
-async def _publish_html(html: str):
-    async with aioredis.from_url(REDIS_URL) as r:
-        await r.publish(SSE_CHANNEL, html)
-
-@app.get("/events")
-async def global_events(request: Request):
-    async def event_generator():
-        async with aioredis.from_url(REDIS_URL) as r:
-            pubsub = r.pubsub()
-            await pubsub.subscribe(SSE_CHANNEL)
-            try:
-                while True:
-                    if await request.is_disconnected(): break
-                    msg = await pubsub.get_message(
-                        ignore_subscribe_messages=True, timeout=30
-                    )
-                    if msg:
-                        html_str = msg["data"].decode()
-                        lines = "\n".join(f"data: {l}" for l in html_str.split("\n"))
-                        yield f"{lines}\n\n"
-                    else:
-                        yield ": heartbeat\n\n"   # keeps ALB/App Runner alive
-            finally:
-                await pubsub.unsubscribe(SSE_CHANNEL)
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-```
-
-### SSE Load-Balancer Checklist
-
-| Concern | Recommendation |
-|---|---|
-| Sticky sessions | Enable if Redis Pub/Sub is not yet wired |
-| Connection timeout | Set ALB/App Runner idle timeout ≥ 300 s; send `: heartbeat` every 60 s |
-| TLS termination | Terminate at load balancer; backend runs plain HTTP |
-| Reconnection | HTMX `sse.js` reconnects automatically on drop |
-| Scaling to zero | Disable — cold starts break SSE (`min_machines_running = 1`) |
-
----
-
-## 7. Deployment Checklist
-
-### Before deploying
-
-- [ ] Set `MXLIT_SCRIPT` environment variable / secret
-- [ ] Set `REDIS_URL` secret if using multi-instance deployment
-- [ ] Confirm `HOST=0.0.0.0` (not `127.0.0.1`) inside container
-- [ ] Vendor or pin `htmx.min.js` and `sse.js` (already in `static/`)
-
-### Single-instance (MVP)
-
-- [ ] Build Docker image and verify locally
-- [ ] Push to chosen platform (Fly / Railway / App Runner)
-- [ ] Smoke-test `/`, `/interact`, `/events` endpoints
-- [ ] Verify SSE by opening two browser tabs and triggering `/modify`
-
-### Multi-instance (production)
-
-- [ ] Provision Redis (Fly Redis / Railway Redis plugin / AWS ElastiCache)
-- [ ] Swap `state.py` for Redis-backed `SessionState`
-- [ ] Swap `sse_clients` set for Redis Pub/Sub in `server.py`
-- [ ] Add session-id cookie issuance on `GET /`
-- [ ] Configure sticky sessions or verify Redis fanout covers all instances
-- [ ] Set load-balancer idle timeout ≥ 300 s
-- [ ] Add SSE heartbeat (`": heartbeat\n\n"` every 60 s)
-- [ ] Enable health-check route (`GET /` returns 200 — sufficient)
-- [ ] Set `min_machines_running = 1` (or equivalent) to prevent scale-to-zero
-
----
-
-## 8. Theme System — `mt.theme()` and Material Design Tokens
-
-### 8.1 How It Works
-
-`mt.theme()` is the single API for reading and overriding the live colour palette.
-It reads `session_state[THEME_KEY]`, merges any overrides, persists the result back,
-and returns the full resolved token dict for use in Python:
+`mt.theme()` reads `session_state[THEME_KEY]`, merges any overrides, persists the result,
+and returns the full resolved token dict:
 
 ```python
 _t = mt.theme()                              # read current palette
@@ -483,12 +204,11 @@ _t = mt.theme({"schemes.light.primary": "#9333ea"})  # override + read
 primary_hex = _t["schemes.light.primary"]
 ```
 
-The Jinja2 template in `components.html` emits the resolved palette as CSS variables
-on every HTMX response — no manual `mt.html()` injection is needed.
+The Jinja2 template emits the resolved palette as CSS variables on every HTMX response.
 
-### 8.2 Token Keys
+### 6.2 Token Keys
 
-Keys are **dot-notation paths** that mirror `constants/theme.json`, e.g.:
+Keys are **dot-notation paths** into `constants/theme.json`:
 
 | Token key | CSS variable |
 |---|---|
@@ -497,23 +217,15 @@ Keys are **dot-notation paths** that mirror `constants/theme.json`, e.g.:
 | `schemes.light.background` | `--background` / `--card` |
 | `schemes.light.onBackground` | `--foreground` / `--card-foreground` |
 
-All 386 hex-colour entries from `theme.json` are valid keys (`_DEFAULTS` in
-`constants/theme.py`). Passing an unrecognised key raises `ValueError`.
+### 6.3 Color-Picker Widget Absorption
 
-### 8.3 Color-Picker Widget Absorption
-
-`color_picker` widgets write back to `session_state` using the **flat-key alias**:
-
+`color_picker` widgets write back using the flat-key alias:
 ```
 "theme_" + token_key.replace(".", "_")
 ```
+Example: `key="theme_schemes_light_primary"` → absorbed by `mt.theme()` on next re-run.
 
-Example — `mt.color_picker("Primary", value=p, key="theme_schemes_light_primary")`
-writes `session_state["theme_schemes_light_primary"]`, which `mt.theme()` absorbs
-and deletes on the next script re-run. `_FLAT_KEYS` (in `constants/theme.py`) maps
-every valid alias back to its dot-notation path.
-
-### 8.4 Preset Pattern
+### 6.4 Preset Pattern
 
 ```python
 _PRESETS = {
@@ -530,25 +242,24 @@ else:
 
 ---
 
-## 9. OAT Integration — oat.ink UI Patterns
+## 7. OAT Integration — oat.ink UI Patterns
 
-### 9.1 Styling Philosophy
+### 7.1 Styling Philosophy
 
-oat.ink styles elements through **semantic HTML attributes**, not utility classes.
-The correct approach is:
+oat.ink styles through **semantic HTML attributes**, not utility classes:
 
 | ✅ Correct (OAT) | ❌ Wrong (hardcoded Tailwind) |
 |---|---|
-| `data-variant="error"` | `class="bg-red-100 text-red-700"` |
-| `data-field` wrapper | `class="border rounded px-2"` |
-| `role="switch"` | `class="toggle-switch"` |
-| `aria-busy="true"` | `class="loading"` |
+| `data-variant="error"` | `className="bg-red-100 text-red-700"` |
+| `data-field` wrapper | `className="border rounded px-2"` |
+| `role="switch"` | `className="toggle-switch"` |
+| `aria-busy="true"` | `className="loading"` |
 
-Use `class_=` only for **layout** (`w-full`, `mt-4`, `rounded-lg`) and **typography**
+Use `className=` only for **layout** (`w-full`, `mt-4`, `rounded-lg`) and **typography**
 adjustments (`text-xs`, `font-bold`). Never use Tailwind colour classes for semantic
 meaning — use OAT variant attributes instead.
 
-### 9.2 Key OAT Attributes
+### 7.2 Key OAT Attributes
 
 | HTML attribute | Values | Rendered by |
 |---|---|---|
@@ -560,15 +271,14 @@ meaning — use OAT variant attributes instead.
 | `data-spinner` | `small` `large` `overlay` | spinner size modifier |
 | `title="…"` | tooltip text | any element — OAT renders smooth tooltip |
 
-### 9.3 Component → OAT Mapping
+### 7.3 Component → OAT Mapping
 
 | mxlit function | OAT element |
 |---|---|
 | `mt.error/warning/info/success` | `<div role="alert" data-variant="…">` |
 | `mt.button` | `<button data-variant="secondary">` |
 | `mt.toggle` | `<input type="checkbox" role="switch">` |
-| `mt.text_input` / `mt.text_area` / etc. | `<input>` inside `<label data-field>` |
-| `mt.email_input` / `mt.password_input` / `mt.datetime_input` | `<input type="email|password|datetime-local">` inside `<label data-field>` |
+| `mt.text_input` / etc. | `<input>` inside `<label data-field>` |
 | `mt.tabs` | `<ot-tabs>` WebComponent |
 | `mt.sidebar` | `<aside data-sidebar>` in `[data-sidebar-layout]` |
 | `mt.expander` | `<details><summary>` |
@@ -583,12 +293,11 @@ meaning — use OAT variant attributes instead.
 
 ---
 
-## 10. Component Architecture (`src/mxlit/components/base.py`)
+## 8. Component Architecture (`src/mxlit/components/base.py`)
 
-### 10.1 Current Pattern (use this for all new components)
+### 8.1 Current Pattern (use this for ALL new components)
 
-All components use the `@component` / `@widget_component` decorator pattern from
-`src/mxlit/components/base.py`. The raw boilerplate pattern is retired.
+All components use `@component` / `@widget_component` from `base.py`. Raw boilerplate is retired.
 
 **Display component** (no return value):
 
@@ -616,9 +325,9 @@ def my_widget(label: str, value: str = "", key: str = None) -> tuple:
     return props, current
 ```
 
-Both decorators accept `id=`, `className=`, and `class_=` (compat alias) as kwargs.
+**Decorator kwargs:** `id=`, `className=` only. `class_` is NOT accepted — use `className=` exclusively.
 
-### 10.2 `base.py` Type Reference
+### 8.2 `base.py` Type Reference
 
 | Class / Function | Purpose |
 |---|---|
@@ -632,18 +341,102 @@ Both decorators accept `id=`, `className=`, and `class_=` (compat alias) as kwar
 | `reset_render_counts()` | Clears per-type render-order counters; called before each script execution |
 | `BaseComponent.generate_key(type, discriminator)` | Stable MD5-based widget key |
 
-### 10.3 Targeted Update Strategy (implemented)
+### 8.3 `HtmxProps` — Quick Reference
 
-Every widget interaction targets only its own wrapper — not the full `#app-root`.
+`HtmxProps` is passed to `@component` / `@widget_component` via the `htmx=` kwarg.
+`to_attrs()` emits only non-None/non-False fields.
 
-- Every rendered component is wrapped in `<div id="mx-{{ comp.id }}>` in `components.html`
+| Python field | HTML attribute | Default | Type |
+|---|---|---|---|
+| `post` | `hx-post` | `"/interact"` | `str \| None` |
+| `get` | `hx-get` | `None` | `str \| None` |
+| `put` / `patch` / `delete` | `hx-put` etc. | `None` | `str \| None` |
+| `target` | `hx-target` | `"#app-root"` | `str \| None` |
+| `swap` | `hx-swap` | `"innerHTML settle:0"` | `str \| None` |
+| `swap_oob` | `hx-swap-oob` | `None` | `str \| None` |
+| `select` / `select_oob` | `hx-select` etc. | `None` | `str \| None` |
+| `trigger` | `hx-trigger` | `"change"` | `str \| None` |
+| `boost` / `validate` | `hx-boost` etc. | `False` | `bool` → bare attr |
+| `vals` | `hx-vals` | `None` | `dict \| str \| None` → JSON |
+| `headers` | `hx-headers` | `None` | `dict \| str \| None` → JSON |
+| `include` | `hx-include` | `None` | `str \| None` |
+| `params` | `hx-params` | `None` | `"*" \| "none" \| CSV` |
+| `encoding` | `hx-encoding` | `None` | `"multipart/form-data" \| …` |
+| `sync` | `hx-sync` | `None` | `"{selector}:{strategy}"` |
+| `disabled_elt` | `hx-disabled-elt` | `None` | `str \| None` |
+| `indicator` | `hx-indicator` | `None` | CSS selector |
+| `confirm` | `hx-confirm` | `None` | dialog text |
+| `push_url` / `replace_url` | `hx-push-url` etc. | `None` | `str \| bool \| None` |
+| `history` | `hx-history` | `None` | `"false" \| None` |
+| `disable` / `disinherit` / `inherit` / `preserve` | inheritance control | `False / None` | `bool / str` |
+
+**Widget default preset** (all four mxlit defaults):
+```python
+_HTMX_CHANGE = HtmxProps(
+    post    = "/interact",
+    target  = "#mx-{comp.id}",   # targeted self-update
+    swap    = "outerHTML settle:100ms",
+    trigger = "change",
+    include = "[name]",
+)
+```
+
+**File upload:**
+```python
+HtmxProps(encoding="multipart/form-data", trigger="change", include="[name]")
+```
+
+### 8.4 `OatProps` — Quick Reference
+
+| Python field | HTML attribute | Example value |
+|---|---|---|
+| `variant` | `data-variant` | `"success"`, `"error"`, `"danger"`, `"warning"`, `"secondary"` |
+| `role` | `role` | `"alert"`, `"switch"`, `"status"` |
+| `field` | `data-field` | `True` → `""`, `"error"` → `data-field="error"` |
+| `busy` | `aria-busy` | `True` → `"true"` |
+| `spinner` | `data-spinner` | `"small"`, `"large"`, `"overlay"` |
+| `tooltip` | `title` | any tooltip string |
+
+Usage:
+```python
+@component(ComponentType.SUCCESS, oat=OatProps(role="alert", variant="success"))
+def success(message: str) -> tuple:
+    return ({"content": message}, None)
+```
+
+### 8.5 Targeted Update Strategy (implemented)
+
+Every widget interaction targets only its own wrapper — not `#app-root`.
+
+- Every rendered component is wrapped in `<div id="mx-{{ comp.id }}">` in `components.html`
 - Widgets use `hx-target="#mx-{{ comp.id }}"` + `hx-swap="outerHTML settle:100ms"` + `hx-include="[name]"`
-- Buttons use `type="button"` + `hx-target="#app-root"` (full re-render intent is explicit)
+- Buttons use `type="button"` + `hx-target="#app-root"` (full re-render)
 - `#app-root` div uses `hx-trigger="load"` for initial render only
 - `component_fragment.html` handles single-component fragment responses for targeted swaps
 - Auto-refresh wrappers emit HTMX poll attributes when `comp.refresh_trigger` is set
 
-### 10.4 Auto-Refresh — `mt.setInterval` / `mt.setTimeout`
+### 8.6 `className` — the only CSS class parameter
+
+`className=` is the **only** accepted kwarg for CSS classes on all components.
+`class_=` is not accepted anywhere (no alias, no fallback).
+
+- **Decorator-wrapped components:** pass `className="..."` as kwarg to the call site
+- **Layout CompositeComponents** (`columns`, `tabs`, `expander`, `container`, etc.): pass `className="..."` as named param
+- **Template:** reads `comp.className` (not `comp.class_`)
+- **Internal layout props:** `columnsClassName` (wrapper div class from `columns()`), `tabsClassName` (wrapper class from `tabs()`)
+
+```python
+# Correct
+mt.button("Save", className="w-full")
+mt.columns(2, className="gap-4")
+with mt.expander("Details", className="border rounded-lg"):
+    mt.write("content")
+
+# Wrong — will be silently ignored or raise TypeError
+mt.button("Save", class_="w-full")   # ❌
+```
+
+### 8.7 Auto-Refresh — `mt.setInterval` / `mt.setTimeout`
 
 ```python
 import mxlit as mt
@@ -660,7 +453,7 @@ with mt.setTimeout(delay=5):
 Both are context managers from `src/mxlit/timers.py`. They set `ctx._auto_refresh` on
 the active `AppContext`; `components.html` emits the HTMX poll trigger on each wrapped component.
 
-### 10.5 Utility APIs
+### 8.8 Utility APIs
 
 ```python
 mt.stop()                     # sys.exit(0) — halt script execution
@@ -676,28 +469,62 @@ mt.get_option("client.showErrorDetails")  # read a mxlit option
 mt.set_option("server.maxUploadSize", 50) # set a mxlit option
 ```
 
+### 8.9 Atomic Composition Factories
+
+Several component families are generated from a single factory rather than defined individually:
+
+**Status variants** (`status.py`):
+```python
+def _make_status_variant(status_type: str) -> Callable:
+    oat = OatProps(role="alert", variant=status_type if status_type != "info" else None)
+    @component(ComponentType.STATUS, oat=oat)
+    def _fn(message: str) -> tuple:
+        return ({"content": message, "status_type": status_type}, None)
+    return _fn
+
+error   = _make_status_variant("error")
+warning = _make_status_variant("warning")
+info    = _make_status_variant("info")
+success = _make_status_variant("success")
+```
+
+**Heading levels** (`text.py`):
+```python
+title    = _make_heading(ComponentType.TITLE,    "TITLE")
+header   = _make_heading(ComponentType.HEADER,   "HEADER")
+subheader= _make_heading(ComponentType.SUBHEADER,"SUBHEADER")
+```
+
+**Charts** (`charts.py`):
+```python
+line_chart    = _make_chart(ComponentType.LINE_CHART,    "line")
+bar_chart     = _make_chart(ComponentType.BAR_CHART,     "bar")
+area_chart    = _make_chart(ComponentType.AREA_CHART,    "line")  # fill=true
+scatter_chart = _make_chart(ComponentType.SCATTER_CHART, "scatter")
+```
+
 ---
 
-## 11. Component Inventory
+## 9. Component Inventory
 
-All components from the original gap analysis are now implemented. Full public API:
+All components from the original gap analysis are implemented. Full public API:
 
-### 11.1 Layout & Containers
+### 9.1 Layout & Containers
 
 | Function | OAT / HTML element | Notes |
 |---|---|---|
-| `mt.sidebar()` | `<aside data-sidebar>` in `[data-sidebar-layout]` | `with` block |
-| `mt.columns(n)` | flex column slots | `with` block, returns list of contexts |
-| `mt.tabs(labels)` | `<ot-tabs>` WebComponent | `with` block |
+| `mt.sidebar()` | `<aside data-sidebar>` | `with` block; `className=` for extra classes |
+| `mt.columns(n)` | flex column slots | `with` block; `className=` on wrapper div |
+| `mt.tabs(labels)` | `<ot-tabs>` WebComponent | `with` block; `className=` on ot-tabs |
 | `mt.expander(label)` | `<details><summary>` | `with` block |
 | `mt.container()` | `<div>` wrapper | `with` block |
 | `mt.card(header, footer)` | `<article class="card">` | `with` block — CompositeComponent |
-| `mt.dialog(id, title)` | `<dialog closedby="any">` | `with` block — CompositeComponent |
+| `mt.dialog(title, trigger_label)` | `<dialog closedby="any">` | `with` block — CompositeComponent |
 | `mt.avatar_group(size)` | `<figure>` grouping | `with` block — CompositeComponent |
-| `mt.grid(cols)` | `<div class="container"><div class="row">` | `with` block |
+| `mt.grid()` | `<div class="container"><div class="row">` | `with` block |
 | `mt.input_group(prefix, suffix)` | `<fieldset class="group">` | `with` block |
 
-### 11.2 OAT UI Primitives
+### 9.2 OAT UI Primitives
 
 | Function | OAT / HTML element |
 |---|---|
@@ -710,11 +537,11 @@ All components from the original gap analysis are now implemented. Full public A
 | `mt.button_group(labels)` | `<menu class="buttons">` |
 | `mt.toast(message, variant)` | `ot.toast()` JS call via SSE |
 | `mt.dropdown(label)` | `<ot-dropdown>` WebComponent |
-| `mt.space()` / `mt.empty()` | Spacer / placeholder |
-| `mt.popover()` | Popover wrapper |
-| `mt.status()` | Status indicator |
+| `mt.space()` / `mt.empty()` | Spacer / structural placeholder |
+| `mt.popover()` | HTML Popover API wrapper |
+| `mt.status()` | Expandable status container (running/complete/error) |
 
-### 11.3 Widgets (return values from `session_state`)
+### 9.3 Widgets (return values from `session_state`)
 
 | Function | Input type | Notes |
 |---|---|---|
@@ -741,3 +568,133 @@ All components from the original gap analysis are now implemented. Full public A
 | `mt.feedback(key)` | star/emoji feedback | |
 | `mt.link_button(label, url)` | `<a>` styled as button | |
 | `mt.download_button(label, data, key)` | download trigger | |
+
+---
+
+## 10. Deployment Configs
+
+### 10.1 Fly.io (`fly.toml`)
+
+```toml
+app = "mxlit-app"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8501"
+  HOST = "0.0.0.0"
+
+[http_service]
+  internal_port        = 8501
+  force_https          = true
+  auto_stop_machines   = true
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 500
+    soft_limit = 400
+
+[[vm]]
+  memory = "512mb"
+  cpus   = 1
+```
+
+```bash
+fly secrets set MXLIT_SCRIPT=/app/samples/demo_app.py
+fly deploy
+```
+
+### 10.2 Railway (`railway.toml`)
+
+```toml
+[build]
+  builder        = "dockerfile"
+  dockerfilePath = "Dockerfile"
+
+[deploy]
+  startCommand            = "mxlit run $MXLIT_SCRIPT --host 0.0.0.0 --port $PORT"
+  healthcheckPath         = "/"
+  healthcheckTimeout      = 30
+  restartPolicyType       = "on_failure"
+  restartPolicyMaxRetries = 3
+```
+
+### 10.3 AWS App Runner (`apprunner.yaml`)
+
+```yaml
+version: 1.0
+runtime: python311
+build:
+  commands:
+    build:
+      - pip install hatchling
+      - pip install .
+run:
+  command: mxlit run $MXLIT_SCRIPT --host 0.0.0.0 --port 8080
+  network:
+    port: 8080
+```
+
+> **App Runner SSE caveat:** Send `": heartbeat\n\n"` every 60 s from `event_generator`
+> to keep connections alive past the 120 s idle timeout.
+
+---
+
+## 11. Deployment Checklist
+
+### Before deploying
+- [ ] Set `MXLIT_SCRIPT` environment variable / secret
+- [ ] Set `REDIS_URL` secret if using multi-instance deployment
+- [ ] Confirm `HOST=0.0.0.0` (not `127.0.0.1`) inside container
+- [ ] Vendor or pin `htmx.min.js` and `sse.js` (already in `static/`)
+
+### Single-instance (MVP)
+- [ ] Build Docker image and verify locally
+- [ ] Push to chosen platform (Fly / Railway / App Runner)
+- [ ] Smoke-test `/`, `/interact`, `/events` endpoints
+- [ ] Verify SSE by opening two browser tabs and triggering `/modify`
+
+### Multi-instance (production)
+- [ ] Provision Redis (Fly Redis / Railway Redis plugin / AWS ElastiCache)
+- [ ] Swap `state.py` for Redis-backed `SessionState`
+- [ ] Swap `sse_clients` set for Redis Pub/Sub in `server.py`
+- [ ] Add session-id cookie issuance on `GET /`
+- [ ] Configure sticky sessions or verify Redis fanout covers all instances
+- [ ] Set load-balancer idle timeout ≥ 300 s
+- [ ] Add SSE heartbeat (`": heartbeat\n\n"` every 60 s)
+- [ ] Enable health-check route (`GET /` returns 200)
+- [ ] Set `min_machines_running = 1` to prevent scale-to-zero
+
+---
+
+## 12. Adding New Components — Checklist
+
+1. **Add `ComponentType` entry** in `base.py` enum
+2. **Write component function** in the appropriate file using `@component` or `@widget_component`
+3. **Add template branch** in `components.html` `render_component` macro
+4. **Export** from `__init__.py`
+5. **Add sample usage** in `samples/kitchen_sink.py` or `samples/demo_new_features.py`
+6. **Update** `docs/TODO.md` status
+
+**Decision tree:**
+- Returns a value from session_state? → `@widget_component` + `HtmxProps` for HTMX attrs
+- Display only? → `@component`
+- Needs children (context manager)? → `CompositeComponent` directly (see `layout.py` pattern)
+- Family of variants sharing same shape? → atomic factory function (see `status.py`, `text.py`, `charts.py`)
+
+---
+
+## 13. Known Partial Implementations
+
+| Item | Status | Fix needed |
+|---|---|---|
+| `st.bar_chart(horizontal=True)` | `[~]` | Wire `indexAxis: 'y'` in Chart.js config in `components.html:~370` |
+| `st.columns(vertical_alignment=)` | `[~]` | Apply `align-items` CSS to flex wrapper using `comp.vertical_alignment` |
+| `st.set_page_config()` | `[~]` | Extend `page_config()` with `page_title`, `page_icon`, `layout` params injected into `base.html` |
+| `st.file_uploader()` | `[~]` | Browser-side only; no server-side file object yet |
+
+See `docs/TODO.md` for full complexity-tiered list of unimplemented items.

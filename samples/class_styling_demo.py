@@ -67,19 +67,19 @@ outl     = _t["schemes.light.outline"]                # border / divider colour
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with mt.sidebar:
-    mt.title("Theme Generator", class_="text-base font-bold tracking-tight")
+    mt.title("Theme Generator", className="text-base font-bold tracking-tight")
     mt.write("Colours sourced from constants/theme.json (schemes.light.*).",
-             class_="text-xs mb-3")
+             className="text-xs mb-3")
 
     mt.write("Quick presets",
-             class_="text-xs font-semibold uppercase tracking-wide mt-4 mb-1")
+             className="text-xs font-semibold uppercase tracking-wide mt-4 mb-1")
     pa, pb = mt.columns(2)
     with pa:
-        mt.button("Material", key="btn_material", class_="w-full text-xs")
-        mt.button("Sunset",   key="btn_sunset",   class_="w-full text-xs mt-1")
+        mt.button("Material", key="btn_material", className="w-full text-xs")
+        mt.button("Sunset",   key="btn_sunset",   className="w-full text-xs mt-1")
     with pb:
-        mt.button("Ocean",    key="btn_ocean",    class_="w-full text-xs")
-        mt.button("Forest",   key="btn_forest",   class_="w-full text-xs mt-1")
+        mt.button("Ocean",    key="btn_ocean",    className="w-full text-xs")
+        mt.button("Forest",   key="btn_forest",   className="w-full text-xs mt-1")
 
     mt.markdown("---")
     mt.html(f'<p style="font-size:0.7rem;color:{outl};">'
@@ -88,7 +88,7 @@ with mt.sidebar:
     # ── Material Design Token Palette ──────────────────────────────────────────
     mt.markdown("---")
     mt.write("Material Token Palette",
-             class_="text-xs font-semibold uppercase tracking-wide mt-1 mb-2")
+             className="text-xs font-semibold uppercase tracking-wide mt-1 mb-2")
 
     mt.html(f'<p style="font-size:0.6rem;font-weight:700;color:{outl};'
             f'letter-spacing:0.06em;text-transform:uppercase;'
@@ -130,15 +130,15 @@ with mt.sidebar:
     mt.color_picker("outline",             value=outl,     key="theme_schemes_light_outline")
 
 # ── PAGE HEADER ────────────────────────────────────────────────────────────────
-mt.title("mxlit Kitchen Sink", class_="text-3xl font-extrabold")
+mt.title("mxlit Kitchen Sink", className="text-3xl font-extrabold")
 mt.write(
     "Every component · every layout · all themed via constants/theme.json. "
     "Adjust colours in the sidebar — the page updates live.",
-    class_="max-w-2xl",
+    className="max-w-2xl",
 )
 
 # ── MATERIAL TOKEN SWATCHES ────────────────────────────────────────────────────
-mt.subheader("Material Design Token Palette", class_="mt-6 mb-2")
+mt.subheader("Material Design Token Palette", className="mt-6 mb-2")
 _swatches = [
     (p,     p_on,     "Primary",          "schemes.light.primary"),
     (p_ctr, p_ctr_on, "PrimaryContainer", "schemes.light.primaryContainer"),
@@ -166,18 +166,18 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 # 1 · TYPOGRAPHY
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("1 · Typography", class_="font-bold border-b pb-1")
+mt.header("1 · Typography", className="font-bold border-b pb-1")
 ta, tb = mt.columns(2)
 with ta:
     mt.subheader("Heading sizes")
-    mt.title("Title — h1",         class_="text-4xl")
-    mt.header("Header — h2",       class_="tracking-widest text-sm uppercase")
-    mt.subheader("Subheader — h3", class_="italic font-light")
+    mt.title("Title — h1",         className="text-4xl")
+    mt.header("Header — h2",       className="tracking-widest text-sm uppercase")
+    mt.subheader("Subheader — h3", className="italic font-light")
 with tb:
     mt.subheader("Body variants")
     mt.write("Default body text — no class_")
     mt.html(f'<p style="font-size:0.875rem;color:{outl};font-style:italic;">Muted helper text</p>')
-    mt.write("Bold CTA",           class_="font-bold")
+    mt.write("Bold CTA",           className="font-bold")
     mt.html(f'<p style="font-family:monospace;font-size:0.75rem;background:{surf};'
             f'padding:0.125rem 0.5rem;border-radius:0.25rem;display:inline-block;">Mono note</p>')
     mt.text("mt.text() — fixed-width paragraph")
@@ -191,7 +191,7 @@ with _b3: mt.badge("deprecated")
 with _b4: mt.badge("new")
 
 mt.subheader("Code, Markdown, LaTeX")
-mt.code('mt.theme({"schemes.light.primary": "#9333ea"})', class_="max-w-xl")
+mt.code('mt.theme({"schemes.light.primary": "#9333ea"})', className="max-w-xl")
 mt.markdown("**Bold**, *italic*, `inline code`, and [links](/) via `mt.markdown()`.")
 mt.latex(r"\hat{y} = \sigma\!\left(\mathbf{w}^\top \mathbf{x} + b\right)")
 mt.markdown("---")
@@ -199,7 +199,7 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 # 2 · STATUS
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("2 · Status", class_="font-bold border-b pb-1")
+mt.header("2 · Status", className="font-bold border-b pb-1")
 mt.info("mt.info() — informational banner.")
 mt.success("mt.success() — operation succeeded.")
 mt.warning("mt.warning() — something needs attention.")
@@ -209,16 +209,16 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 # 3 · WIDGETS
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("3 · Widgets", class_="font-bold border-b pb-1")
+mt.header("3 · Widgets", className="font-bold border-b pb-1")
 mt.subheader("Buttons")
 col1, col2, col3 = mt.columns(3)
 with col1:
     mt.html(f'<p style="font-size:0.75rem;color:{outl};">Full-width</p>')
-    if mt.button("Save changes", class_="w-full"):
-        mt.success("Saved!", class_="mt-1")
+    if mt.button("Save changes", className="w-full"):
+        mt.success("Saved!", className="mt-1")
 with col2:
     mt.html(f'<p style="font-size:0.75rem;color:{outl};">Fixed width</p>')
-    mt.button("Cancel", class_="w-28")
+    mt.button("Cancel", className="w-28")
 with col3:
     mt.html(f'<p style="font-size:0.75rem;color:{outl};">Default (no class_)</p>')
     mt.button("Default")
@@ -226,42 +226,42 @@ with col3:
 mt.subheader("Text inputs")
 col4, col5 = mt.columns(2)
 with col4:
-    mt.text_input("Full name",   class_="max-w-sm")
-    mt.number_input("Quantity",  min_value=0, max_value=999, value=1,  class_="max-w-xs")
-    mt.date_input("Deadline",    class_="max-w-xs")
-    mt.slider("Budget ($)", 0, 5000, 1000, class_="max-w-md")
+    mt.text_input("Full name",   className="max-w-sm")
+    mt.number_input("Quantity",  min_value=0, max_value=999, value=1,  className="max-w-xs")
+    mt.date_input("Deadline",    className="max-w-xs")
+    mt.slider("Budget ($)", 0, 5000, 1000, className="max-w-md")
 with col5:
-    mt.text_area("Notes",        class_="max-w-sm")
-    mt.selectbox("Language", ["Python", "Rust", "Go", "TypeScript"], class_="max-w-xs")
+    mt.text_area("Notes",        className="max-w-sm")
+    mt.selectbox("Language", ["Python", "Rust", "Go", "TypeScript"], className="max-w-xs")
 
 mt.subheader("Toggles, checkboxes, radio")
 col6, col7 = mt.columns(2)
 with col6:
-    mt.toggle("Enable notifications", class_="mt-2")
-    mt.toggle("Dark mode",            class_="mt-1")
-    mt.checkbox("Accept terms",       class_="mt-2")
-    mt.checkbox("Subscribe",          class_="mt-1")
+    mt.toggle("Enable notifications", className="mt-2")
+    mt.toggle("Dark mode",            className="mt-1")
+    mt.checkbox("Accept terms",       className="mt-2")
+    mt.checkbox("Subscribe",          className="mt-1")
 with col7:
-    mt.radio("Plan", ["Free", "Pro", "Enterprise"], class_="mt-2")
+    mt.radio("Plan", ["Free", "Pro", "Enterprise"], className="mt-2")
 
 mt.subheader("New inputs — email · password · datetime · file")
 col8, col9 = mt.columns(2)
 with col8:
-    mt.email_input("Email address",   class_="max-w-sm")
-    mt.password_input("Password",     class_="max-w-sm")
+    mt.email_input("Email address",   className="max-w-sm")
+    mt.password_input("Password",     className="max-w-sm")
 with col9:
-    mt.datetime_input("Appointment",  class_="max-w-sm")
-    mt.file_input("Upload document",  accept=".pdf,.docx", class_="max-w-sm")
+    mt.datetime_input("Appointment",  className="max-w-sm")
+    mt.file_input("Upload document",  accept=".pdf,.docx", className="max-w-sm")
 
 mt.subheader("Input group — prefix / suffix")
 with mt.input_group(prefix="https://", suffix=".com"):
-    mt.text_input("Domain", class_="w-full")
+    mt.text_input("Domain", className="w-full")
 mt.markdown("---")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # 4 · DATA
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("4 · Data", class_="font-bold border-b pb-1")
+mt.header("4 · Data", className="font-bold border-b pb-1")
 
 mt.subheader("Metric cards — wrapped in mt.card()")
 with mt.card("Dashboard Overview"):
@@ -281,10 +281,10 @@ df = pd.DataFrame({
 dt1, dt2 = mt.columns(2)
 with dt1:
     mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Interactive (mt.dataframe)</p>')
-    mt.dataframe(df, class_="w-full")
+    mt.dataframe(df, className="w-full")
 with dt2:
     mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Static (mt.table)</p>')
-    mt.table(df, class_="w-full")
+    mt.table(df, className="w-full")
 
 mt.subheader("JSON viewer")
 mt.json({"token": "schemes.light.primary", "value": p, "alias": "theme_schemes_light_primary"})
@@ -293,34 +293,34 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 # 5 · CHARTS
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("5 · Charts", class_="font-bold border-b pb-1")
+mt.header("5 · Charts", className="font-bold border-b pb-1")
 cc1, cc2 = mt.columns(2)
 with cc1:
     mt.write("Line — monthly active users",
-             class_="text-xs font-semibold uppercase tracking-wide")
+             className="text-xs font-semibold uppercase tracking-wide")
     mt.line_chart([210, 340, 290, 510, 430, 620, 580],
-                  class_="rounded-lg border p-2")
+                  className="rounded-lg border p-2")
     mt.write("Area — cumulative revenue",
-             class_="text-xs font-semibold uppercase tracking-wide mt-4")
+             className="text-xs font-semibold uppercase tracking-wide mt-4")
     mt.area_chart([12, 19, 28, 41, 53, 68, 90],
-                  class_="rounded-lg border p-2")
+                  className="rounded-lg border p-2")
 with cc2:
     mt.write("Bar — revenue by channel",
-             class_="text-xs font-semibold uppercase tracking-wide")
+             className="text-xs font-semibold uppercase tracking-wide")
     mt.bar_chart({"Direct": 42, "Organic": 28, "Referral": 18, "Paid": 12},
-                 class_="rounded-lg border p-2")
+                 className="rounded-lg border p-2")
     mt.write("Scatter — spend vs conversion",
-             class_="text-xs font-semibold uppercase tracking-wide mt-4")
+             className="text-xs font-semibold uppercase tracking-wide mt-4")
     mt.scatter_chart(
         {"x": [10, 20, 30, 40, 50, 60], "y": [1.2, 2.5, 2.1, 3.8, 3.2, 4.9]},
-        class_="rounded-lg border p-2",
+        className="rounded-lg border p-2",
     )
 mt.markdown("---")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # 6 · LAYOUT
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("6 · Layout", class_="font-bold border-b pb-1")
+mt.header("6 · Layout", className="font-bold border-b pb-1")
 
 mt.subheader("Tabs")
 tab_overview, tab_code, tab_raw = mt.tabs(["Overview", "Code", "Raw JSON"])
@@ -331,18 +331,18 @@ with tab_code:
     mt.code(
         'mt.theme({"schemes.light.primary": "#9333ea"})\n'
         'mt.theme({"schemes.light.secondary": "#0d9488"})',
-        class_="text-xs",
+        className="text-xs",
     )
 with tab_raw:
     mt.json({"primary": p, "secondary": s, "background": bg, "onBackground": txt})
 
 mt.subheader("Styled expanders")
-with mt.expander("Model details", class_="border rounded-lg"):
+with mt.expander("Model details", className="border rounded-lg"):
     mt.write("Model: **GPT-4o-mini** · Context: 128k · Output: 16k",
-             class_="text-sm")
-with mt.expander("Raw API response", class_="border rounded-lg mt-2"):
+             className="text-sm")
+with mt.expander("Raw API response", className="border rounded-lg mt-2"):
     mt.code('{"id": "chatcmpl-abc123", "object": "chat.completion"}',
-            class_="text-xs")
+            className="text-xs")
 
 mt.subheader("Tech-stack badges — mt.badge() instead of raw HTML")
 for _lbl in ["Python 3.12", "FastAPI 0.111", "Tailwind v4", "oat.ink", "HTMX 2.x"]:
@@ -375,7 +375,7 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 # 7 · ADVANCED
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("7 · Advanced", class_="font-bold border-b pb-1")
+mt.header("7 · Advanced", className="font-bold border-b pb-1")
 
 mt.subheader("Named-entity recognition")
 mt.ner_text(
@@ -386,7 +386,7 @@ mt.ner_text(
         {"start": 31, "end": 43, "label": "GPE"},
         {"start": 69, "end": 78, "label": "PERSON"},
     ],
-    class_="mt-4 mb-6 text-base leading-loose",
+    className="mt-4 mb-6 text-base leading-loose",
 )
 
 mt.markdown("---")
@@ -394,18 +394,18 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 # 8 · NEW UI PRIMITIVES
 # ═════════════════════════════════════════════════════════════════════════════
-mt.header("8 · New UI Primitives", class_="font-bold border-b pb-1")
+mt.header("8 · New UI Primitives", className="font-bold border-b pb-1")
 
 mt.subheader("Spinner & Skeleton")
 sp1, sp2, sp3 = mt.columns(3)
 with sp1:
-    mt.write("Spinner — large", class_="text-xs font-semibold")
+    mt.write("Spinner — large", className="text-xs font-semibold")
     mt.spinner("large")
 with sp2:
-    mt.write("Spinner — small", class_="text-xs font-semibold")
+    mt.write("Spinner — small", className="text-xs font-semibold")
     mt.spinner("small")
 with sp3:
-    mt.write("Skeleton placeholders", class_="text-xs font-semibold")
+    mt.write("Skeleton placeholders", className="text-xs font-semibold")
     mt.skeleton("line")
     mt.skeleton("line")
     mt.skeleton("box")
@@ -413,25 +413,25 @@ with sp3:
 mt.subheader("Progress & Meter")
 pr1, pr2 = mt.columns(2)
 with pr1:
-    mt.write("Progress bar (72 %)", class_="text-xs")
+    mt.write("Progress bar (72 %)", className="text-xs")
     mt.progress(0.72)
-    mt.write("Indeterminate", class_="text-xs mt-2")
+    mt.write("Indeterminate", className="text-xs mt-2")
     mt.progress()
 with pr2:
-    mt.write("Meter — green zone (0.75)", class_="text-xs")
+    mt.write("Meter — green zone (0.75)", className="text-xs")
     mt.meter(0.75, low=0.3, high=0.7, optimum=1.0)
-    mt.write("Meter — warning zone (0.45)", class_="text-xs mt-2")
+    mt.write("Meter — warning zone (0.45)", className="text-xs mt-2")
     mt.meter(0.45, low=0.3, high=0.7, optimum=1.0)
 
 mt.subheader("Avatar & Avatar Group")
 av1, av2 = mt.columns(2)
 with av1:
-    mt.write("Single avatar — initials", class_="text-xs font-semibold")
+    mt.write("Single avatar — initials", className="text-xs font-semibold")
     mt.avatar(initials="JD")
-    mt.write("Small avatar", class_="text-xs mt-2")
+    mt.write("Small avatar", className="text-xs mt-2")
     mt.avatar(initials="AB", size="small")
 with av2:
-    mt.write("Avatar group", class_="text-xs font-semibold")
+    mt.write("Avatar group", className="text-xs font-semibold")
     mt.avatar_group(avatars=[
         {"initials": "JD"},
         {"initials": "AB"},
@@ -443,7 +443,7 @@ _page = mt.pagination(total_pages=5, current_page=1, key="demo_page")
 mt.write(f"Selected page: **{_page}**")
 
 mt.subheader("Toast notification")
-mt.write("Click the button to fire a toast:", class_="text-sm")
+mt.write("Click the button to fire a toast:", className="text-sm")
 if mt.button("Show success toast", key="demo_toast"):
     mt.toast("Changes saved successfully!", title="Saved", variant="success")
 
@@ -452,5 +452,5 @@ mt.write(
     "All components use OAT semantic attributes — no hardcoded Tailwind colour classes. "
     "Theme tokens from constants/theme.json (schemes.light.*). "
     "Edit colours in the sidebar to see every element update live.",
-    class_="text-center text-sm pb-8",
+    className="text-center text-sm pb-8",
 )

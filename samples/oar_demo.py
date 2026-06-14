@@ -7,15 +7,15 @@ if "save_success" not in mt.session_state:
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with mt.sidebar:
-    mt.title("Oat Demo", class_="text-lg font-bold")
+    mt.title("Oat Demo", className="text-lg font-bold")
     mt.markdown("---")
 
-    mt.write("Navigation", class_="text-xs font-semibold uppercase tracking-wide mb-2")
+    mt.write("Navigation", className="text-xs font-semibold uppercase tracking-wide mb-2")
     mt.radio("", ["Dashboard", "Analytics", "Orders", "Settings"], key="nav_section")
 
     mt.markdown("---")
 
-    mt.write("Theme", class_="text-xs font-semibold uppercase tracking-wide mb-2")
+    mt.write("Theme", className="text-xs font-semibold uppercase tracking-wide mb-2")
     mt.selectbox("Color scheme", ["Default", "Slate", "Stone", "Rose", "Blue", "Green", "Orange"], key="theme_choice")
 
     auto_refresh = mt.toggle("Auto-refresh", value=False, key="auto_refresh")
@@ -23,13 +23,13 @@ with mt.sidebar:
         mt.info("Auto-refresh is on.")
 
     mt.markdown("---")
-    mt.write("mxlit · FastAPI + HTMX", class_="text-xs")
+    mt.write("mxlit · FastAPI + HTMX", className="text-xs")
 
 # ── PAGE TITLE ────────────────────────────────────────────────────────────────
-mt.title("Dashboard", class_="text-3xl font-bold")
+mt.title("Dashboard", className="text-3xl font-bold")
 mt.write(
     "This kitchensink dashboard shows various UI components and layouts built with **mxlit**.",
-    class_="mb-6",
+    className="mb-6",
 )
 
 # ── TOP METRICS ───────────────────────────────────────────────────────────────
@@ -51,11 +51,11 @@ with tab_overview:
     mt.write(
         "This dummy kitchensink dashboard page shows various UI components and "
         "layouts built with mxlit.",
-        class_="mb-3",
+        className="mb-3",
     )
     mt.line_chart(
         {"Mon": 420, "Tue": 380, "Wed": 510, "Thu": 460, "Fri": 590, "Sat": 340, "Sun": 280},
-        class_="rounded-lg border p-2",
+        className="rounded-lg border p-2",
     )
 
     mt.markdown("---")
@@ -66,7 +66,7 @@ with tab_overview:
             "Value":   ["128,450",    "42.3%",        "3m 24s"],
             "Change":  ["+8.2%",      "-1.4%",        "+0:18"],
         }),
-        class_="w-full",
+        className="w-full",
     )
 
     mt.markdown("---")
@@ -79,21 +79,21 @@ with tab_overview:
         ("bob",   "Deployed v2.4.1 to production",  "Yesterday"),
     ]
     for actor, desc, ts in activities:
-        with mt.container(horizontal=True, class_="items-center gap-3 py-2 border-b last:border-0"):
+        with mt.container(horizontal=True, className="items-center gap-3 py-2 border-b last:border-0"):
             mt.avatar(initials=actor[0].upper(), size="small")
-            mt.write(f"**{actor}** — {desc}", class_="flex-1 text-sm")
-            mt.write(ts, class_="text-xs shrink-0")
+            mt.write(f"**{actor}** — {desc}", className="flex-1 text-sm")
+            mt.write(ts, className="text-xs shrink-0")
 
 # ── Performance ───────────────────────────────────────────────────────────────
 with tab_performance:
     mt.subheader("Performance Metrics")
     p1, p2, p3 = mt.columns(3)
     with p1:
-        mt.metric("Avg Response", "142 ms",    "p95: 380 ms",       class_="w-full")
+        mt.metric("Avg Response", "142 ms",    "p95: 380 ms",       className="w-full")
     with p2:
-        mt.metric("Error Rate",   "0.03%",     "-0.01% this week",  class_="w-full")
+        mt.metric("Error Rate",   "0.03%",     "-0.01% this week",  className="w-full")
     with p3:
-        mt.metric("Throughput",   "1,240 req/s", "+5% this week",   class_="w-full")
+        mt.metric("Throughput",   "1,240 req/s", "+5% this week",   className="w-full")
     mt.spinner("small")
 
     mt.markdown("---")
@@ -108,20 +108,20 @@ with tab_performance:
     ]
     for col, (label, val, detail) in zip(mt.columns(len(server_stats)), server_stats):
         with col:
-            mt.write(label, class_="text-xs font-semibold")
+            mt.write(label, className="text-xs font-semibold")
             mt.meter(val, low=0.5, high=0.75, optimum=0.2)
-            mt.write(f"{int(val*100)}% — {detail}", class_="text-xs")
+            mt.write(f"{int(val*100)}% — {detail}", className="text-xs")
 
     mt.markdown("---")
     mt.subheader("Response Time — last 7 days")
     mt.area_chart(
         {"Mon": 130, "Tue": 155, "Wed": 142, "Thu": 160, "Fri": 138, "Sat": 120, "Sun": 110},
-        class_="rounded-lg border p-2",
+        className="rounded-lg border p-2",
     )
     mt.subheader("Errors by Endpoint")
     mt.bar_chart(
         {"/api/orders": 12, "/api/users": 5, "/api/reports": 3, "/api/auth": 8, "/api/products": 1},
-        class_="rounded-lg border p-2",
+        className="rounded-lg border p-2",
     )
 
 # ── Reports ───────────────────────────────────────────────────────────────────
@@ -139,20 +139,20 @@ with tab_reports:
     })
     f_all, f_pending, f_shipped = mt.tabs(["All", "Pending", "Shipped"])
     with f_all:
-        mt.dataframe(orders_df, class_="w-full")
+        mt.dataframe(orders_df, className="w-full")
     with f_pending:
         mt.dataframe(
             orders_df[orders_df["Status"] == "Pending"].reset_index(drop=True),
-            class_="w-full",
+            className="w-full",
         )
     with f_shipped:
         mt.dataframe(
             orders_df[orders_df["Status"].isin(["Shipped", "Delivered"])].reset_index(drop=True),
-            class_="w-full",
+            className="w-full",
         )
 
     _order_page = mt.pagination(total_pages=5, current_page=1, key="orders_page")
-    mt.write(f"Page **{_order_page}** of 5", class_="text-xs")
+    mt.write(f"Page **{_order_page}** of 5", className="text-xs")
 
     mt.markdown("---")
     mt.subheader("Notifications")
@@ -165,42 +165,42 @@ with tab_reports:
 mt.markdown("---")
 
 # ── FAQ ───────────────────────────────────────────────────────────────────────
-mt.header("FAQ", class_="font-bold border-b pb-1")
+mt.header("FAQ", className="font-bold border-b pb-1")
 
-with mt.expander("How do I reset my password?", class_="border rounded-lg mb-2"):
+with mt.expander("How do I reset my password?", className="border rounded-lg mb-2"):
     mt.write(
         "Go to **Settings → Security** and click *Reset Password*. "
         "A reset link will be sent to your registered email address."
     )
 
-with mt.expander("What export formats are supported?", class_="border rounded-lg mb-2"):
+with mt.expander("What export formats are supported?", className="border rounded-lg mb-2"):
     mt.write("Reports can be exported as **CSV**, **Excel (.xlsx)**, **JSON**, and **PDF**.")
 
-with mt.expander("How is billing calculated?", class_="border rounded-lg mb-2"):
+with mt.expander("How is billing calculated?", className="border rounded-lg mb-2"):
     mt.write(
         "Billing is calculated monthly based on the number of active seats and API calls "
         "made during the billing cycle. Overages are billed at the standard rate shown on "
         "your plan page."
     )
 
-with mt.expander("Can I connect third-party integrations?", class_="border rounded-lg mb-2"):
+with mt.expander("Can I connect third-party integrations?", className="border rounded-lg mb-2"):
     mt.write("Yes — integrations are available via the REST API. Example:")
     mt.code(
         'curl -X POST https://api.example.com/hooks \\\n'
         '  -H "Authorization: Bearer <TOKEN>" \\\n'
         '  -d \'{"event": "order.created", "url": "https://your-site.com/webhook"}\'',
-        class_="text-xs",
+        className="text-xs",
     )
 
 mt.markdown("---")
 
 # ── ACCOUNT SETTINGS ─────────────────────────────────────────────────────────
-mt.header("Account Settings", class_="font-bold border-b pb-1")
+mt.header("Account Settings", className="font-bold border-b pb-1")
 
 col_left, col_right = mt.columns(2)
 
 with col_left:
-    mt.subheader("Profile", class_="font-semibold mb-2")
+    mt.subheader("Profile", className="font-semibold mb-2")
     name  = mt.text_input("Full Name",   value="Alice Brown",            key="acc_name")
     email = mt.email_input("Email",      value="alice@example.com",      key="acc_email")
     role  = mt.selectbox("Role", ["Admin", "Editor", "Viewer"],           key="acc_role")
@@ -209,18 +209,18 @@ with col_left:
     brand = mt.color_picker("Brand Color", value="#415F91",               key="acc_brand")
 
 with col_right:
-    mt.subheader("Preferences", class_="font-semibold mb-2")
+    mt.subheader("Preferences", className="font-semibold mb-2")
     mt.slider("Notification Volume", 0, 100, 60, key="acc_volume")
 
-    mt.write("Email preferences", class_="text-sm font-medium mt-3 mb-1")
+    mt.write("Email preferences", className="text-sm font-medium mt-3 mb-1")
     mt.checkbox("Product updates",  value=True,  key="acc_email_product")
     mt.checkbox("Marketing emails", value=False, key="acc_email_mkt")
     mt.checkbox("Security alerts",  value=True,  key="acc_email_security")
 
-    mt.write("Theme", class_="text-sm font-medium mt-3 mb-1")
+    mt.write("Theme", className="text-sm font-medium mt-3 mb-1")
     mt.radio("", ["Light", "Dark", "System"], key="acc_theme_pref")
 
-    mt.write("Security", class_="text-sm font-medium mt-3 mb-1")
+    mt.write("Security", className="text-sm font-medium mt-3 mb-1")
     mt.toggle("Two-factor authentication", value=True,  key="acc_2fa")
     mt.toggle("API access",                value=False, key="acc_api")
 
@@ -229,10 +229,10 @@ mt.markdown("---")
 # Action buttons — Save / Cancel / Delete (delete uses mt.dialog for confirmation)
 btn_save, btn_cancel, btn_delete = mt.columns([2, 1, 1])
 with btn_save:
-    if mt.button("Save Changes", class_="w-full"):
+    if mt.button("Save Changes", className="w-full"):
         mt.session_state["save_success"] = True
 with btn_cancel:
-    mt.button("Cancel", key="btn_cancel", class_="w-full")
+    mt.button("Cancel", key="btn_cancel", className="w-full")
 with btn_delete:
     with mt.dialog("Delete Account", trigger_label="Delete Account"):
         mt.warning("Are you sure? All data will be permanently removed.")

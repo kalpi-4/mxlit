@@ -23,7 +23,7 @@ from mxlit.components.widgets import (
 )
 # Layout
 from mxlit.components.layout import (
-    sidebar, columns, tabs, expander, container, page_config,
+    navbar, sidebar, columns, tabs, expander, container, page_config,
     card, spinner, progress, skeleton, meter,
     avatar, avatar_group, breadcrumb, button_group, toast,
     dialog, dropdown, grid, input_group,

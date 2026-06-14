@@ -1,11 +1,12 @@
 {# ── Theme CSS variables ──────────────────────────────────────────────────── #}
 {% if theme %}
-{% set p   = theme["schemes.light.primary"] %}
-{% set s   = theme["schemes.light.secondary"] %}
-{% set bg  = theme["schemes.light.background"] %}
-{% set txt = theme["schemes.light.onBackground"] %}
-{% set err = theme.get("schemes.light.error", "#d32f2f") %}
-{% set ter = theme.get("schemes.light.tertiary", "#008032") %}
+{% set _sc  = "dark" if dark_mode else "light" %}
+{% set p   = theme["schemes." ~ _sc ~ ".primary"] %}
+{% set s   = theme["schemes." ~ _sc ~ ".secondary"] %}
+{% set bg  = theme["schemes." ~ _sc ~ ".background"] %}
+{% set txt = theme["schemes." ~ _sc ~ ".onBackground"] %}
+{% set err = theme.get("schemes." ~ _sc ~ ".error", "#d32f2f") %}
+{% set ter = theme.get("schemes." ~ _sc ~ ".tertiary", "#008032") %}
 <style>
 :root {
     --primary:              {{ p }};
@@ -34,6 +35,14 @@
 }
 body, html { background-color: {{ bg }}; color: {{ txt }}; }
 </style>
+<script>
+(function(){
+    var t='{{ _sc }}';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
+    try { localStorage.setItem('theme', t); } catch(e) {}
+})();
+</script>
 {% endif %}
 
 {# ── render_children: render a list of components, handling tab/column grouping ─ #}
@@ -41,9 +50,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 {% for comp in children %}
     {% if comp.type == 'column' %}
         {% if loop.index0 == 0 or children[loop.index0 - 1].type != 'column' %}
-            <div class="mx-columns {{ comp.columns_class_ | default('') }}">
+            <div class="mx-columns {{ comp.columnsClassName | default('') }}">
         {% endif %}
-        <div class="mx-column {{ comp.class_ | default('') }}" style="flex: {{ comp.weight | default(1) }}">
+        <div class="mx-column {{ comp.className | default('') }}" style="flex: {{ comp.weight | default(1) }}">
             {{ render_children(comp.children) }}
         </div>
         {% if loop.last or children[loop.index0 + 1].type != 'column' %}
@@ -61,7 +70,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 {% endif %}
             {% endfor %}
             <ot-tabs data-tab-group="mxlit-tabs{{ tab_id_ns.value }}"
-                     class="{{ comp.tabs_class_ | default('') }}">
+                     class="{{ comp.tabsClassName | default('') }}">
                 <div role="tablist">
                     {% set hdr_ns = namespace(stop=false) %}
                     {% for fc in children[tab_start:] %}
@@ -101,35 +110,35 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Typography ──────────────────────────────────────────────────────── #}
     {% if comp.type == 'title' %}
-        <h1 class="{{ comp.class_ | default('') }}">{{ comp.content }}</h1>
+        <h1 class="{{ comp.className | default('') }}">{{ comp.content }}</h1>
 
     {% elif comp.type == 'header' %}
-        <h2 class="{{ comp.class_ | default('') }}">{{ comp.content }}</h2>
+        <h2 class="{{ comp.className | default('') }}">{{ comp.content }}</h2>
 
     {% elif comp.type == 'subheader' %}
-        <h3 class="{{ comp.class_ | default('') }}">{{ comp.content }}</h3>
+        <h3 class="{{ comp.className | default('') }}">{{ comp.content }}</h3>
 
     {% elif comp.type == 'write' or comp.type == 'text' %}
-        <p class="{{ comp.class_ | default('') }}">{{ comp.content }}</p>
+        <p class="{{ comp.className | default('') }}">{{ comp.content }}</p>
 
     {% elif comp.type == 'markdown' %}
-        <div class="{{ comp.class_ | default('') }}">{{ comp.content | safe }}</div>
+        <div class="{{ comp.className | default('') }}">{{ comp.content | safe }}</div>
 
     {% elif comp.type == 'code' %}
-        <pre class="{{ comp.class_ | default('') }}"><code>{{ comp.content }}</code></pre>
+        <pre class="{{ comp.className | default('') }}"><code>{{ comp.content }}</code></pre>
 
     {% elif comp.type == 'html' %}
-        <div class="{{ comp.class_ | default('') }}">{{ comp.content | safe }}</div>
+        <div class="{{ comp.className | default('') }}">{{ comp.content | safe }}</div>
 
     {% elif comp.type == 'latex' %}
-        <div class="mx-latex {{ comp.class_ | default('') }}">$${{ comp.content }}$$</div>
+        <div class="mx-latex {{ comp.className | default('') }}">$${{ comp.content }}$$</div>
 
     {% elif comp.type == 'json' %}
-        <pre class="{{ comp.class_ | default('') }}"><code>{{ comp.content }}</code></pre>
+        <pre class="{{ comp.className | default('') }}"><code>{{ comp.content }}</code></pre>
 
     {# ── NER highlighting ────────────────────────────────────────────────── #}
     {% elif comp.type == 'ner' %}
-        <div class="mx-ner {{ comp.class_ | default('') }}">
+        <div class="mx-ner {{ comp.className | default('') }}">
             {% set text_content = comp.content %}
             {% set ns_ner = namespace(last_idx=0) %}
             {% for ent in comp.entities %}
@@ -145,7 +154,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Streaming text ──────────────────────────────────────────────────── #}
     {% elif comp.type == 'write_stream' %}
-        <div class="mx-stream {{ comp.class_ | default('') }}"
+        <div class="mx-stream {{ comp.className | default('') }}"
              hx-ext="sse"
              sse-connect="/stream/{{ comp.stream_id }}"
              sse-swap="message"
@@ -154,11 +163,11 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Data / Table ────────────────────────────────────────────────────── #}
     {% elif comp.type == 'dataframe' or comp.type == 'table' %}
-        <div class="table {{ comp.class_ | default('') }}">{{ comp.content | safe }}</div>
+        <div class="table {{ comp.className | default('') }}">{{ comp.content | safe }}</div>
 
     {# ── Metric card ─────────────────────────────────────────────────────── #}
     {% elif comp.type == 'metric' %}
-        <div class="mx-metric {{ comp.class_ | default('') }}">
+        <div class="mx-metric {{ comp.className | default('') }}">
             <span class="mx-metric-label">{{ comp.label }}</span>
             <span class="mx-metric-value">{{ comp.value }}</span>
             {% if comp.delta %}
@@ -169,13 +178,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Badge ───────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'badge' %}
-        <span class="badge {{ comp.class_ | default('') }}">{{ comp.content }}</span>
+        <span class="badge {{ comp.className | default('') }}">{{ comp.content }}</span>
 
     {# ── Status / Alert ──────────────────────────────────────────────────── #}
     {% elif comp.type == 'status' %}
         <div role="{{ comp.role | default('alert') }}"
              {% if comp['data-variant'] is defined %}data-variant="{{ comp['data-variant'] }}"{% elif comp.status_type and comp.status_type != 'info' %}data-variant="{{ comp.status_type }}"{% endif %}
-             class="{{ comp.class_ | default('') }}">{{ comp.content }}</div>
+             class="{{ comp.className | default('') }}">{{ comp.content }}</div>
 
     {# ── Widgets ─────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'button' %}
@@ -190,10 +199,10 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 hx-include="[name]"
                 {% endif %}
                 {% if comp.disabled %}disabled aria-disabled="true"{% endif %}
-                class="{{ comp.class_ | default('') }}">{{ comp.label }}</button>
+                class="{{ comp.className | default('') }}">{{ comp.label }}</button>
 
     {% elif comp.type == 'text_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="text"
                    id="{{ comp.key }}"
@@ -210,7 +219,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'email_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="email" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -218,7 +227,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'password_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="password" id="{{ comp.key }}" name="{{ comp.key }}" autocomplete="current-password"
                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -226,7 +235,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'datetime_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="datetime-local" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -234,7 +243,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'text_area' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <textarea id="{{ comp.key }}" name="{{ comp.key }}"
                       {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -242,7 +251,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'number_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="number" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if comp.step is not none %}step="{{ comp.step }}"{% else %}step="any"{% endif %}
@@ -253,7 +262,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'date_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="date" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -261,7 +270,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'color_picker' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="color" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -269,7 +278,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'checkbox' %}
-        <label data-field class="{{ comp.class_ | default('') }}">
+        <label data-field class="{{ comp.className | default('') }}">
             <input type="hidden" name="{{ comp.key }}" value="false">
             <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true"
                    {% if comp.value %}checked{% endif %}
@@ -279,7 +288,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'toggle' %}
-        <label class="{{ comp.class_ | default('') }}">
+        <label class="{{ comp.className | default('') }}">
             <input type="hidden" name="{{ comp.key }}" value="false">
             <input type="checkbox" role="switch" id="{{ comp.key }}" name="{{ comp.key }}" value="true"
                    {% if comp.value %}checked{% endif %}
@@ -289,7 +298,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'slider' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.value }}</span>
             <input type="range" id="{{ comp.key }}" name="{{ comp.key }}"
                    min="{{ comp.min_value }}" max="{{ comp.max_value }}" value="{{ comp.value }}"
@@ -299,7 +308,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {% elif comp.type == 'radio' %}
-        <fieldset class="hstack {{ comp.class_ | default('') }}">
+        <fieldset class="hstack {{ comp.className | default('') }}">
             <legend>{{ comp.label }}</legend>
             {% for option in comp.options %}
                 <label>
@@ -320,7 +329,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </fieldset>
 
     {% elif comp.type == 'selectbox' %}
-        <div data-field class="{{ comp.class_ | default('') }}">
+        <div data-field class="{{ comp.className | default('') }}">
             <label for="{{ comp.key }}">{{ comp.label }}</label>
             <select id="{{ comp.key }}" name="{{ comp.key }}" aria-label="{{ comp.label }}"
                     {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -336,28 +345,28 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         <div class="mx-media">
             <img src="{{ comp.url }}"
                  alt="{{ comp.caption | default('') }}"
-                 class="{{ comp.class_ | default('') }}"
+                 class="{{ comp.className | default('') }}"
                  {% if comp.width %}style="width: {{ comp.width }}px;"{% endif %}>
         </div>
 
     {% elif comp.type == 'logo' %}
         <div class="mx-media">
-            <img src="{{ comp.url }}" alt="Logo" class="{{ comp.class_ | default('') }}" style="max-height: 50px;">
+            <img src="{{ comp.url }}" alt="Logo" class="{{ comp.className | default('') }}" style="max-height: 50px;">
         </div>
 
     {% elif comp.type == 'audio' %}
         <div class="mx-media">
-            <audio controls src="{{ comp.url }}" class="{{ comp.class_ | default('') }}"></audio>
+            <audio controls src="{{ comp.url }}" class="{{ comp.className | default('') }}"></audio>
         </div>
 
     {% elif comp.type == 'video' %}
         <div class="mx-media">
-            <video controls src="{{ comp.url }}" class="{{ comp.class_ | default('') }}"></video>
+            <video controls src="{{ comp.url }}" class="{{ comp.className | default('') }}"></video>
         </div>
 
     {# ── Charts ──────────────────────────────────────────────────────────── #}
     {% elif comp.type in ('line_chart', 'bar_chart', 'area_chart', 'scatter_chart', 'chart') %}
-        <div class="mx-chart {{ comp.class_ | default('') }}">
+        <div class="mx-chart {{ comp.className | default('') }}">
             <canvas id="chart-{{ comp.key }}"></canvas>
             <script>
                 (function () {
@@ -384,13 +393,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Layout: container ───────────────────────────────────────────────── #}
     {% elif comp.type == 'container' %}
-        <div class="{% if comp.horizontal %}hstack{% endif %} {{ comp.class_ | default('') }}">
+        <div class="{% if comp.horizontal %}hstack{% endif %} {{ comp.className | default('') }}">
             {{ render_children(comp.children) }}
         </div>
 
     {# ── Layout: expander ────────────────────────────────────────────────── #}
     {% elif comp.type == 'expander' %}
-        <details class="{{ comp.class_ | default('') }}">
+        <details class="{{ comp.className | default('') }}">
             <summary>{% if comp.icon %}{{ comp.icon }} {% endif %}{{ comp.label }}</summary>
             <div>
                 {{ render_children(comp.children) }}
@@ -399,7 +408,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Layout: card (CompositeComponent) ───────────────────────────────── #}
     {% elif comp.type == 'card' %}
-        <article class="card {{ comp.class_ | default('') }}">
+        <article class="card {{ comp.className | default('') }}">
             {% if comp.header %}
                 <header><h3>{{ comp.header }}</h3></header>
             {% endif %}
@@ -415,19 +424,19 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {% elif comp.type == 'spinner' %}
         <div aria-busy="true"
              data-spinner="{{ comp.size | default('large') }}"
-             class="{{ comp.class_ | default('') }}"></div>
+             class="{{ comp.className | default('') }}"></div>
 
     {% elif comp.type == 'progress' %}
         {% if comp.value is not none %}
             <progress value="{{ comp.value }}" max="{{ comp.max | default(1.0) }}"
-                      class="{{ comp.class_ | default('') }}"></progress>
+                      class="{{ comp.className | default('') }}"></progress>
         {% else %}
-            <progress class="{{ comp.class_ | default('') }}"></progress>
+            <progress class="{{ comp.className | default('') }}"></progress>
         {% endif %}
 
     {% elif comp.type == 'skeleton' %}
         <div role="status"
-             class="skeleton {{ comp.variant | default('line') }} {{ comp.class_ | default('') }}"></div>
+             class="skeleton {{ comp.variant | default('line') }} {{ comp.className | default('') }}"></div>
 
     {% elif comp.type == 'meter' %}
         <meter value="{{ comp.value }}"
@@ -436,12 +445,12 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                {% if comp.low is not none %}low="{{ comp.low }}"{% endif %}
                {% if comp.high is not none %}high="{{ comp.high }}"{% endif %}
                {% if comp.optimum is not none %}optimum="{{ comp.optimum }}"{% endif %}
-               class="{{ comp.class_ | default('') }}"></meter>
+               class="{{ comp.className | default('') }}"></meter>
 
     {# ── Avatar ──────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'avatar' %}
         <figure data-variant="avatar"
-                class="{{ ([comp.size, comp.class_] | select | join(' ')) | default('') }}"
+                class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}"
                 {% if comp.initials %}aria-label="{{ comp.initials }}"{% endif %}>
             {% if comp.src %}
                 <img src="{{ comp.src }}" alt="{{ comp.initials | default('') }}">
@@ -452,7 +461,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {% elif comp.type == 'avatar_group' %}
         <figure data-variant="avatar" role="group"
-                class="{{ ([comp.size, comp.class_] | select | join(' ')) | default('') }}">
+                class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}">
             {% for av in comp.avatars %}
                 <figure data-variant="avatar"
                         {% if av.size %}class="{{ av.size }}"{% endif %}
@@ -468,7 +477,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Breadcrumb ──────────────────────────────────────────────────────── #}
     {% elif comp.type == 'breadcrumb' %}
-        <nav aria-label="Breadcrumb" class="{{ comp.class_ | default('') }}">
+        <nav aria-label="Breadcrumb" class="{{ comp.className | default('') }}">
             <ol class="unstyled hstack" style="font-size: var(--text-7)">
                 {% for item in comp['items'] %}
                     {% if not loop.first %}<li aria-hidden="true">/</li>{% endif %}
@@ -487,7 +496,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Button Group ────────────────────────────────────────────────────── #}
     {% elif comp.type == 'button_group' %}
-        <menu class="buttons {{ comp.class_ | default('') }}">
+        <menu class="buttons {{ comp.className | default('') }}">
             {% for btn in comp.buttons %}
                 <li>
                     <button type="button"
@@ -505,7 +514,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# ── Toast ───────────────────────────────────────────────────────────── #}
     {# oat.ink API: ot.toast(message, title?, options?)                      #}
     {% elif comp.type == 'toast' %}
-        <div style="display:none" class="{{ comp.class_ | default('') }}">
+        <div style="display:none" class="{{ comp.className | default('') }}">
             <script>
                 (function () {
                     function _showToast() {
@@ -529,7 +538,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Pagination ──────────────────────────────────────────────────────── #}
     {% elif comp.type == 'pagination' %}
-        <nav aria-label="Pagination" class="{{ comp.class_ | default('') }}">
+        <nav aria-label="Pagination" class="{{ comp.className | default('') }}">
             <menu class="buttons">
                 {% for page in range(1, comp.total_pages + 1) %}
                     <li>
@@ -552,7 +561,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         {% set _dlg_id = "dlg-" ~ comp.id %}
         <button type="button"
                 onclick="document.getElementById('{{ _dlg_id }}').showModal()"
-                class="{{ comp.class_ | default('') }}">{{ comp.trigger_label | default('Open') }}</button>
+                class="{{ comp.className | default('') }}">{{ comp.trigger_label | default('Open') }}</button>
         <dialog id="{{ _dlg_id }}" closedby="any">
             <form method="dialog">
                 {% if comp.title %}
@@ -573,7 +582,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# oat.ink uses popovertarget/popover — NOT slot="trigger"              #}
     {% elif comp.type == 'dropdown' %}
         {% set _menu_id = "menu-" ~ comp.id %}
-        <ot-dropdown class="{{ comp.class_ | default('') }}">
+        <ot-dropdown class="{{ comp.className | default('') }}">
             <button type="button" popovertarget="{{ _menu_id }}" class="outline">
                 {{ comp.label }}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
@@ -591,7 +600,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Grid ────────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'grid' %}
-        <div class="container {{ comp.class_ | default('') }}">
+        <div class="container {{ comp.className | default('') }}">
             <div class="row">
                 {% for child in comp.children %}
                     {{ render_component(child) }}
@@ -601,7 +610,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── File Input ──────────────────────────────────────────────────────── #}
     {% elif comp.type == 'file_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="file" id="{{ comp.key }}" name="{{ comp.key }}"
                    {% if comp.accept %}accept="{{ comp.accept }}"{% endif %}
@@ -622,7 +631,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             'date_input':     'date',
             'datetime_input': 'datetime-local'
         } -%}
-        <fieldset class="group {{ comp.class_ | default('') }}">
+        <fieldset class="group {{ comp.className | default('') }}">
             {% if comp.prefix %}
                 <legend>{{ comp.prefix }}</legend>
             {% endif %}
@@ -632,7 +641,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                            name="{{ child.key }}"
                            value="{{ child.value | default('') }}"
                            placeholder="{{ child.label }}"
-                           class="{{ child.class_ | default('') }}"
+                           class="{{ child.className | default('') }}"
                            hx-post="/interact"
                            hx-target="{{ child['hx-target'] | default('#app-root') }}"
                            hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
@@ -649,7 +658,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Multiselect ─────────────────────────────────────────────────────── #}
     {% elif comp.type == 'multiselect' %}
-        <div data-field class="{{ comp.class_ | default('') }}">
+        <div data-field class="{{ comp.className | default('') }}">
             <label for="{{ comp.key }}">{{ comp.label }}</label>
             <select id="{{ comp.key }}" name="{{ comp.key }}" multiple aria-label="{{ comp.label }}"
                     {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -662,7 +671,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Select Slider ───────────────────────────────────────────────────── #}
     {% elif comp.type == 'select_slider' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.display_value }}</span>
             <input type="range" id="{{ comp.key }}" name="{{ comp.key }}"
                    list="{{ comp.key }}-opts"
@@ -680,7 +689,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Time Input ──────────────────────────────────────────────────────── #}
     {% elif comp.type == 'time_input' %}
-        <label data-field for="{{ comp.key }}" class="{{ comp.class_ | default('') }}">
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
             {{ comp.label }}
             <input type="time" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
@@ -692,19 +701,19 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         <a href="{{ comp.url }}"
            {% if comp.new_tab %}target="_blank" rel="noopener noreferrer"{% endif %}
            role="button"
-           class="{{ comp.class_ | default('') }}">{{ comp.label }}</a>
+           class="{{ comp.className | default('') }}">{{ comp.label }}</a>
 
     {# ── Download Button ─────────────────────────────────────────────────── #}
     {% elif comp.type == 'download_button' %}
         <a href="{{ comp.href }}"
            download="{{ comp.file_name }}"
            role="button"
-           class="{{ comp.class_ | default('') }}">{{ comp.label }}</a>
+           class="{{ comp.className | default('') }}">{{ comp.label }}</a>
 
     {# ── Pills ───────────────────────────────────────────────────────────── #}
     {# Single-select pill buttons — styled like radio but rendered as chips   #}
     {% elif comp.type == 'pills' %}
-        <fieldset class="{{ comp.class_ | default('') }}">
+        <fieldset class="{{ comp.className | default('') }}">
             <legend>{{ comp.label }}</legend>
             <menu class="buttons">
                 {% for option in comp.options %}
@@ -714,7 +723,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                                 value="{{ option }}"
                                 class="{% if comp.value != option %}outline {% endif %}small"
                                 {% if comp.value == option %}aria-pressed="true"{% endif %}
-                                {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]"{% endif %}
+                                {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms"{% endif %}
                                 {% if comp.disabled %}disabled{% endif %}>{{ option }}</button>
                     </li>
                 {% endfor %}
@@ -723,7 +732,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Feedback ────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'feedback' %}
-        <fieldset class="{{ comp.class_ | default('') }}">
+        <fieldset class="{{ comp.className | default('') }}">
             {% if comp.label %}<legend>{{ comp.label }}</legend>{% endif %}
             <menu class="buttons">
                 {% if comp.sentiment == 'thumbs' %}
@@ -758,13 +767,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Empty placeholder ───────────────────────────────────────────────── #}
     {% elif comp.type == 'empty' %}
-        <div class="{{ comp.class_ | default('') }}" aria-hidden="true"></div>
+        <div class="{{ comp.className | default('') }}" aria-hidden="true"></div>
 
     {# ── Popover ─────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'popover' %}
         {% set _pop_id = "pop-" ~ comp.id %}
         <button type="button" popovertarget="{{ _pop_id }}"
-                class="{{ comp.class_ | default('') }}">{{ comp.label }}</button>
+                class="{{ comp.className | default('') }}">{{ comp.label }}</button>
         <div id="{{ _pop_id }}" popover class="mx-popover">
             {% for child in comp.children %}
                 {{ render_component(child) }}
@@ -774,7 +783,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# ── Status container ────────────────────────────────────────────────── #}
     {% elif comp.type == 'status_box' %}
         {% set _state_icon = {'running': '', 'complete': '✓', 'error': '✗'} %}
-        <details class="mx-status {{ comp.class_ | default('') }}"
+        <details class="mx-status {{ comp.className | default('') }}"
                  {% if comp.state == 'complete' or comp.state == 'error' %}open{% endif %}>
             <summary>
                 {% if comp.state == 'running' %}
@@ -806,6 +815,23 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 {% endmacro %}
 
 
+{# ── Navbar ────────────────────────────────────────────────────────────────── #}
+{% set ns_nav = namespace(has_navbar=false) %}
+{% for comp in components %}
+    {% if comp.type == 'navbar' %}{% set ns_nav.has_navbar = true %}{% endif %}
+{% endfor %}
+{% if ns_nav.has_navbar %}
+    {% for comp in components %}
+        {% if comp.type == 'navbar' %}
+            <header class="mx-navbar {{ comp.className | default('') }}" style="grid-column: 1 / -1;">
+                {% for child in comp.children %}
+                    {{ render_component(child) }}
+                {% endfor %}
+            </header>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
 {# ── Sidebar ──────────────────────────────────────────────────────────────── #}
 {% set ns = namespace(has_sidebar=false) %}
 {% for comp in components %}
@@ -815,7 +841,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 {% if ns.has_sidebar %}
     {% for comp in components %}
         {% if comp.type == 'sidebar' %}
-            <aside data-sidebar class="{{ aside_class | default('') }} {{ comp.class_ | default('') }}">
+            <aside data-sidebar class="{{ aside_class | default('') }} {{ comp.className | default('') }}">
                 <nav class="pt-8">
                     {% for child in comp.children %}
                         {{ render_component(child) }}
@@ -830,13 +856,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 <main class="mx-main {{ main_class | default('') }}">
     {% set tab_group_ns = namespace(count=0) %}
     {% for comp in components %}
-        {% if comp.type != 'sidebar' %}
+        {% if comp.type != 'sidebar' and comp.type != 'navbar' %}
 
             {% if comp.type == 'column' %}
                 {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'column' %}
-                    <div class="mx-columns {{ comp.columns_class_ | default('') }}">
+                    <div class="mx-columns {{ comp.columnsClassName | default('') }}">
                 {% endif %}
-                <div class="mx-column {{ comp.class_ | default('') }}" style="flex: {{ comp.weight | default(1) }}">
+                <div class="mx-column {{ comp.className | default('') }}" style="flex: {{ comp.weight | default(1) }}">
                     {{ render_children(comp.children) }}
                 </div>
                 {% if loop.last or components[loop.index0 + 1].type != 'column' %}
@@ -847,7 +873,7 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'tab' %}
                     {% set tab_group_ns.count = tab_group_ns.count + 1 %}
                     <ot-tabs data-tab-group="mxlit-tabs-{{ tab_group_ns.count }}"
-                             class="{{ comp.tabs_class_ | default('') }}">
+                             class="{{ comp.tabsClassName | default('') }}">
                         <div role="tablist">
                             {% set tab_start = loop.index0 %}
                             {% set hdr_ns = namespace(stop=false) %}

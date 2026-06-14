@@ -110,7 +110,7 @@ if mt.button("Submit"):
     
 if mt.session_state["form_submitted"]:
     if name:
-        mt.html(f"<div style='padding:1rem;background-color:#d4edda;border-radius:0.5rem;'>Thank you, {name}! Your form was submitted.</div>")
+        mt.success(f"Thank you, {name}! Your form was submitted.")
     else:
-        mt.html("<div style='padding:1rem;background-color:#f8d7da;border-radius:0.5rem;'>Please enter your name before submitting.</div>")
+        mt.error("Please enter your name before submitting.")
 
