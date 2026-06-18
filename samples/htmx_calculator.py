@@ -309,210 +309,215 @@ mt.write(
 )
 mt.markdown("---")
 
-col_calc, col_hist = mt.columns([3, 2])
+with mt.grid():
+    with mt.row():
 
-# ════════════════════════════════════════════════════════════════════════════
-# Calculator column
-# ════════════════════════════════════════════════════════════════════════════
-with col_calc:
+        # ════════════════════════════════════════════════════════════════════════════
+        # Calculator column
+        # ════════════════════════════════════════════════════════════════════════════
+        with mt.col(7):
 
-    # ── Display card ──────────────────────────────────────────────────────────
-    # Shows UPDATED state because pre-processing ran before this render.
-    with mt.card():
-        mt.write(expr or "—", className="font-mono text-sm text-gray-400 min-h-5")
-        disp_cls = (
-            "font-mono text-4xl text-right text-red-600"
-            if display.startswith("Error")
-            else "font-mono text-4xl text-right"
-        )
-        mt.title(display, className=disp_cls)
-        _badge_row = mt.columns([1, 1, 1])
-        with _badge_row[0]:
-            if memory != 0.0:
-                mt.badge(f"M={_fmt(memory, prec)}")
-        with _badge_row[1]:
-            mt.badge(f"{prec}dp")
-        with _badge_row[2]:
-            if mode == "Scientific":
-                mt.badge(angle[:3])
-
-    mt.space()
-
-    # ════════════════════════════════════════════════════════════════════════
-    # PATTERN D — Keyup-delay targeted update
-    # hx-trigger="keyup delay:300ms" on the text_input's <input> element.
-    # Fires 300 ms after the last keystroke → targeted outerHTML swap of
-    # just this component, not the full #app-root.
-    # ════════════════════════════════════════════════════════════════════════
-    with mt.expander("Pattern D · Direct expression entry (keyup delay:300ms)", className="border rounded-lg mb-2"):
-        mt.write(
-            "Type a full expression — evaluates on keystroke (300 ms debounce). "
-            "Only this widget's wrapper is swapped, the keypad is untouched.",
-            className="text-xs",
-        )
-        direct = mt.text_input(
-            "Expression",
-            value=expr,
-            key="calc_expr_direct",
-            className="font-mono w-full",
-        )
-        if direct and direct != session_state.get("calc_expr"):
-            raw = _eval_expr(direct, angle)
-            if not raw.startswith("Error"):
-                result_str = _fmt(raw, prec)
-                _push_history(direct, result_str)
-                session_state["calc_expr"]    = direct
-                session_state["calc_display"] = result_str
-
-    mt.space()
-
-    # ════════════════════════════════════════════════════════════════════════
-    # PATTERN A — Full page re-render (memory buttons)
-    # hx-post="/interact"  hx-target="#app-root"  hx-swap="innerHTML settle:0"
-    # Clicking any of these runs the script from the top; the pre-processing
-    # block at the top detects which key was clicked and updates state.
-    # ════════════════════════════════════════════════════════════════════════
-    mt.write("**Pattern A · Memory — full re-render buttons**", className="text-xs font-semibold uppercase tracking-wide")
-    _mrow = mt.columns(4)
-    with _mrow[0]: mt.button("MC",  key="calc_btn_MC",    className="w-full")
-    with _mrow[1]: mt.button("MR",  key="calc_btn_MR",    className="w-full")
-    with _mrow[2]: mt.button("M+",  key="calc_btn_Mplus", className="w-full")
-    with _mrow[3]: mt.button("M−",  key="calc_btn_Mminus",className="w-full")
-
-    mt.space()
-
-    # ── Scientific row (visible in Scientific mode) ───────────────────────────
-    if mode == "Scientific":
-        mt.write("**Scientific functions**", className="text-xs font-semibold uppercase tracking-wide")
-        _sr = mt.columns(4)
-        _sci_btns = [
-            ("sin",  "calc_fn_sin"),  ("cos",  "calc_fn_cos"),
-            ("tan",  "calc_fn_tan"),  ("√",    "calc_fn_sqrt"),
-        ]
-        for (_lbl, _k), _col in zip(_sci_btns, _sr):
-            with _col: mt.button(_lbl, key=_k, className="w-full")
-
-        _sr2 = mt.columns(4)
-        _sci2 = [
-            ("log",  "calc_fn_log"),  ("exp",  "calc_fn_exp"),
-            ("π",    "calc_fn_pi"),   ("e",    "calc_fn_e"),
-        ]
-        for (_lbl, _k), _col in zip(_sci2, _sr2):
-            with _col: mt.button(_lbl, key=_k, className="w-full")
-
-        mt.space()
-
-    # ── Main keypad ───────────────────────────────────────────────────────────
-    _ROWS: list[list[tuple[str, str, str]]] = [
-        [("CE", "calc_btn_CE", ""),   ("±", "calc_btn_sign", ""), ("(", "calc_op_lp", ""), (")", "calc_op_rp", ""), ("÷", "calc_op_div", "op")],
-        [("7",  "calc_d_7",   ""),    ("8", "calc_d_8",    ""),   ("9", "calc_d_9",    ""), ("×", "calc_op_mul", "op")],
-        [("4",  "calc_d_4",   ""),    ("5", "calc_d_5",    ""),   ("6", "calc_d_6",    ""), ("−", "calc_op_sub", "op")],
-        [("1",  "calc_d_1",   ""),    ("2", "calc_d_2",    ""),   ("3", "calc_d_3",    ""), ("+", "calc_op_add", "op")],
-        [("0",  "calc_d_0",   "zero"), (".", "calc_d_.", ""),      ("⌫", "calc_btn_back",""), ("=", "calc_btn_eq", "eq")],
-    ]
-    if mode == "Scientific":
-        _ROWS[0].append(("%", "calc_op_mod", "op"))
-
-    for _row in _ROWS:
-        _cols = mt.columns(len(_row))
-        for _col, (_label, _key, _role) in zip(_cols, _row):
-            with _col:
-                _cls = (
-                    "w-full bg-blue-600 text-white font-bold" if _role == "eq"
-                    else "w-full bg-orange-400 text-white"   if _role == "op"
-                    else "w-full col-span-2"                 if _role == "zero"
-                    else "w-full"
-                )
-                # Return value ignored — pre-processing already handled the state.
-                mt.button(_label, key=_key, className=_cls)
-
-    mt.space()
-
-    # ════════════════════════════════════════════════════════════════════════
-    # PATTERN G — Confirmation dialog (hx-confirm analogue)
-    # Instead of hx-confirm="Are you sure?" on the button (which would need
-    # a custom component), we wrap the destructive action in mt.dialog().
-    # The dialog trigger fires a full re-render; "Yes" button inside also
-    # fires a full re-render which the pre-processing block handles via
-    # calc_btn_AC key.
-    # ════════════════════════════════════════════════════════════════════════
-    mt.write("**Pattern G · Destructive confirm via mt.dialog()**", className="text-xs font-semibold uppercase tracking-wide")
-    mt.write("Analogue of `hx-confirm=\"…\"` — wraps the action in a native `<dialog>` element.", className="text-xs")
-    with mt.dialog("All Clear — reset calculator and history?", trigger_label="AC · All Clear"):
-        mt.warning("This permanently erases all history and resets the memory register to 0.")
-        mt.button("Yes, reset everything", key="calc_btn_AC", className="w-full")
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# History column
-# ════════════════════════════════════════════════════════════════════════════
-with col_hist:
-
-    # ════════════════════════════════════════════════════════════════════════
-    # PATTERN E — Auto-poll via setInterval
-    # setInterval(sync_time=5) emits:
-    #   hx-trigger="every 5s"  hx-get="/refresh/{id}"  hx-swap="outerHTML"
-    # on the wrapped component's div.  The browser fires GET /refresh/{id}
-    # every 5 s; server re-runs the script and returns just this component.
-    # ════════════════════════════════════════════════════════════════════════
-    mt.subheader("Pattern E · Auto-poll (setInterval)")
-    mt.write(
-        "`hx-trigger=\"every 5s\"` on the clock metric — no WebSocket, no JS thread.",
-        className="text-xs",
-    )
-    with mt.setInterval(sync_time=5):
-        mt.metric("Session clock", time.strftime("%H:%M:%S"), id="calc_clock")
-
-    mt.markdown("---")
-
-    # ════════════════════════════════════════════════════════════════════════
-    # PATTERN C — Named-field include
-    # The pagination widget has name="calc_hist_page" in the DOM.
-    # hx-include="[name]" on every widget collects all [name] elements and
-    # sends them with the POST, so page changes carry all form state.
-    # ════════════════════════════════════════════════════════════════════════
-    mt.subheader("History")
-    mt.write(
-        "**Pattern C**: pagination sends `name=\"calc_hist_page\"` with every POST "
-        "via `hx-include=\"[name]\"`.",
-        className="text-xs",
-    )
-
-    history: list = session_state["calc_history"]
-
-    if not history:
-        mt.info("No calculations yet — use the keypad or the expression input.")
-    else:
-        _per = 6
-        _total = max(1, (len(history) + _per - 1) // _per)
-        _page = mt.pagination(total_pages=_total, current_page=1, key="calc_hist_page")
-        _start = (_page - 1) * _per
-        _items = list(reversed(history))[_start: _start + _per]
-
-        for _entry in _items:
+            # ── Display card ──────────────────────────────────────────────────────────
+            # Shows UPDATED state because pre-processing ran before this render.
             with mt.card():
-                mt.write(_entry["expr"], className="font-mono text-xs text-gray-500")
-                mt.write(_entry["result"], className="font-mono text-lg font-bold")
+                mt.write(expr or "—", className="font-mono text-sm text-gray-400 min-h-5")
+                disp_cls = (
+                    "font-mono text-4xl text-right text-red-600"
+                    if display.startswith("Error")
+                    else "font-mono text-4xl text-right"
+                )
+                mt.title(display, className=disp_cls)
+                _badge_row = mt.columns([1, 1, 1])
+                with _badge_row[0]:
+                    if memory != 0.0:
+                        mt.badge(f"M={_fmt(memory, prec)}")
+                with _badge_row[1]:
+                    mt.badge(f"{prec}dp")
+                with _badge_row[2]:
+                    if mode == "Scientific":
+                        mt.badge(angle[:3])
 
-    mt.markdown("---")
+            mt.space()
 
-    # ════════════════════════════════════════════════════════════════════════
-    # PATTERN F — Swap strategy quick reference
-    # ════════════════════════════════════════════════════════════════════════
-    with mt.expander("Pattern F · Swap strategy reference", className="border rounded-lg"):
-        mt.write("**Trigger source → hx-swap value used**", className="text-xs font-semibold")
-        _rows = [
-            ("Button click",        "innerHTML settle:0",        "#app-root"),
-            ("Widget change",       "outerHTML settle:100ms",    "#mx-{id}"),
-            ("setInterval poll",    "outerHTML settle:0",        "#mx-{id}"),
-            ("setTimeout one-shot", "outerHTML settle:0",        "#mx-{id}"),
-            ("Direct expr input",   "outerHTML settle:100ms",    "#mx-{id}"),
-        ]
-        mt.dataframe(
-            {
-                "Source":    [r[0] for r in _rows],
-                "hx-swap":   [r[1] for r in _rows],
-                "hx-target": [r[2] for r in _rows],
-            },
-            className="text-xs w-full",
-        )
+            # ════════════════════════════════════════════════════════════════════════
+            # PATTERN D — Keyup-delay targeted update
+            # hx-trigger="keyup delay:300ms" on the text_input's <input> element.
+            # Fires 300 ms after the last keystroke → targeted outerHTML swap of
+            # just this component, not the full #app-root.
+            # ════════════════════════════════════════════════════════════════════════
+            with mt.expander("Pattern D · Direct expression entry (keyup delay:300ms)", className="border rounded-lg mb-2"):
+                mt.write(
+                    "Type a full expression — evaluates on keystroke (300 ms debounce). "
+                    "Only this widget's wrapper is swapped, the keypad is untouched.",
+                    className="text-xs",
+                )
+                direct = mt.text_input(
+                    "Expression",
+                    value=expr,
+                    key="calc_expr_direct",
+                    className="font-mono w-full",
+                )
+                if direct and direct != session_state.get("calc_expr"):
+                    raw = _eval_expr(direct, angle)
+                    if not raw.startswith("Error"):
+                        result_str = _fmt(raw, prec)
+                        _push_history(direct, result_str)
+                        session_state["calc_expr"]    = direct
+                        session_state["calc_display"] = result_str
+
+            mt.space()
+
+            # ════════════════════════════════════════════════════════════════════════
+            # PATTERN A — Full page re-render (memory buttons)
+            # hx-post="/interact"  hx-target="#app-root"  hx-swap="innerHTML settle:0"
+            # Clicking any of these runs the script from the top; the pre-processing
+            # block at the top detects which key was clicked and updates state.
+            # ════════════════════════════════════════════════════════════════════════
+            mt.write("**Pattern A · Memory — full re-render buttons**", className="text-xs font-semibold uppercase tracking-wide")
+            with mt.grid():
+                with mt.row():
+                    with mt.col(3): mt.button("MC",  key="calc_btn_MC",     className="w-full")
+                    with mt.col(3): mt.button("MR",  key="calc_btn_MR",     className="w-full")
+                    with mt.col(3): mt.button("M+",  key="calc_btn_Mplus",  className="w-full")
+                    with mt.col(3): mt.button("M−",  key="calc_btn_Mminus", className="w-full")
+
+            mt.space()
+
+            # ── Scientific row (visible in Scientific mode) ───────────────────────────
+            if mode == "Scientific":
+                mt.write("**Scientific functions**", className="text-xs font-semibold uppercase tracking-wide")
+                _sci_btns = [
+                    ("sin",  "calc_fn_sin"),  ("cos",  "calc_fn_cos"),
+                    ("tan",  "calc_fn_tan"),  ("√",    "calc_fn_sqrt"),
+                ]
+                _sci2 = [
+                    ("log",  "calc_fn_log"),  ("exp",  "calc_fn_exp"),
+                    ("π",    "calc_fn_pi"),   ("e",    "calc_fn_e"),
+                ]
+                with mt.grid():
+                    with mt.row():
+                        for _lbl, _k in _sci_btns:
+                            with mt.col(3): mt.button(_lbl, key=_k, className="w-full")
+                    with mt.row():
+                        for _lbl, _k in _sci2:
+                            with mt.col(3): mt.button(_lbl, key=_k, className="w-full")
+
+                mt.space()
+
+            # ── Main keypad ───────────────────────────────────────────────────────────
+            _ROWS: list[list[tuple[str, str, str]]] = [
+                [("CE", "calc_btn_CE", ""),   ("±", "calc_btn_sign", ""), ("(", "calc_op_lp", ""), (")", "calc_op_rp", ""), ("÷", "calc_op_div", "op")],
+                [("7",  "calc_d_7",   ""),    ("8", "calc_d_8",    ""),   ("9", "calc_d_9",    ""), ("×", "calc_op_mul", "op")],
+                [("4",  "calc_d_4",   ""),    ("5", "calc_d_5",    ""),   ("6", "calc_d_6",    ""), ("−", "calc_op_sub", "op")],
+                [("1",  "calc_d_1",   ""),    ("2", "calc_d_2",    ""),   ("3", "calc_d_3",    ""), ("+", "calc_op_add", "op")],
+                [("0",  "calc_d_0",   ""),    (".", "calc_d_.", ""),       ("⌫", "calc_btn_back",""), ("=", "calc_btn_eq", "eq")],
+            ]
+            if mode == "Scientific":
+                _ROWS[0].append(("%", "calc_op_mod", "op"))
+
+            with mt.grid():
+                for _row in _ROWS:
+                    _n    = len(_row)
+                    _span = 12 // _n
+                    _last = 12 - _span * (_n - 1)
+                    with mt.row():
+                        for _i, (_label, _key, _role) in enumerate(_row):
+                            _col_span = _last if _i == _n - 1 else _span
+                            _cls = (
+                                "w-full bg-blue-600 text-white font-bold" if _role == "eq"
+                                else "w-full bg-orange-400 text-white"    if _role == "op"
+                                else "w-full"
+                            )
+                            with mt.col(_col_span):
+                                # Return value ignored — pre-processing already handled the state.
+                                mt.button(_label, key=_key, className=_cls)
+
+            mt.space()
+
+            # ════════════════════════════════════════════════════════════════════════
+            # PATTERN G — Confirmation dialog (hx-confirm analogue)
+            # Instead of hx-confirm="Are you sure?" on the button (which would need
+            # a custom component), we wrap the destructive action in mt.dialog().
+            # The dialog trigger fires a full re-render; "Yes" button inside also
+            # fires a full re-render which the pre-processing block handles via
+            # calc_btn_AC key.
+            # ════════════════════════════════════════════════════════════════════════
+            mt.write("**Pattern G · Destructive confirm via mt.dialog()**", className="text-xs font-semibold uppercase tracking-wide")
+            mt.write("Analogue of `hx-confirm=\"…\"` — wraps the action in a native `<dialog>` element.", className="text-xs")
+            with mt.dialog("All Clear — reset calculator and history?", trigger_label="AC · All Clear"):
+                mt.warning("This permanently erases all history and resets the memory register to 0.")
+                mt.button("Yes, reset everything", key="calc_btn_AC", className="w-full")
+
+        # ════════════════════════════════════════════════════════════════════════════
+        # History column
+        # ════════════════════════════════════════════════════════════════════════════
+        with mt.col(5):
+
+            # ════════════════════════════════════════════════════════════════════════
+            # PATTERN E — Auto-poll via setInterval
+            # setInterval(sync_time=5) emits:
+            #   hx-trigger="every 5s"  hx-get="/refresh/{id}"  hx-swap="outerHTML"
+            # on the wrapped component's div.  The browser fires GET /refresh/{id}
+            # every 5 s; server re-runs the script and returns just this component.
+            # ════════════════════════════════════════════════════════════════════════
+            mt.subheader("Pattern E · Auto-poll (setInterval)")
+            mt.write(
+                "`hx-trigger=\"every 5s\"` on the clock metric — no WebSocket, no JS thread.",
+                className="text-xs",
+            )
+            with mt.setInterval(sync_time=5):
+                mt.metric("Session clock", time.strftime("%H:%M:%S"), id="calc_clock")
+
+            mt.markdown("---")
+
+            # ════════════════════════════════════════════════════════════════════════
+            # PATTERN C — Named-field include
+            # The pagination widget has name="calc_hist_page" in the DOM.
+            # hx-include="[name]" on every widget collects all [name] elements and
+            # sends them with the POST, so page changes carry all form state.
+            # ════════════════════════════════════════════════════════════════════════
+            mt.subheader("History")
+            mt.write(
+                "**Pattern C**: pagination sends `name=\"calc_hist_page\"` with every POST "
+                "via `hx-include=\"[name]\"`.",
+                className="text-xs",
+            )
+
+            history: list = session_state["calc_history"]
+
+            if not history:
+                mt.info("No calculations yet — use the keypad or the expression input.")
+            else:
+                _per = 6
+                _total = max(1, (len(history) + _per - 1) // _per)
+                _page = mt.pagination(total_pages=_total, current_page=1, key="calc_hist_page")
+                _start = (_page - 1) * _per
+                _items = list(reversed(history))[_start: _start + _per]
+
+                for _entry in _items:
+                    with mt.card():
+                        mt.write(_entry["expr"], className="font-mono text-xs text-gray-500")
+                        mt.write(_entry["result"], className="font-mono text-lg font-bold")
+
+            mt.markdown("---")
+
+            # ════════════════════════════════════════════════════════════════════════
+            # PATTERN F — Swap strategy quick reference
+            # ════════════════════════════════════════════════════════════════════════
+            with mt.expander("Pattern F · Swap strategy reference", className="border rounded-lg"):
+                mt.write("**Trigger source → hx-swap value used**", className="text-xs font-semibold")
+                _rows = [
+                    ("Button click",        "innerHTML settle:0",        "#app-root"),
+                    ("Widget change",       "outerHTML settle:100ms",    "#mx-{id}"),
+                    ("setInterval poll",    "outerHTML settle:0",        "#mx-{id}"),
+                    ("setTimeout one-shot", "outerHTML settle:0",        "#mx-{id}"),
+                    ("Direct expr input",   "outerHTML settle:100ms",    "#mx-{id}"),
+                ]
+                mt.dataframe(
+                    {
+                        "Source":    [r[0] for r in _rows],
+                        "hx-swap":   [r[1] for r in _rows],
+                        "hx-target": [r[2] for r in _rows],
+                    },
+                    className="text-xs w-full",
+                )

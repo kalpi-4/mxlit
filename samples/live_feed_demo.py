@@ -51,52 +51,52 @@ mt.session_state["lf_sine_points"] = sine_points
 
 # ── Layout: two-column chart area ─────────────────────────────────────────────
 
-col_scatter, col_line = mt.columns(2)
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.subheader("Random Walk (Scatter)")
+            with mt.setInterval(sync_time=interval):
+                mt.scatter_chart(
+                    {"x": [p["x"] for p in points], "y": [p["y"] for p in points]},
+                    id="lf_scatter",
+                    className="h-48",
+                )
+            mt.write(f"Points buffered: **{len(points)}** / {history_len}")
 
-with col_scatter:
-    mt.subheader("Random Walk (Scatter)")
-    with mt.setInterval(sync_time=interval):
-        mt.scatter_chart(
-            {"x": [p["x"] for p in points], "y": [p["y"] for p in points]},
-            id="lf_scatter",
-            className="h-48",
-        )
-    mt.write(f"Points buffered: **{len(points)}** / {history_len}")
-
-with col_line:
-    mt.subheader("Sine Wave (Line)")
-    with mt.setInterval(sync_time=interval):
-        mt.line_chart(
-            [p["y"] for p in sine_points],
-            id="lf_sine",
-            className="h-48",
-        )
-    mt.write(f"Points buffered: **{len(sine_points)}** / {history_len}")
+        with mt.col(6):
+            mt.subheader("Sine Wave (Line)")
+            with mt.setInterval(sync_time=interval):
+                mt.line_chart(
+                    [p["y"] for p in sine_points],
+                    id="lf_sine",
+                    className="h-48",
+                )
+            mt.write(f"Points buffered: **{len(sine_points)}** / {history_len}")
 
 # ── Metrics row ───────────────────────────────────────────────────────────────
 
 mt.header("Live Metrics")
 
-m1, m2, m3, m4 = mt.columns(4)
+with mt.grid():
+    with mt.row():
+        with mt.col(3):
+            with mt.setInterval(sync_time=interval):
+                mt.metric("Latest Y", f"{new_y:+.2f}", delta=f"{new_y - last_y:+.2f}",
+                          id="lf_metric_y")
 
-with m1:
-    with mt.setInterval(sync_time=interval):
-        mt.metric("Latest Y", f"{new_y:+.2f}", delta=f"{new_y - last_y:+.2f}",
-                  id="lf_metric_y")
+        with mt.col(3):
+            with mt.setInterval(sync_time=interval):
+                mt.metric("Min Y", f"{min(p['y'] for p in points):.2f}" if points else "—",
+                          id="lf_metric_min")
 
-with m2:
-    with mt.setInterval(sync_time=interval):
-        mt.metric("Min Y", f"{min(p['y'] for p in points):.2f}" if points else "—",
-                  id="lf_metric_min")
+        with mt.col(3):
+            with mt.setInterval(sync_time=interval):
+                mt.metric("Max Y", f"{max(p['y'] for p in points):.2f}" if points else "—",
+                          id="lf_metric_max")
 
-with m3:
-    with mt.setInterval(sync_time=interval):
-        mt.metric("Max Y", f"{max(p['y'] for p in points):.2f}" if points else "—",
-                  id="lf_metric_max")
-
-with m4:
-    with mt.setInterval(sync_time=interval):
-        mt.metric("Refresh every", f"{interval}s", id="lf_metric_interval")
+        with mt.col(3):
+            with mt.setInterval(sync_time=interval):
+                mt.metric("Refresh every", f"{interval}s", id="lf_metric_interval")
 
 # ── One-shot delayed status (setTimeout) ──────────────────────────────────────
 

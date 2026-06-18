@@ -375,15 +375,16 @@ def dropdown(label: str, items: list = None) -> tuple[dict, None]:
 # ── Grid ──────────────────────────────────────────────────────────────────────
 
 def grid(**kwargs) -> CompositeComponent:
-    """Wrap children in OAT's 12-column grid container (``<div class="container">``).
+    """OAT 12-column grid container (``<div class="container">``).
 
-    Children receive a ``<div class="mx-component">`` wrapper; use ``className`` on
-    each child to apply column-span classes (``col-6``, ``col-4``, etc.).
-
-    Usage::
+    Use with ``mt.row()`` and ``mt.col()`` for multi-row layouts::
 
         with mt.grid():
-            mt.write("Full-width content")
+            with mt.row():
+                with mt.col(6):
+                    mt.write("Left half")
+                with mt.col(6):
+                    mt.write("Right half")
     """
     custom_id = kwargs.pop("id", "")
     className = kwargs.pop("className", "")
@@ -392,6 +393,149 @@ def grid(**kwargs) -> CompositeComponent:
         id        = custom_id,
         className = className,
         props     = {},
+    )
+
+
+def row(**kwargs) -> CompositeComponent:
+    """OAT grid row (``<div class="row">``). Use inside ``mt.grid()``."""
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.GRID_ROW,
+        id        = custom_id,
+        className = className,
+        props     = {},
+    )
+
+
+def col(span: int = 12, *, offset: int = 0, end: bool = False, **kwargs) -> CompositeComponent:
+    """OAT grid column. Use inside ``mt.row()``.
+
+    Args:
+        span:   Column width 1-12 (default 12 = full width).
+        offset: Push column right by this many columns (0 = none).
+        end:    Align column to row end (``col-end`` class).
+
+    Usage::
+
+        with mt.row():
+            with mt.col(4):
+                mt.write("One third")
+            with mt.col(4, offset=4):
+                mt.write("Last third, shifted right")
+    """
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.GRID_COL,
+        id        = custom_id,
+        className = className,
+        props     = {"span": span, "offset": offset, "end": end},
+    )
+
+
+# ── HTML Table Layout ─────────────────────────────────────────────────────────
+
+def html_table(caption: str = "", **kwargs) -> CompositeComponent:
+    """Semantic ``<table>`` container.
+
+    Extra kwargs become HTML attributes on ``<table>``::
+
+        with mt.html_table(caption="Sales", style="width:100%"):
+            with mt.table_head():
+                with mt.table_row():
+                    with mt.table_cell(header=True, scope="col"): mt.write("Item")
+                    with mt.table_cell(header=True, scope="col"): mt.write("Price")
+            with mt.table_body():
+                with mt.table_row():
+                    with mt.table_cell(): mt.write("Widget")
+                    with mt.table_cell(): mt.write("$9.99")
+    """
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.HTML_TABLE,
+        id        = custom_id,
+        className = className,
+        props     = {"caption": caption, "attrs": kwargs},
+    )
+
+
+def table_head(**kwargs) -> CompositeComponent:
+    """HTML ``<thead>``. Extra kwargs → HTML attributes."""
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.TABLE_HEAD,
+        id        = custom_id,
+        className = className,
+        props     = {"attrs": kwargs},
+    )
+
+
+def table_body(**kwargs) -> CompositeComponent:
+    """HTML ``<tbody>``. Extra kwargs → HTML attributes."""
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.TABLE_BODY,
+        id        = custom_id,
+        className = className,
+        props     = {"attrs": kwargs},
+    )
+
+
+def table_foot(**kwargs) -> CompositeComponent:
+    """HTML ``<tfoot>``. Extra kwargs → HTML attributes."""
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.TABLE_FOOT,
+        id        = custom_id,
+        className = className,
+        props     = {"attrs": kwargs},
+    )
+
+
+def table_row(**kwargs) -> CompositeComponent:
+    """HTML ``<tr>``. Extra kwargs → HTML attributes (e.g. ``style="background:#eee"``)."""
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.TABLE_ROW,
+        id        = custom_id,
+        className = className,
+        props     = {"attrs": kwargs},
+    )
+
+
+def table_cell(
+    colspan: int = 1,
+    rowspan: int = 1,
+    header: bool = False,
+    scope: str = "",
+    **kwargs,
+) -> CompositeComponent:
+    """HTML ``<td>`` or ``<th>`` cell.
+
+    Args:
+        colspan: Columns to span.
+        rowspan: Rows to span.
+        header:  ``True`` → ``<th>``; ``False`` → ``<td>``.
+        scope:   ``<th>`` scope: ``"col"``, ``"row"``, ``"colgroup"``, ``"rowgroup"``.
+
+    Extra kwargs → HTML attributes (e.g. ``align="right"``, ``data_foo="bar"``)."""
+    custom_id = kwargs.pop("id", "")
+    className = kwargs.pop("className", "")
+    return CompositeComponent(
+        type      = ComponentType.TABLE_CELL,
+        id        = custom_id,
+        className = className,
+        props     = {
+            "colspan": colspan, "rowspan": rowspan,
+            "header": header, "scope": scope,
+            "attrs": {k.replace("_", "-"): v for k, v in kwargs.items()},
+        },
     )
 
 

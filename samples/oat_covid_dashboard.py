@@ -187,52 +187,53 @@ mt.markdown("---")
 # (no variant)           → confirmed / tested / vaccinated
 # ════════════════════════════════════════════════════════════════════════════
 mt.write("**data-variant semantic badges**", className="text-xs font-semibold uppercase tracking-wide mb-2")
-_c1, _c2, _c3, _c4 = mt.columns(4)
+with mt.grid():
+    with mt.row():
+        with mt.col(3):
+            with mt.card():
+                mt.badge("CONFIRMED")          # no variant → default style
+                mt.metric("Total Confirmed", _fmt(_TOTAL_CONFIRMED), "+1,247 today")
 
-with _c1:
-    with mt.card():
-        mt.badge("CONFIRMED")          # no variant → default style
-        mt.metric("Total Confirmed", _fmt(_TOTAL_CONFIRMED), "+1,247 today")
+        with mt.col(3):
+            with mt.card():
+                mt.badge("ACTIVE", className="badge")   # data-variant="warning"
+                mt.write("⚡ Active", className="text-xs font-semibold text-orange-600")
+                mt.metric("", _fmt(_TOTAL_ACTIVE), f"+{_fmt(312)} today")
+                mt.progress(_TOTAL_ACTIVE / _TOTAL_CONFIRMED)   # semantic progress
 
-with _c2:
-    with mt.card():
-        mt.badge("ACTIVE", className="badge")   # data-variant="warning"
-        mt.write("⚡ Active", className="text-xs font-semibold text-orange-600")
-        mt.metric("", _fmt(_TOTAL_ACTIVE), f"+{_fmt(312)} today")
-        mt.progress(_TOTAL_ACTIVE / _TOTAL_CONFIRMED)   # semantic progress
+        with mt.col(3):
+            with mt.card():
+                mt.badge("RECOVERED")   # success variant
+                mt.write("✅ Recovered", className="text-xs font-semibold text-green-600")
+                mt.metric("", _fmt(_TOTAL_RECOVERED), f"Recovery: {_TOTAL_RECOVERED/_TOTAL_CONFIRMED:.1%}")
 
-with _c3:
-    with mt.card():
-        mt.badge("RECOVERED")   # success variant
-        mt.write("✅ Recovered", className="text-xs font-semibold text-green-600")
-        mt.metric("", _fmt(_TOTAL_RECOVERED), f"Recovery: {_TOTAL_RECOVERED/_TOTAL_CONFIRMED:.1%}")
-
-with _c4:
-    with mt.card():
-        mt.badge("DEATHS")     # error variant
-        mt.write("💀 Deaths", className="text-xs font-semibold text-red-600")
-        mt.metric("", _fmt(_TOTAL_DEATHS), f"CFR: {_TOTAL_DEATHS/_TOTAL_CONFIRMED:.2%}")
+        with mt.col(3):
+            with mt.card():
+                mt.badge("DEATHS")     # error variant
+                mt.write("💀 Deaths", className="text-xs font-semibold text-red-600")
+                mt.metric("", _fmt(_TOTAL_DEATHS), f"CFR: {_TOTAL_DEATHS/_TOTAL_CONFIRMED:.2%}")
 
 mt.markdown("---")
 
 # ── Vaccination & Testing row ──────────────────────────────────────────────────
-_v1, _v2, _v3 = mt.columns(3)
-with _v1:
-    with mt.card("Tested"):
-        mt.metric("Total Tested", _fmt(_TOTAL_TESTED), "Positivity: 0.01%")
-        mt.progress(_TOTAL_TESTED / 1_400_000_000, className="w-full")   # pct of population
-with _v2:
-    with mt.card("Vaccinated"):
-        mt.metric("Doses Administered", _fmt(_TOTAL_VACCINATED))
-        mt.progress(min(1.0, _TOTAL_VACCINATED / (2 * 1_400_000_000)), className="w-full")
-with _v3:
-    with mt.card("Recovery rate"):
-        mt.meter(
-            _TOTAL_RECOVERED / _TOTAL_CONFIRMED,
-            low=0.70, high=0.90, optimum=1.0,   # semantic color: green if > 0.90
-            className="w-full",
-        )
-        mt.write(f"{_TOTAL_RECOVERED/_TOTAL_CONFIRMED:.2%} recovered", className="text-sm font-semibold mt-2")
+with mt.grid():
+    with mt.row():
+        with mt.col(4):
+            with mt.card("Tested"):
+                mt.metric("Total Tested", _fmt(_TOTAL_TESTED), "Positivity: 0.01%")
+                mt.progress(_TOTAL_TESTED / 1_400_000_000, className="w-full")   # pct of population
+        with mt.col(4):
+            with mt.card("Vaccinated"):
+                mt.metric("Doses Administered", _fmt(_TOTAL_VACCINATED))
+                mt.progress(min(1.0, _TOTAL_VACCINATED / (2 * 1_400_000_000)), className="w-full")
+        with mt.col(4):
+            with mt.card("Recovery rate"):
+                mt.meter(
+                    _TOTAL_RECOVERED / _TOTAL_CONFIRMED,
+                    low=0.70, high=0.90, optimum=1.0,   # semantic color: green if > 0.90
+                    className="w-full",
+                )
+                mt.write(f"{_TOTAL_RECOVERED/_TOTAL_CONFIRMED:.2%} recovered", className="text-sm font-semibold mt-2")
 
 mt.markdown("---")
 
@@ -247,36 +248,38 @@ mt.write("**aria-busy + data-spinner**", className="text-xs font-semibold upperc
 
 if loading_sim:
     # data-spinner="large" → full section loading state
-    _lc1, _lc2, _lc3 = mt.columns(3)
-    with _lc1:
-        with mt.card("District data"):
-            mt.spinner("large")   # aria-busy="true" data-spinner="large"
-            mt.write("Fetching district breakdown…", className="text-xs text-center mt-2")
-    with _lc2:
-        with mt.card("Lab results"):
-            # role="status" + skeleton loading
-            mt.skeleton("line")   # role="status" class="skeleton line"
-            mt.skeleton("line")
-            mt.skeleton("box")
-            mt.write("Awaiting lab sync…", className="text-xs text-center mt-2")
-    with _lc3:
-        with mt.card("Variant surveillance"):
-            mt.spinner("small")  # data-spinner="small"
-            mt.write(" ", className="inline")
-            mt.write("Sequencing in progress", className="text-xs inline")
-            mt.skeleton("line")
-            mt.skeleton("line")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                with mt.card("District data"):
+                    mt.spinner("large")   # aria-busy="true" data-spinner="large"
+                    mt.write("Fetching district breakdown…", className="text-xs text-center mt-2")
+            with mt.col(4):
+                with mt.card("Lab results"):
+                    # role="status" + skeleton loading
+                    mt.skeleton("line")   # role="status" class="skeleton line"
+                    mt.skeleton("line")
+                    mt.skeleton("box")
+                    mt.write("Awaiting lab sync…", className="text-xs text-center mt-2")
+            with mt.col(4):
+                with mt.card("Variant surveillance"):
+                    mt.spinner("small")  # data-spinner="small"
+                    mt.write(" ", className="inline")
+                    mt.write("Sequencing in progress", className="text-xs inline")
+                    mt.skeleton("line")
+                    mt.skeleton("line")
 else:
-    _rc1, _rc2, _rc3 = mt.columns(3)
-    with _rc1:
-        with mt.card("District data"):
-            mt.success("District data loaded — 736 districts reporting.")
-    with _rc2:
-        with mt.card("Lab results"):
-            mt.info("Lab network: 3,847 ICMR-approved labs online.")
-    with _rc3:
-        with mt.card("Variant surveillance"):
-            mt.warning("JN.1 variant detected in 12 states. Monitoring.")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                with mt.card("District data"):
+                    mt.success("District data loaded — 736 districts reporting.")
+            with mt.col(4):
+                with mt.card("Lab results"):
+                    mt.info("Lab network: 3,847 ICMR-approved labs online.")
+            with mt.col(4):
+                with mt.card("Variant surveillance"):
+                    mt.warning("JN.1 variant detected in 12 states. Monitoring.")
 
 mt.write(
     "Toggle **Simulate loading** in the sidebar to see `data-spinner` sizes and `role=\"status\"` skeleton placeholders.",
@@ -292,39 +295,40 @@ mt.markdown("---")
 # ════════════════════════════════════════════════════════════════════════════
 mt.write("**data-field form wrappers (sidebar widgets shown inline here)**", className="text-xs font-semibold uppercase tracking-wide mb-2")
 
-_sf1, _sf2, _sf3 = mt.columns(3)
-with _sf1:
-    # data-field="" — standard field
-    contact_email = mt.email_input(
-        "Health officer email",        # <label data-field> wrapper
-        value="officer@mohfw.gov.in",
-        key="covid_officer_email",
-        className="w-full",
-    )
-with _sf2:
-    # data-field="error" — triggered when input is invalid
-    # In mxlit the field error state is shown via the form widget's
-    # rendering; use mt.error() alongside to communicate validation.
-    date_val = mt.text_input(
-        "Report date (YYYY-MM-DD)",    # <label data-field> wrapper
-        value="2023-06-14",
-        key="covid_report_date",
-        className="w-full",
-    )
-    if date_val and len(date_val) != 10:
-        mt.error("Date must be in YYYY-MM-DD format.")   # role="alert" data-variant="error"
-with _sf3:
-    mt.write("**title attribute (OAT tooltips)**", className="text-xs font-semibold uppercase tracking-wide")
-    mt.write(
-        "Hover the metric below — OAT renders a smooth tooltip from the `title` attribute.",
-        className="text-xs",
-    )
-    # title="…" → OAT tooltip (rendered via OatProps.tooltip)
-    mt.metric(
-        "CFR (hover me)",
-        f"{_TOTAL_DEATHS/_TOTAL_CONFIRMED:.3%}",
-        className="cursor-help",
-    )
+with mt.grid():
+    with mt.row():
+        with mt.col(4):
+            # data-field="" — standard field
+            contact_email = mt.email_input(
+                "Health officer email",        # <label data-field> wrapper
+                value="officer@mohfw.gov.in",
+                key="covid_officer_email",
+                className="w-full",
+            )
+        with mt.col(4):
+            # data-field="error" — triggered when input is invalid
+            # In mxlit the field error state is shown via the form widget's
+            # rendering; use mt.error() alongside to communicate validation.
+            date_val = mt.text_input(
+                "Report date (YYYY-MM-DD)",    # <label data-field> wrapper
+                value="2023-06-14",
+                key="covid_report_date",
+                className="w-full",
+            )
+            if date_val and len(date_val) != 10:
+                mt.error("Date must be in YYYY-MM-DD format.")   # role="alert" data-variant="error"
+        with mt.col(4):
+            mt.write("**title attribute (OAT tooltips)**", className="text-xs font-semibold uppercase tracking-wide")
+            mt.write(
+                "Hover the metric below — OAT renders a smooth tooltip from the `title` attribute.",
+                className="text-xs",
+            )
+            # title="…" → OAT tooltip (rendered via OatProps.tooltip)
+            mt.metric(
+                "CFR (hover me)",
+                f"{_TOTAL_DEATHS/_TOTAL_CONFIRMED:.3%}",
+                className="cursor-help",
+            )
 
 mt.markdown("---")
 
@@ -364,54 +368,60 @@ else:
     _grid_cols = 3
     for _row_start in range(0, len(_states), _grid_cols):
         _row_states = _states[_row_start: _row_start + _grid_cols]
-        _grid = mt.columns(len(_row_states))
-        for _col, _s in zip(_grid, _row_states):
-            with _col:
-                with mt.card(_s["name"]):
-                    # data-variant="avatar" — state emblem
-                    _initials = "".join(w[0] for w in _s["name"].split()[:2])
-                    mt.avatar(initials=_initials, size="small")
+        _n = len(_row_states)
+        _span = 12 // _n
+        _last = 12 - _span * (_n - 1)
+        with mt.grid():
+            with mt.row():
+                for _i, _s in enumerate(_row_states):
+                    with mt.col(_last if _i == _n - 1 else _span):
+                        with mt.card(_s["name"]):
+                            # data-variant="avatar" — state emblem
+                            _initials = "".join(w[0] for w in _s["name"].split()[:2])
+                            mt.avatar(initials=_initials, size="small")
 
-                    # Confirmed (no variant badge)
-                    _conf_row = mt.columns(2)
-                    with _conf_row[0]:
-                        mt.write("Confirmed", className="text-xs text-gray-500")
-                        mt.write(_fmt(_s["confirmed"]), className="font-semibold")
-                    with _conf_row[1]:
-                        mt.write("Active", className="text-xs text-orange-500")
-                        mt.write(_fmt(_s["active"]), className="font-semibold text-orange-600")
+                            # Confirmed (no variant badge)
+                            with mt.grid():
+                                with mt.row():
+                                    with mt.col(6):
+                                        mt.write("Confirmed", className="text-xs text-gray-500")
+                                        mt.write(_fmt(_s["confirmed"]), className="font-semibold")
+                                    with mt.col(6):
+                                        mt.write("Active", className="text-xs text-orange-500")
+                                        mt.write(_fmt(_s["active"]), className="font-semibold text-orange-600")
 
-                    # Recovered / Deaths row — semantic badge variants
-                    _rd_row = mt.columns(2)
-                    with _rd_row[0]:
-                        mt.write("Recovered", className="text-xs text-green-600")
-                        mt.write(_fmt(_s["recovered"]), className="font-semibold text-green-700")
-                    with _rd_row[1]:
-                        mt.write("Deaths", className="text-xs text-red-500")
-                        mt.write(_fmt(_s["deaths"]), className="font-semibold text-red-600")
+                            # Recovered / Deaths row — semantic badge variants
+                            with mt.grid():
+                                with mt.row():
+                                    with mt.col(6):
+                                        mt.write("Recovered", className="text-xs text-green-600")
+                                        mt.write(_fmt(_s["recovered"]), className="font-semibold text-green-700")
+                                    with mt.col(6):
+                                        mt.write("Deaths", className="text-xs text-red-500")
+                                        mt.write(_fmt(_s["deaths"]), className="font-semibold text-red-600")
 
-                    # Meter: vaccination % — semantic color (green > high threshold)
-                    if show_vaccine:
-                        mt.write("Vaccination", className="text-xs font-semibold mt-2")
-                        mt.meter(
-                            _s["vaccination_pct"],
-                            low=0.50, high=0.75, optimum=1.0,
-                        )
-                        mt.write(
-                            f"{_s['vaccination_pct']:.0%} vaccinated",
-                            className="text-xs",
-                        )
+                            # Meter: vaccination % — semantic color (green > high threshold)
+                            if show_vaccine:
+                                mt.write("Vaccination", className="text-xs font-semibold mt-2")
+                                mt.meter(
+                                    _s["vaccination_pct"],
+                                    low=0.50, high=0.75, optimum=1.0,
+                                )
+                                mt.write(
+                                    f"{_s['vaccination_pct']:.0%} vaccinated",
+                                    className="text-xs",
+                                )
 
-                    # Bed occupancy with threshold alert
-                    if session_state["covid_show_beds"]:
-                        mt.write("Bed occupancy", className="text-xs font-semibold mt-2")
-                        mt.meter(
-                            _s["beds_pct"],
-                            low=0.60, high=0.80, optimum=0.0,  # lower is better
-                        )
-                        if _s["beds_pct"] > 0.70:
-                            # data-variant="warning" → role="alert"
-                            mt.warning(f"{_s['beds_pct']:.0%} beds occupied — high load")
+                            # Bed occupancy with threshold alert
+                            if session_state["covid_show_beds"]:
+                                mt.write("Bed occupancy", className="text-xs font-semibold mt-2")
+                                mt.meter(
+                                    _s["beds_pct"],
+                                    low=0.60, high=0.80, optimum=0.0,  # lower is better
+                                )
+                                if _s["beds_pct"] > 0.70:
+                                    # data-variant="warning" → role="alert"
+                                    mt.warning(f"{_s['beds_pct']:.0%} beds occupied — high load")
 
 mt.markdown("---")
 
@@ -422,22 +432,23 @@ mt.markdown("---")
 mt.header("Health Ministry Task Force")
 mt.write("**data-variant=\"avatar\"** — avatar and avatar_group components.", className="text-xs")
 with mt.card():
-    _team_cols = mt.columns([1, 3])
-    with _team_cols[0]:
-        mt.avatar_group(avatars=[
-            {"initials": "MK"},
-            {"initials": "RG"},
-            {"initials": "VP"},
-            {"initials": "AS"},
-        ])
-    with _team_cols[1]:
-        mt.write("**Dr. M. Kumar** — Director General of Health Services", className="text-sm font-semibold")
-        mt.write("Dr. R. Gupta · Dr. V. Patel · Dr. A. Sharma", className="text-xs text-gray-500")
-        mt.breadcrumb([
-            {"label": "MOHFW", "href": "#"},
-            {"label": "DGHS", "href": "#"},
-            {"label": "COVID Task Force"},
-        ])
+    with mt.grid():
+        with mt.row():
+            with mt.col(3):
+                mt.avatar_group(avatars=[
+                    {"initials": "MK"},
+                    {"initials": "RG"},
+                    {"initials": "VP"},
+                    {"initials": "AS"},
+                ])
+            with mt.col(9):
+                mt.write("**Dr. M. Kumar** — Director General of Health Services", className="text-sm font-semibold")
+                mt.write("Dr. R. Gupta · Dr. V. Patel · Dr. A. Sharma", className="text-xs text-gray-500")
+                mt.breadcrumb([
+                    {"label": "MOHFW", "href": "#"},
+                    {"label": "DGHS", "href": "#"},
+                    {"label": "COVID Task Force"},
+                ])
 
 mt.markdown("---")
 

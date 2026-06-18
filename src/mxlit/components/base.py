@@ -114,6 +114,15 @@ class ComponentType(str, Enum):
     BREADCRUMB     = "breadcrumb"
     BUTTON_GROUP   = "button_group"
     GRID           = "grid"
+    GRID_ROW       = "grid_row"
+    GRID_COL       = "grid_col"
+    # HTML table layout
+    HTML_TABLE     = "html_table"
+    TABLE_HEAD     = "table_head"
+    TABLE_BODY     = "table_body"
+    TABLE_FOOT     = "table_foot"
+    TABLE_ROW      = "table_row"
+    TABLE_CELL     = "table_cell"
     # Spacer / placeholder
     SPACE          = "space"
     EMPTY          = "empty"
@@ -319,6 +328,42 @@ class BaseComponent:
         return hashlib.md5(f"{type_str}-{discriminator}".encode()).hexdigest()
 
 
+# ── SlotCapture ───────────────────────────────────────────────────────────────
+
+class SlotCapture:
+    """Context manager that redirects ctx.current_target into a named slot list.
+
+    Accessed via attribute lookup on a CompositeComponent inside a ``with`` block::
+
+        with mt.card() as c:
+            with c.header:
+                mt.title("My Card")
+            with c.footer:
+                mt.button("Save")
+            mt.write("Body content")
+    """
+
+    def __init__(self) -> None:
+        self.children: list = []
+        self._saved_target: list | None = None
+        self._ctx: object | None = None
+
+    def __enter__(self) -> "SlotCapture":
+        from mxlit.context import get_context
+        ctx = get_context()
+        if ctx:
+            self._ctx = ctx
+            self._saved_target = ctx.current_target
+            ctx.current_target = self.children
+        return self
+
+    def __exit__(self, *_) -> bool:
+        if self._ctx:
+            self._ctx.current_target = self._saved_target
+            self._ctx = None
+        return False
+
+
 # ── CompositeComponent ────────────────────────────────────────────────────────
 
 @dataclass
@@ -326,10 +371,20 @@ class CompositeComponent(BaseComponent):
     """A BaseComponent that nests children via a `with` block.
 
     Registration is deferred to __exit__ so all children are collected first.
+
+    Named slots are available as attributes — any attribute access that isn't a
+    dataclass field returns a :class:`SlotCapture` context manager::
+
+        with mt.card() as c:
+            with c.header:          # captures into slot_header
+                mt.title("Title")
+            with c.footer:          # captures into slot_footer
+                mt.button("Save")
     """
     _children:     list          = field(default_factory=list, repr=False, init=False)
     _saved_target: list | None   = field(default=None,         repr=False, init=False)
     _active_ctx:   object | None = field(default=None,         repr=False, init=False)
+    _slots:        dict          = field(default_factory=dict, repr=False, init=False)
 
     def __post_init__(self) -> None:
         pass  # Skip immediate registration; defer to __exit__
@@ -350,9 +405,21 @@ class CompositeComponent(BaseComponent):
         self._register()
         return False
 
+    def __getattr__(self, name: str) -> "SlotCapture":
+        # Only called when normal attribute lookup fails (not for dataclass fields).
+        # Guard against dunder/private names to avoid interfering with pickling etc.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        # _slots is a dataclass field so it's always set before __getattr__ fires.
+        if name not in self._slots:
+            self._slots[name] = SlotCapture()
+        return self._slots[name]
+
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
         d["children"] = list(self._children)
+        for slot_name, slot in self._slots.items():
+            d[f"slot_{slot_name}"] = list(slot.children)
         return d
 
 

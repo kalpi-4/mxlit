@@ -73,13 +73,14 @@ with mt.sidebar:
 
     mt.write("Quick presets",
              className="text-xs font-semibold uppercase tracking-wide mt-4 mb-1")
-    pa, pb = mt.columns(2)
-    with pa:
-        mt.button("Material", key="btn_material", className="w-full text-xs")
-        mt.button("Sunset",   key="btn_sunset",   className="w-full text-xs mt-1")
-    with pb:
-        mt.button("Ocean",    key="btn_ocean",    className="w-full text-xs")
-        mt.button("Forest",   key="btn_forest",   className="w-full text-xs mt-1")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                mt.button("Material", key="btn_material", className="w-full text-xs")
+                mt.button("Sunset",   key="btn_sunset",   className="w-full text-xs mt-1")
+            with mt.col(6):
+                mt.button("Ocean",    key="btn_ocean",    className="w-full text-xs")
+                mt.button("Forest",   key="btn_forest",   className="w-full text-xs mt-1")
 
     mt.markdown("---")
     mt.html(f'<p style="font-size:0.7rem;color:{outl};">'
@@ -167,28 +168,30 @@ mt.markdown("---")
 # 1 · TYPOGRAPHY
 # ═════════════════════════════════════════════════════════════════════════════
 mt.header("1 · Typography", className="font-bold border-b pb-1")
-ta, tb = mt.columns(2)
-with ta:
-    mt.subheader("Heading sizes")
-    mt.title("Title — h1",         className="text-4xl")
-    mt.header("Header — h2",       className="tracking-widest text-sm uppercase")
-    mt.subheader("Subheader — h3", className="italic font-light")
-with tb:
-    mt.subheader("Body variants")
-    mt.write("Default body text — no class_")
-    mt.html(f'<p style="font-size:0.875rem;color:{outl};font-style:italic;">Muted helper text</p>')
-    mt.write("Bold CTA",           className="font-bold")
-    mt.html(f'<p style="font-family:monospace;font-size:0.75rem;background:{surf};'
-            f'padding:0.125rem 0.5rem;border-radius:0.25rem;display:inline-block;">Mono note</p>')
-    mt.text("mt.text() — fixed-width paragraph")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.subheader("Heading sizes")
+            mt.title("Title — h1",         className="text-4xl")
+            mt.header("Header — h2",       className="tracking-widest text-sm uppercase")
+            mt.subheader("Subheader — h3", className="italic font-light")
+        with mt.col(6):
+            mt.subheader("Body variants")
+            mt.write("Default body text — no class_")
+            mt.html(f'<p style="font-size:0.875rem;color:{outl};font-style:italic;">Muted helper text</p>')
+            mt.write("Bold CTA",           className="font-bold")
+            mt.html(f'<p style="font-family:monospace;font-size:0.75rem;background:{surf};'
+                    f'padding:0.125rem 0.5rem;border-radius:0.25rem;display:inline-block;">Mono note</p>')
+            mt.text("mt.text() — fixed-width paragraph")
 
 mt.subheader("Badges")
 # mt.badge() uses OAT's <span class="badge"> — no hardcoded colour needed
-_b1, _b2, _b3, _b4 = mt.columns(4)
-with _b1: mt.badge("stable")
-with _b2: mt.badge("beta")
-with _b3: mt.badge("deprecated")
-with _b4: mt.badge("new")
+with mt.grid():
+    with mt.row():
+        with mt.col(3): mt.badge("stable")
+        with mt.col(3): mt.badge("beta")
+        with mt.col(3): mt.badge("deprecated")
+        with mt.col(3): mt.badge("new")
 
 mt.subheader("Code, Markdown, LaTeX")
 mt.code('mt.theme({"schemes.light.primary": "#9333ea"})', className="max-w-xl")
@@ -211,47 +214,51 @@ mt.markdown("---")
 # ═════════════════════════════════════════════════════════════════════════════
 mt.header("3 · Widgets", className="font-bold border-b pb-1")
 mt.subheader("Buttons")
-col1, col2, col3 = mt.columns(3)
-with col1:
-    mt.html(f'<p style="font-size:0.75rem;color:{outl};">Full-width</p>')
-    if mt.button("Save changes", className="w-full"):
-        mt.success("Saved!", className="mt-1")
-with col2:
-    mt.html(f'<p style="font-size:0.75rem;color:{outl};">Fixed width</p>')
-    mt.button("Cancel", className="w-28")
-with col3:
-    mt.html(f'<p style="font-size:0.75rem;color:{outl};">Default (no class_)</p>')
-    mt.button("Default")
+with mt.grid():
+    with mt.row():
+        with mt.col(4):
+            mt.html(f'<p style="font-size:0.75rem;color:{outl};">Full-width</p>')
+            if mt.button("Save changes", className="w-full"):
+                mt.success("Saved!", className="mt-1")
+        with mt.col(4):
+            mt.html(f'<p style="font-size:0.75rem;color:{outl};">Fixed width</p>')
+            mt.button("Cancel", className="w-28")
+        with mt.col(4):
+            mt.html(f'<p style="font-size:0.75rem;color:{outl};">Default (no class_)</p>')
+            mt.button("Default")
 
 mt.subheader("Text inputs")
-col4, col5 = mt.columns(2)
-with col4:
-    mt.text_input("Full name",   className="max-w-sm")
-    mt.number_input("Quantity",  min_value=0, max_value=999, value=1,  className="max-w-xs")
-    mt.date_input("Deadline",    className="max-w-xs")
-    mt.slider("Budget ($)", 0, 5000, 1000, className="max-w-md")
-with col5:
-    mt.text_area("Notes",        className="max-w-sm")
-    mt.selectbox("Language", ["Python", "Rust", "Go", "TypeScript"], className="max-w-xs")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.text_input("Full name",   className="max-w-sm")
+            mt.number_input("Quantity",  min_value=0, max_value=999, value=1,  className="max-w-xs")
+            mt.date_input("Deadline",    className="max-w-xs")
+            mt.slider("Budget ($)", 0, 5000, 1000, className="max-w-md")
+        with mt.col(6):
+            mt.text_area("Notes",        className="max-w-sm")
+            mt.selectbox("Language", ["Python", "Rust", "Go", "TypeScript"], className="max-w-xs")
 
 mt.subheader("Toggles, checkboxes, radio")
-col6, col7 = mt.columns(2)
-with col6:
-    mt.toggle("Enable notifications", className="mt-2")
-    mt.toggle("Dark mode",            className="mt-1")
-    mt.checkbox("Accept terms",       className="mt-2")
-    mt.checkbox("Subscribe",          className="mt-1")
-with col7:
-    mt.radio("Plan", ["Free", "Pro", "Enterprise"], className="mt-2")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.toggle("Enable notifications", className="mt-2")
+            mt.toggle("Dark mode",            className="mt-1")
+            mt.checkbox("Accept terms",       className="mt-2")
+            mt.checkbox("Subscribe",          className="mt-1")
+        with mt.col(6):
+            mt.radio("Plan", ["Free", "Pro", "Enterprise"], className="mt-2")
 
 mt.subheader("New inputs — email · password · datetime · file")
-col8, col9 = mt.columns(2)
-with col8:
-    mt.email_input("Email address",   className="max-w-sm")
-    mt.password_input("Password",     className="max-w-sm")
-with col9:
-    mt.datetime_input("Appointment",  className="max-w-sm")
-    mt.file_input("Upload document",  accept=".pdf,.docx", className="max-w-sm")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.email_input("Email address",   className="max-w-sm")
+            mt.password_input("Password",     className="max-w-sm")
+        with mt.col(6):
+            mt.datetime_input("Appointment",  className="max-w-sm")
+            mt.file_input("Upload document",  accept=".pdf,.docx", className="max-w-sm")
 
 mt.subheader("Input group — prefix / suffix")
 with mt.input_group(prefix="https://", suffix=".com"):
@@ -265,11 +272,12 @@ mt.header("4 · Data", className="font-bold border-b pb-1")
 
 mt.subheader("Metric cards — wrapped in mt.card()")
 with mt.card("Dashboard Overview"):
-    m1, m2, m3, m4 = mt.columns(4)
-    with m1: mt.metric("Revenue", "$84,200", "+12%")
-    with m2: mt.metric("Users",   "3,412",   "+5%")
-    with m3: mt.metric("Churn",   "1.8%",    "-0.3%")
-    with m4: mt.metric("Uptime",  "99.97%",  "Good")
+    with mt.grid():
+        with mt.row():
+            with mt.col(3): mt.metric("Revenue", "$84,200", "+12%")
+            with mt.col(3): mt.metric("Users",   "3,412",   "+5%")
+            with mt.col(3): mt.metric("Churn",   "1.8%",    "-0.3%")
+            with mt.col(3): mt.metric("Uptime",  "99.97%",  "Good")
 
 mt.subheader("Dataframe & Table")
 df = pd.DataFrame({
@@ -278,13 +286,14 @@ df = pd.DataFrame({
     "Revenue": ["$6,000", "$4,200", "$10,500", "$2,350"],
     "Status":  ["Active", "Active", "Active", "Discontinued"],
 })
-dt1, dt2 = mt.columns(2)
-with dt1:
-    mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Interactive (mt.dataframe)</p>')
-    mt.dataframe(df, className="w-full")
-with dt2:
-    mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Static (mt.table)</p>')
-    mt.table(df, className="w-full")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Interactive (mt.dataframe)</p>')
+            mt.dataframe(df, className="w-full")
+        with mt.col(6):
+            mt.html(f'<p style="font-size:0.75rem;color:{outl};margin-bottom:0.25rem;">Static (mt.table)</p>')
+            mt.table(df, className="w-full")
 
 mt.subheader("JSON viewer")
 mt.json({"token": "schemes.light.primary", "value": p, "alias": "theme_schemes_light_primary"})
@@ -294,27 +303,31 @@ mt.markdown("---")
 # 5 · CHARTS
 # ═════════════════════════════════════════════════════════════════════════════
 mt.header("5 · Charts", className="font-bold border-b pb-1")
-cc1, cc2 = mt.columns(2)
-with cc1:
-    mt.write("Line — monthly active users",
-             className="text-xs font-semibold uppercase tracking-wide")
-    mt.line_chart([210, 340, 290, 510, 430, 620, 580],
-                  className="rounded-lg border p-2")
-    mt.write("Area — cumulative revenue",
-             className="text-xs font-semibold uppercase tracking-wide mt-4")
-    mt.area_chart([12, 19, 28, 41, 53, 68, 90],
-                  className="rounded-lg border p-2")
-with cc2:
-    mt.write("Bar — revenue by channel",
-             className="text-xs font-semibold uppercase tracking-wide")
-    mt.bar_chart({"Direct": 42, "Organic": 28, "Referral": 18, "Paid": 12},
-                 className="rounded-lg border p-2")
-    mt.write("Scatter — spend vs conversion",
-             className="text-xs font-semibold uppercase tracking-wide mt-4")
-    mt.scatter_chart(
-        {"x": [10, 20, 30, 40, 50, 60], "y": [1.2, 2.5, 2.1, 3.8, 3.2, 4.9]},
-        className="rounded-lg border p-2",
-    )
+with mt.grid():
+    with mt.row():
+        with mt.col(12):
+            mt.write("Line — monthly active users",
+                     className="text-xs font-semibold uppercase tracking-wide")
+            mt.line_chart([210, 340, 290, 510, 430, 620, 580],
+                          className="rounded-lg border p-2")
+        with mt.col(12):
+            mt.write("Area — cumulative revenue",
+                     className="text-xs font-semibold uppercase tracking-wide mt-4")
+            mt.area_chart([12, 19, 28, 41, 53, 68, 90],
+                          className="rounded-lg border p-2")
+    with mt.row():
+        with mt.col(12):
+            mt.write("Bar — revenue by channel",
+                     className="text-xs font-semibold uppercase tracking-wide")
+            mt.bar_chart({"Direct": 42, "Organic": 28, "Referral": 18, "Paid": 12},
+                         className="rounded-lg border p-2")
+        with mt.col(12):
+            mt.write("Scatter — spend vs conversion",
+                     className="text-xs font-semibold uppercase tracking-wide mt-4")
+            mt.scatter_chart(
+                {"x": [10, 20, 30, 40, 50, 60], "y": [1.2, 2.5, 2.1, 3.8, 3.2, 4.9]},
+                className="rounded-lg border p-2",
+            )
 mt.markdown("---")
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -397,46 +410,49 @@ mt.markdown("---")
 mt.header("8 · New UI Primitives", className="font-bold border-b pb-1")
 
 mt.subheader("Spinner & Skeleton")
-sp1, sp2, sp3 = mt.columns(3)
-with sp1:
-    mt.write("Spinner — large", className="text-xs font-semibold")
-    mt.spinner("large")
-with sp2:
-    mt.write("Spinner — small", className="text-xs font-semibold")
-    mt.spinner("small")
-with sp3:
-    mt.write("Skeleton placeholders", className="text-xs font-semibold")
-    mt.skeleton("line")
-    mt.skeleton("line")
-    mt.skeleton("box")
+with mt.grid():
+    with mt.row():
+        with mt.col(4):
+            mt.write("Spinner — large", className="text-xs font-semibold")
+            mt.spinner("large")
+        with mt.col(4):
+            mt.write("Spinner — small", className="text-xs font-semibold")
+            mt.spinner("small")
+        with mt.col(4):
+            mt.write("Skeleton placeholders", className="text-xs font-semibold")
+            mt.skeleton("line")
+            mt.skeleton("line")
+            mt.skeleton("box")
 
 mt.subheader("Progress & Meter")
-pr1, pr2 = mt.columns(2)
-with pr1:
-    mt.write("Progress bar (72 %)", className="text-xs")
-    mt.progress(0.72)
-    mt.write("Indeterminate", className="text-xs mt-2")
-    mt.progress()
-with pr2:
-    mt.write("Meter — green zone (0.75)", className="text-xs")
-    mt.meter(0.75, low=0.3, high=0.7, optimum=1.0)
-    mt.write("Meter — warning zone (0.45)", className="text-xs mt-2")
-    mt.meter(0.45, low=0.3, high=0.7, optimum=1.0)
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.write("Progress bar (72 %)", className="text-xs")
+            mt.progress(0.72)
+            mt.write("Indeterminate", className="text-xs mt-2")
+            mt.progress()
+        with mt.col(6):
+            mt.write("Meter — green zone (0.75)", className="text-xs")
+            mt.meter(0.75, low=0.3, high=0.7, optimum=1.0)
+            mt.write("Meter — warning zone (0.45)", className="text-xs mt-2")
+            mt.meter(0.45, low=0.3, high=0.7, optimum=1.0)
 
 mt.subheader("Avatar & Avatar Group")
-av1, av2 = mt.columns(2)
-with av1:
-    mt.write("Single avatar — initials", className="text-xs font-semibold")
-    mt.avatar(initials="JD")
-    mt.write("Small avatar", className="text-xs mt-2")
-    mt.avatar(initials="AB", size="small")
-with av2:
-    mt.write("Avatar group", className="text-xs font-semibold")
-    mt.avatar_group(avatars=[
-        {"initials": "JD"},
-        {"initials": "AB"},
-        {"initials": "MK"},
-    ])
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.write("Single avatar — initials", className="text-xs font-semibold")
+            mt.avatar(initials="JD")
+            mt.write("Small avatar", className="text-xs mt-2")
+            mt.avatar(initials="AB", size="small")
+        with mt.col(6):
+            mt.write("Avatar group", className="text-xs font-semibold")
+            mt.avatar_group(avatars=[
+                {"initials": "JD"},
+                {"initials": "AB"},
+                {"initials": "MK"},
+            ])
 
 mt.subheader("Pagination")
 _page = mt.pagination(total_pages=5, current_page=1, key="demo_page")

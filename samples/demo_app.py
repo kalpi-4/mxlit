@@ -31,13 +31,11 @@ mt.write("Welcome to the comprehensive demo of **Mxlit** featuring dashboards, N
 
 # Layout: Columns with Metrics
 mt.header("Dashboard Overview")
-col1, col2, col3 = mt.columns(3)
-with col1:
-    mt.metric("Total Views", 1024 + mt.session_state["clicks"] * 10, "+12%")
-with col2:
-    mt.metric("Active Users", 256 + mt.session_state["clicks"], "-2%")
-with col3:
-    mt.metric("Server Load", f"{45 + mt.session_state['clicks'] % 10}%", "Stable")
+with mt.grid():
+    with mt.row():
+        with mt.col(4): mt.metric("Total Views", 1024 + mt.session_state["clicks"] * 10, "+12%")
+        with mt.col(4): mt.metric("Active Users", 256 + mt.session_state["clicks"], "-2%")
+        with mt.col(4): mt.metric("Server Load", f"{45 + mt.session_state['clicks'] % 10}%", "Stable")
 
 # Layout: Tabs
 mt.header("Interactive Analysis")

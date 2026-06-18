@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # mxlit — Claude Project Guide
 
 > A Streamlit alternative powered by **FastAPI · Uvicorn · HTMX · Jinja2 · Python 3.10+**  
@@ -14,13 +18,18 @@
 # Install (editable) with dev tools
 pip install -e ".[dev]"
 
-# Run a sample app
+# Run a sample app (also auto-rebuilds style.css on every start)
 mxlit run samples/demo_app.py
 
-# Rebuild Tailwind CSS (only needed after editing input.css)
+# Rebuild Tailwind CSS manually (standalone, outside server start)
 python -m pytailwindcss -i src/mxlit/static/input.css \
                         -o src/mxlit/static/style.css
+
+# Sync CSS tokens from oat.min.css → input.css (run after upgrading oat.min.css)
+mxlit sync-css-tokens
 ```
+
+No test suite exists yet.
 
 ---
 
@@ -513,6 +522,7 @@ All components from the original gap analysis are implemented. Full public API:
 
 | Function | OAT / HTML element | Notes |
 |---|---|---|
+| `mt.navbar()` | `<nav>` top bar | display component |
 | `mt.sidebar()` | `<aside data-sidebar>` | `with` block; `className=` for extra classes |
 | `mt.columns(n)` | flex column slots | `with` block; `className=` on wrapper div |
 | `mt.tabs(labels)` | `<ot-tabs>` WebComponent | `with` block; `className=` on ot-tabs |

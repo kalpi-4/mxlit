@@ -38,78 +38,81 @@ mt.markdown("---")
 # ── 3. Input widgets ──────────────────────────────────────────────────────────
 mt.header("3 · Input Widgets")
 
-c1, c2 = mt.columns(2)
-with c1:
-    num = mt.number_input("Select a number", min_value=0, max_value=100, value=42)
-    mt.write(f"Number: {num}")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            num = mt.number_input("Select a number", min_value=0, max_value=100, value=42)
+            mt.write(f"Number: {num}")
 
-    color = mt.color_picker("Pick a color", value="#4f46e5")
-    mt.write(f"Color: {color}")
+            color = mt.color_picker("Pick a color", value="#4f46e5")
+            mt.write(f"Color: {color}")
 
-    date = mt.date_input("Select a date", value="2024-01-01")
-    mt.write(f"Date: {date}")
+            date = mt.date_input("Select a date", value="2024-01-01")
+            mt.write(f"Date: {date}")
 
-    is_toggled = mt.toggle("Enable advanced settings", value=True)
-    mt.write(f"Toggled: {is_toggled}")
+            is_toggled = mt.toggle("Enable advanced settings", value=True)
+            mt.write(f"Toggled: {is_toggled}")
 
-with c2:
-    text_area_val = mt.text_area("Tell us about yourself", value="I love coding in Python!")
-    mt.write(f"Length: {len(text_area_val)} chars")
+        with mt.col(6):
+            text_area_val = mt.text_area("Tell us about yourself", value="I love coding in Python!")
+            mt.write(f"Length: {len(text_area_val)} chars")
 
-    radio_val = mt.radio("Framework", options=["FastAPI", "Mxlit", "Flask"], index=1)
-    mt.write(f"Radio: {radio_val}")
+            radio_val = mt.radio("Framework", options=["FastAPI", "Mxlit", "Flask"], index=1)
+            mt.write(f"Radio: {radio_val}")
 
-    select_val = mt.selectbox("Language", options=["Python", "JavaScript", "Rust", "Go"])
-    mt.write(f"Select: {select_val}")
+            select_val = mt.selectbox("Language", options=["Python", "JavaScript", "Rust", "Go"])
+            mt.write(f"Select: {select_val}")
 
 mt.markdown("---")
 
 # ── 4. New form input types ───────────────────────────────────────────────────
 mt.header("4 · New Form Input Types")
 
-ni1, ni2 = mt.columns(2)
-with ni1:
-    mt.email_input("Work email", value="alice@example.com", key="nf_email")
-    mt.password_input("Password", key="nf_pwd")
-    mt.datetime_input("Appointment", key="nf_dt")
-with ni2:
-    mt.time_input("Start time", value="09:00", key="nf_time")
-    fname = mt.file_input("Attach file", accept=".pdf,.csv,.png", key="nf_file")
-    if fname:
-        mt.success(f"Uploaded: **{fname}**")
-    else:
-        mt.info("No file selected.")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.email_input("Work email", value="alice@example.com", key="nf_email")
+            mt.password_input("Password", key="nf_pwd")
+            mt.datetime_input("Appointment", key="nf_dt")
+        with mt.col(6):
+            mt.time_input("Start time", value="09:00", key="nf_time")
+            fname = mt.file_input("Attach file", accept=".pdf,.csv,.png", key="nf_file")
+            if fname:
+                mt.success(f"Uploaded: **{fname}**")
+            else:
+                mt.info("No file selected.")
 
 mt.markdown("---")
 
 # ── 5. Selection widgets ──────────────────────────────────────────────────────
 mt.header("5 · Selection Widgets")
 
-sw1, sw2 = mt.columns(2)
-with sw1:
-    tags = mt.multiselect(
-        "Tags", ["web", "api", "data", "ml", "ui"],
-        default=["web", "api"], key="nf_tags",
-    )
-    mt.write(f"Tags: {tags}")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            tags = mt.multiselect(
+                "Tags", ["web", "api", "data", "ml", "ui"],
+                default=["web", "api"], key="nf_tags",
+            )
+            mt.write(f"Tags: {tags}")
 
-    speed = mt.select_slider(
-        "Speed", options=["slow", "medium", "fast", "ludicrous"],
-        value="medium", key="nf_speed",
-    )
-    mt.write(f"Speed: {speed}")
+            speed = mt.select_slider(
+                "Speed", options=["slow", "medium", "fast", "ludicrous"],
+                value="medium", key="nf_speed",
+            )
+            mt.write(f"Speed: {speed}")
 
-with sw2:
-    view = mt.pills("View mode", ["List", "Grid", "Table"], key="nf_view")
-    mt.write(f"View: {view}")
+        with mt.col(6):
+            view = mt.pills("View mode", ["List", "Grid", "Table"], key="nf_view")
+            mt.write(f"View: {view}")
 
-    mt.write("Feedback widgets:")
-    thumbs = mt.feedback("Was this helpful?", sentiment="thumbs", key="nf_thumbs")
-    if thumbs:
-        mt.write(f"Vote: {thumbs}")
-    stars = mt.feedback("Rate this page", sentiment="stars", key="nf_stars")
-    if stars:
-        mt.write(f"Stars: {stars}/5")
+            mt.write("Feedback widgets:")
+            thumbs = mt.feedback("Was this helpful?", sentiment="thumbs", key="nf_thumbs")
+            if thumbs:
+                mt.write(f"Vote: {thumbs}")
+            stars = mt.feedback("Rate this page", sentiment="stars", key="nf_stars")
+            if stars:
+                mt.write(f"Stars: {stars}/5")
 
 mt.markdown("---")
 
@@ -128,17 +131,18 @@ mt.header("7 · Charts")
 
 _data = {"Jan": 12000, "Feb": 15400, "Mar": 11800, "Apr": 18200, "May": 21000, "Jun": 19500}
 
-ch1, ch2 = mt.columns(2)
-with ch1:
-    mt.write("**Line chart**")
-    mt.line_chart(_data, title="Monthly Revenue")
-    mt.write("**Area chart**")
-    mt.area_chart(_data, title="Monthly Revenue")
-with ch2:
-    mt.write("**Bar chart**")
-    mt.bar_chart(_data, title="Monthly Revenue")
-    mt.write("**Scatter chart**")
-    mt.scatter_chart({"x": [1, 2, 3, 4, 5], "y": [4, 5, 2, 7, 3]}, title="Sample")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.write("**Line chart**")
+            mt.line_chart(_data, title="Monthly Revenue")
+            mt.write("**Area chart**")
+            mt.area_chart(_data, title="Monthly Revenue")
+        with mt.col(6):
+            mt.write("**Bar chart**")
+            mt.bar_chart(_data, title="Monthly Revenue")
+            mt.write("**Scatter chart**")
+            mt.scatter_chart({"x": [1, 2, 3, 4, 5], "y": [4, 5, 2, 7, 3]}, title="Sample")
 
 mt.markdown("---")
 
@@ -160,47 +164,50 @@ mt.markdown("---")
 mt.header("9 · OAT UI Primitives")
 
 mt.subheader("Spinner & Skeleton")
-sp1, sp2, sp3 = mt.columns(3)
-with sp1:
-    mt.write("large spinner", className="text-xs font-semibold")
-    mt.spinner("large")
-with sp2:
-    mt.write("small spinner", className="text-xs font-semibold")
-    mt.spinner("small")
-with sp3:
-    mt.write("skeleton", className="text-xs font-semibold")
-    mt.skeleton("line")
-    mt.skeleton("line")
-    mt.skeleton("box")
+with mt.grid():
+    with mt.row():
+        with mt.col(4):
+            mt.write("large spinner", className="text-xs font-semibold")
+            mt.spinner("large")
+        with mt.col(4):
+            mt.write("small spinner", className="text-xs font-semibold")
+            mt.spinner("small")
+        with mt.col(4):
+            mt.write("skeleton", className="text-xs font-semibold")
+            mt.skeleton("line")
+            mt.skeleton("line")
+            mt.skeleton("box")
 
 mt.subheader("Progress & Meter")
-pr1, pr2 = mt.columns(2)
-with pr1:
-    mt.write("30 %")
-    mt.progress(0.30)
-    mt.write("100 %")
-    mt.progress(1.0)
-    mt.write("Indeterminate:")
-    mt.progress()
-with pr2:
-    mt.write("Meter — optimal (0.55):")
-    mt.meter(0.55, low=0.3, high=0.7, optimum=0.5)
-    mt.write("Meter — low (0.15):")
-    mt.meter(0.15, low=0.3, high=0.7, optimum=1.0)
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.write("30 %")
+            mt.progress(0.30)
+            mt.write("100 %")
+            mt.progress(1.0)
+            mt.write("Indeterminate:")
+            mt.progress()
+        with mt.col(6):
+            mt.write("Meter — optimal (0.55):")
+            mt.meter(0.55, low=0.3, high=0.7, optimum=0.5)
+            mt.write("Meter — low (0.15):")
+            mt.meter(0.15, low=0.3, high=0.7, optimum=1.0)
 
 mt.subheader("Avatar & Avatar Group")
-av1, av2 = mt.columns(2)
-with av1:
-    mt.avatar(initials="JD", size="large")
-    mt.avatar(initials="AB")
-    mt.avatar(initials="MK", size="small")
-with av2:
-    mt.avatar_group(avatars=[
-        {"initials": "JD"},
-        {"initials": "AB"},
-        {"initials": "MK"},
-        {"initials": "RS"},
-    ])
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.avatar(initials="JD", size="large")
+            mt.avatar(initials="AB")
+            mt.avatar(initials="MK", size="small")
+        with mt.col(6):
+            mt.avatar_group(avatars=[
+                {"initials": "JD"},
+                {"initials": "AB"},
+                {"initials": "MK"},
+                {"initials": "RS"},
+            ])
 
 mt.subheader("Toast notification")
 if mt.button("Fire success toast", key="nf_toast"):

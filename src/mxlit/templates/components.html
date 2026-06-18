@@ -45,6 +45,10 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 </script>
 {% endif %}
 
+{# ── html_attrs: emit arbitrary HTML attrs from a dict ───────────────────────── #}
+{# Empty-string values emit bare attribute (e.g. disabled); others emit key="val" #}
+{% macro html_attrs(attrs) %}{% if attrs %}{% for k, v in attrs.items() %} {% if v == '' %}{{ k }}{% else %}{{ k }}="{{ v | e }}"{% endif %}{% endfor %}{% endif %}{% endmacro %}
+
 {# ── render_children: render a list of components, handling tab/column grouping ─ #}
 {% macro render_children(children) %}
 {% for comp in children %}
@@ -98,8 +102,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
 
 {% macro render_component(comp) %}
+{% set _tbl_inline = ['html_table','table_head','table_body','table_foot','table_row','table_cell'] %}
 <div {% if comp.id %}id="mx-{{ comp.id }}"{% endif %}
-     class="mx-component"
+     {% if comp.type in _tbl_inline %}style="display:contents"{% else %}class="mx-component"{% endif %}
      {% if comp.refresh_trigger %}
      hx-post="/refresh/{{ comp.id }}"
      hx-trigger="{{ comp.refresh_trigger }}"
@@ -409,13 +414,17 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# ── Layout: card (CompositeComponent) ───────────────────────────────── #}
     {% elif comp.type == 'card' %}
         <article class="card {{ comp.className | default('') }}">
-            {% if comp.header %}
+            {% if comp.slot_header is defined and comp.slot_header %}
+                <header>{% for child in comp.slot_header %}{{ render_component(child) }}{% endfor %}</header>
+            {% elif comp.header %}
                 <header><h3>{{ comp.header }}</h3></header>
             {% endif %}
             {% for child in comp.children %}
                 {{ render_component(child) }}
             {% endfor %}
-            {% if comp.footer %}
+            {% if comp.slot_footer is defined and comp.slot_footer %}
+                <footer>{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+            {% elif comp.footer %}
                 <footer>{{ comp.footer }}</footer>
             {% endif %}
         </article>
@@ -564,7 +573,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 class="{{ comp.className | default('') }}">{{ comp.trigger_label | default('Open') }}</button>
         <dialog id="{{ _dlg_id }}" closedby="any">
             <form method="dialog">
-                {% if comp.title %}
+                {% if comp.slot_header is defined and comp.slot_header %}
+                    <header>{% for child in comp.slot_header %}{{ render_component(child) }}{% endfor %}</header>
+                {% elif comp.title %}
                     <header><h3>{{ comp.title }}</h3></header>
                 {% endif %}
                 <div>
@@ -572,9 +583,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                         {{ render_component(child) }}
                     {% endfor %}
                 </div>
-                <footer>
-                    <button type="button" onclick="this.closest('dialog').close()" class="outline">Close</button>
-                </footer>
+                {% if comp.slot_footer is defined and comp.slot_footer %}
+                    <footer>{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+                {% else %}
+                    <footer>
+                        <button type="button" onclick="this.closest('dialog').close()" class="outline">Close</button>
+                    </footer>
+                {% endif %}
             </form>
         </dialog>
 
@@ -601,12 +616,82 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
     {# ── Grid ────────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'grid' %}
         <div class="container {{ comp.className | default('') }}">
-            <div class="row">
-                {% for child in comp.children %}
-                    {{ render_component(child) }}
-                {% endfor %}
-            </div>
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
         </div>
+
+    {# ── Grid Row ─────────────────────────────────────────────────────────── #}
+    {# Explicit flex row so col widths are calculated from span, not CSS grid  #}
+    {% elif comp.type == 'grid_row' %}
+        <div class="row {{ comp.className | default('') }}" style="display:flex;flex-wrap:wrap">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── Grid Col ─────────────────────────────────────────────────────────── #}
+    {# Width = span/12 * 100%; min-width:0 prevents canvas/flex overflow       #}
+    {% elif comp.type == 'grid_col' %}
+        {% set _col_cls = 'col-' ~ comp.span %}
+        {% set _w = (comp.span / 12 * 100) | round(4) %}
+        {% set _ml = (comp.offset / 12 * 100) | round(4) if comp.offset else 0 %}
+        <div class="{{ _col_cls }} {{ comp.className | default('') }}"
+             style="flex:0 0 {{ _w }}%;max-width:{{ _w }}%;min-width:0;{% if comp.offset %}margin-left:{{ _ml }}%;{% endif %}{% if comp.end %}margin-left:auto;{% endif %}">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── HTML Table ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'html_table' %}
+        <table class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% if comp.caption %}<caption>{{ comp.caption | e }}</caption>{% endif %}
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </table>
+
+    {# ── Table Head ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_head' %}
+        <thead class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </thead>
+
+    {# ── Table Body ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_body' %}
+        <tbody class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </tbody>
+
+    {# ── Table Foot ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_foot' %}
+        <tfoot class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </tfoot>
+
+    {# ── Table Row ────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_row' %}
+        <tr class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </tr>
+
+    {# ── Table Cell ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_cell' %}
+        {% if comp.header %}
+        <th class="{{ comp.className | default('') }}"
+            {% if comp.colspan > 1 %}colspan="{{ comp.colspan }}"{% endif %}
+            {% if comp.rowspan > 1 %}rowspan="{{ comp.rowspan }}"{% endif %}
+            {% if comp.scope %}scope="{{ comp.scope }}"{% endif %}
+            {{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </th>
+        {% else %}
+        <td class="{{ comp.className | default('') }}"
+            {% if comp.colspan > 1 %}colspan="{{ comp.colspan }}"{% endif %}
+            {% if comp.rowspan > 1 %}rowspan="{{ comp.rowspan }}"{% endif %}
+            {{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </td>
+        {% endif %}
 
     {# ── File Input ──────────────────────────────────────────────────────── #}
     {% elif comp.type == 'file_input' %}
@@ -632,7 +717,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             'datetime_input': 'datetime-local'
         } -%}
         <fieldset class="group {{ comp.className | default('') }}">
-            {% if comp.prefix %}
+            {% if comp.slot_prefix is defined and comp.slot_prefix %}
+                {% for child in comp.slot_prefix %}{{ render_component(child) }}{% endfor %}
+            {% elif comp.prefix %}
                 <legend>{{ comp.prefix }}</legend>
             {% endif %}
             {% for child in comp.children %}
@@ -651,7 +738,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                     {{ render_component(child) }}
                 {% endif %}
             {% endfor %}
-            {% if comp.suffix %}
+            {% if comp.slot_suffix is defined and comp.slot_suffix %}
+                {% for child in comp.slot_suffix %}{{ render_component(child) }}{% endfor %}
+            {% elif comp.suffix %}
                 <span>{{ comp.suffix }}</span>
             {% endif %}
         </fieldset>

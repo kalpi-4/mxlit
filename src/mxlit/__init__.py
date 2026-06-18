@@ -4,6 +4,7 @@ import functools
 from mxlit._exceptions import RerunException
 from mxlit.context import get_context
 from mxlit.state import session_state
+from mxlit.components.base import SlotCapture
 
 # Text
 from mxlit.components.text import (
@@ -26,7 +27,8 @@ from mxlit.components.layout import (
     navbar, sidebar, columns, tabs, expander, container, page_config,
     card, spinner, progress, skeleton, meter,
     avatar, avatar_group, breadcrumb, button_group, toast,
-    dialog, dropdown, grid, input_group,
+    dialog, dropdown, grid, row, col, input_group,
+    html_table, table_head, table_body, table_foot, table_row, table_cell,
     space, empty, popover, status,
 )
 # Media

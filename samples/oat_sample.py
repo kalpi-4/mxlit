@@ -54,17 +54,16 @@ if recipe == "Split Button":
         "Pick an action from the secondary menu, then hit **Save**."
     )
 
-    col_btn, col_menu = mt.columns([2, 3])
-
-    with col_btn:
-        save_clicked = mt.button("💾 Save", key="btn_save")
-
-    with col_menu:
-        action = mt.selectbox(
-            "More save actions",
-            ["Save draft", "Save and publish", "Duplicate"],
-            key="save_action_select",
-        )
+    with mt.grid():
+        with mt.row():
+            with mt.col(5):
+                save_clicked = mt.button("💾 Save", key="btn_save")
+            with mt.col(7):
+                action = mt.selectbox(
+                    "More save actions",
+                    ["Save draft", "Save and publish", "Duplicate"],
+                    key="save_action_select",
+                )
 
     if save_clicked:
         mt.session_state["save_action"] = action
@@ -86,11 +85,12 @@ elif recipe == "Form Card":
         email = mt.email_input("Email", value=mt.session_state["profile_email"], key="profile_email")
         notif = mt.toggle("Email notifications", value=mt.session_state["notif_enabled"], key="notif_enabled")
 
-    col_cancel, col_save = mt.columns([1, 1])
-    with col_cancel:
-        cancelled = mt.button("Cancel", key="btn_cancel")
-    with col_save:
-        saved = mt.button("Save Profile", key="btn_save_profile")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                cancelled = mt.button("Cancel", key="btn_cancel")
+            with mt.col(6):
+                saved = mt.button("Save Profile", key="btn_save_profile")
 
     if saved:
         mt.session_state["profile_saved"] = True
@@ -121,9 +121,10 @@ elif recipe == "Empty State":
                 mt.rerun()
         else:
             mt.success("🎉 Something was created! The empty state is gone.")
-            col_l, col_r = mt.columns([1, 1])
-            with col_l:
-                mt.metric("Items", 1, "+1")
+            with mt.grid():
+                with mt.row():
+                    with mt.col(6):
+                        mt.metric("Items", 1, "+1")
             if mt.button("Reset", key="btn_reset_empty"):
                 mt.session_state["created_something"] = False
                 mt.rerun()
@@ -138,25 +139,23 @@ elif recipe == "Stats Cards":
         "`mt.progress`, and `mt.meter` — the new approach, no raw HTML."
     )
 
-    col1, col2, col3 = mt.columns(3)
-
-    with col1:
-        with mt.card("Revenue"):
-            mt.badge("+12%")
-            mt.metric("MRR", "$42,200", "+$4,500 vs last month")
-            mt.progress(0.72)
-
-    with col2:
-        with mt.card("Completion"):
-            mt.badge("-2%")
-            mt.metric("Checkout", "4.6%", "conversion rate")
-            mt.meter(0.46, low=0.3, high=0.7, optimum=1.0)
-
-    with col3:
-        with mt.card("Tickets"):
-            mt.badge("14")
-            mt.metric("Queue", "14", "support tickets")
-            mt.progress(0.35)
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                with mt.card("Revenue"):
+                    mt.badge("+12%")
+                    mt.metric("MRR", "$42,200", "+$4,500 vs last month")
+                    mt.progress(0.72)
+            with mt.col(4):
+                with mt.card("Completion"):
+                    mt.badge("-2%")
+                    mt.metric("Checkout", "4.6%", "conversion rate")
+                    mt.meter(0.46, low=0.3, high=0.7, optimum=1.0)
+            with mt.col(4):
+                with mt.card("Tickets"):
+                    mt.badge("14")
+                    mt.metric("Queue", "14", "support tickets")
+                    mt.progress(0.35)
 
     mt.markdown("---")
     mt.write(
@@ -177,30 +176,32 @@ elif recipe == "New Components":
     ])
 
     mt.subheader("Spinner · Skeleton")
-    sp1, sp2, sp3 = mt.columns(3)
-    with sp1:
-        mt.write("Large spinner", className="text-xs font-semibold")
-        mt.spinner("large")
-    with sp2:
-        mt.write("Small spinner", className="text-xs font-semibold")
-        mt.spinner("small")
-    with sp3:
-        mt.write("Skeleton placeholders", className="text-xs font-semibold")
-        mt.skeleton("line")
-        mt.skeleton("line")
-        mt.skeleton("box")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                mt.write("Large spinner", className="text-xs font-semibold")
+                mt.spinner("large")
+            with mt.col(4):
+                mt.write("Small spinner", className="text-xs font-semibold")
+                mt.spinner("small")
+            with mt.col(4):
+                mt.write("Skeleton placeholders", className="text-xs font-semibold")
+                mt.skeleton("line")
+                mt.skeleton("line")
+                mt.skeleton("box")
 
     mt.subheader("Avatar · Avatar Group")
-    av1, av2 = mt.columns(2)
-    with av1:
-        mt.avatar(initials="JD")
-        mt.avatar(initials="AB", size="small")
-    with av2:
-        mt.avatar_group(avatars=[
-            {"initials": "JD"},
-            {"initials": "AB"},
-            {"initials": "MK"},
-        ])
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                mt.avatar(initials="JD")
+                mt.avatar(initials="AB", size="small")
+            with mt.col(6):
+                mt.avatar_group(avatars=[
+                    {"initials": "JD"},
+                    {"initials": "AB"},
+                    {"initials": "MK"},
+                ])
 
     mt.subheader("Button Group · Dropdown")
     mt.button_group(["List", "Grid", "Table"], key_prefix="view_mode_")
@@ -211,27 +212,29 @@ elif recipe == "New Components":
     ])
 
     mt.subheader("Dialog · Toast")
-    dlg_col, toast_col = mt.columns(2)
-    with dlg_col:
-        with mt.dialog("Confirm", trigger_label="Open modal"):
-            mt.write("This is a native `<dialog closedby='any'>` element.")
-            mt.info("Click outside or press Escape to dismiss.")
-    with toast_col:
-        if mt.button("Fire toast", key="recipe5_toast"):
-            mt.toast("Action completed!", title="Done", variant="success")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                with mt.dialog("Confirm", trigger_label="Open modal"):
+                    mt.write("This is a native `<dialog closedby='any'>` element.")
+                    mt.info("Click outside or press Escape to dismiss.")
+            with mt.col(6):
+                if mt.button("Fire toast", key="recipe5_toast"):
+                    mt.toast("Action completed!", title="Done", variant="success")
 
     mt.subheader("Pagination")
     _r5_page = mt.pagination(total_pages=8, current_page=1, key="r5_page")
     mt.write(f"Page **{_r5_page}** of 8 selected")
 
     mt.subheader("New form inputs")
-    fi1, fi2 = mt.columns(2)
-    with fi1:
-        mt.email_input("Work email", className="max-w-sm")
-        mt.password_input("Password",  className="max-w-sm")
-    with fi2:
-        mt.datetime_input("Schedule",  className="max-w-sm")
-        mt.file_input("Attach file", accept=".pdf,.png", className="max-w-sm")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                mt.email_input("Work email", className="max-w-sm")
+                mt.password_input("Password",  className="max-w-sm")
+            with mt.col(6):
+                mt.datetime_input("Schedule",  className="max-w-sm")
+                mt.file_input("Attach file", accept=".pdf,.png", className="max-w-sm")
 
     mt.subheader("Input group")
     with mt.input_group(prefix="https://", suffix=".io"):

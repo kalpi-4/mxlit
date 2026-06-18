@@ -34,11 +34,12 @@ mt.write(
 
 # ── TOP METRICS ───────────────────────────────────────────────────────────────
 with mt.card():
-    m1, m2, m3, m4 = mt.columns(4)
-    with m1: mt.metric("Revenue",      "$42,128", "+12.5% vs last month")
-    with m2: mt.metric("Active Users", "2,847",   "-3.2% vs last month")
-    with m3: mt.metric("Retention",    "3.24%",   "+0.8% vs last month")
-    with m4: mt.metric("Uptime",       "99.99%",  "Healthy")
+    with mt.grid():
+        with mt.row():
+            with mt.col(3): mt.metric("Revenue",      "$42,128", "+12.5% vs last month")
+            with mt.col(3): mt.metric("Active Users", "2,847",   "-3.2% vs last month")
+            with mt.col(3): mt.metric("Retention",    "3.24%",   "+0.8% vs last month")
+            with mt.col(3): mt.metric("Uptime",       "99.99%",  "Healthy")
 
 mt.markdown("---")
 
@@ -87,13 +88,14 @@ with tab_overview:
 # ── Performance ───────────────────────────────────────────────────────────────
 with tab_performance:
     mt.subheader("Performance Metrics")
-    p1, p2, p3 = mt.columns(3)
-    with p1:
-        mt.metric("Avg Response", "142 ms",    "p95: 380 ms",       className="w-full")
-    with p2:
-        mt.metric("Error Rate",   "0.03%",     "-0.01% this week",  className="w-full")
-    with p3:
-        mt.metric("Throughput",   "1,240 req/s", "+5% this week",   className="w-full")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                mt.metric("Avg Response", "142 ms",    "p95: 380 ms",       className="w-full")
+            with mt.col(4):
+                mt.metric("Error Rate",   "0.03%",     "-0.01% this week",  className="w-full")
+            with mt.col(4):
+                mt.metric("Throughput",   "1,240 req/s", "+5% this week",   className="w-full")
     mt.spinner("small")
 
     mt.markdown("---")
@@ -106,11 +108,16 @@ with tab_performance:
         ("Network In",  0.08, "128 Mbps"),
         ("Network Out", 0.15, "240 Mbps"),
     ]
-    for col, (label, val, detail) in zip(mt.columns(len(server_stats)), server_stats):
-        with col:
-            mt.write(label, className="text-xs font-semibold")
-            mt.meter(val, low=0.5, high=0.75, optimum=0.2)
-            mt.write(f"{int(val*100)}% — {detail}", className="text-xs")
+    _n = len(server_stats)
+    _span = 12 // _n
+    _last = 12 - _span * (_n - 1)
+    with mt.grid():
+        with mt.row():
+            for _i, (label, val, detail) in enumerate(server_stats):
+                with mt.col(_last if _i == _n - 1 else _span):
+                    mt.write(label, className="text-xs font-semibold")
+                    mt.meter(val, low=0.5, high=0.75, optimum=0.2)
+                    mt.write(f"{int(val*100)}% — {detail}", className="text-xs")
 
     mt.markdown("---")
     mt.subheader("Response Time — last 7 days")
@@ -156,11 +163,12 @@ with tab_reports:
 
     mt.markdown("---")
     mt.subheader("Notifications")
-    n1, n2, n3, n4 = mt.columns(4)
-    with n1: mt.info("System update available.")
-    with n2: mt.success("Report generated.")
-    with n3: mt.warning("Disk usage high.")
-    with n4: mt.error("Payment failed.")
+    with mt.grid():
+        with mt.row():
+            with mt.col(3): mt.info("System update available.")
+            with mt.col(3): mt.success("Report generated.")
+            with mt.col(3): mt.warning("Disk usage high.")
+            with mt.col(3): mt.error("Payment failed.")
 
 mt.markdown("---")
 
@@ -197,47 +205,47 @@ mt.markdown("---")
 # ── ACCOUNT SETTINGS ─────────────────────────────────────────────────────────
 mt.header("Account Settings", className="font-bold border-b pb-1")
 
-col_left, col_right = mt.columns(2)
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.subheader("Profile", className="font-semibold mb-2")
+            name  = mt.text_input("Full Name",   value="Alice Brown",            key="acc_name")
+            email = mt.email_input("Email",      value="alice@example.com",      key="acc_email")
+            role  = mt.selectbox("Role", ["Admin", "Editor", "Viewer"],           key="acc_role")
+            start = mt.date_input("Start Date",  value="2024-01-15",              key="acc_start")
+            bio   = mt.text_area("Bio",          value="Product designer at Oat.", key="acc_bio")
+            brand = mt.color_picker("Brand Color", value="#415F91",               key="acc_brand")
+        with mt.col(6):
+            mt.subheader("Preferences", className="font-semibold mb-2")
+            mt.slider("Notification Volume", 0, 100, 60, key="acc_volume")
 
-with col_left:
-    mt.subheader("Profile", className="font-semibold mb-2")
-    name  = mt.text_input("Full Name",   value="Alice Brown",            key="acc_name")
-    email = mt.email_input("Email",      value="alice@example.com",      key="acc_email")
-    role  = mt.selectbox("Role", ["Admin", "Editor", "Viewer"],           key="acc_role")
-    start = mt.date_input("Start Date",  value="2024-01-15",              key="acc_start")
-    bio   = mt.text_area("Bio",          value="Product designer at Oat.", key="acc_bio")
-    brand = mt.color_picker("Brand Color", value="#415F91",               key="acc_brand")
+            mt.write("Email preferences", className="text-sm font-medium mt-3 mb-1")
+            mt.checkbox("Product updates",  value=True,  key="acc_email_product")
+            mt.checkbox("Marketing emails", value=False, key="acc_email_mkt")
+            mt.checkbox("Security alerts",  value=True,  key="acc_email_security")
 
-with col_right:
-    mt.subheader("Preferences", className="font-semibold mb-2")
-    mt.slider("Notification Volume", 0, 100, 60, key="acc_volume")
+            mt.write("Theme", className="text-sm font-medium mt-3 mb-1")
+            mt.radio("", ["Light", "Dark", "System"], key="acc_theme_pref")
 
-    mt.write("Email preferences", className="text-sm font-medium mt-3 mb-1")
-    mt.checkbox("Product updates",  value=True,  key="acc_email_product")
-    mt.checkbox("Marketing emails", value=False, key="acc_email_mkt")
-    mt.checkbox("Security alerts",  value=True,  key="acc_email_security")
-
-    mt.write("Theme", className="text-sm font-medium mt-3 mb-1")
-    mt.radio("", ["Light", "Dark", "System"], key="acc_theme_pref")
-
-    mt.write("Security", className="text-sm font-medium mt-3 mb-1")
-    mt.toggle("Two-factor authentication", value=True,  key="acc_2fa")
-    mt.toggle("API access",                value=False, key="acc_api")
+            mt.write("Security", className="text-sm font-medium mt-3 mb-1")
+            mt.toggle("Two-factor authentication", value=True,  key="acc_2fa")
+            mt.toggle("API access",                value=False, key="acc_api")
 
 mt.markdown("---")
 
 # Action buttons — Save / Cancel / Delete (delete uses mt.dialog for confirmation)
-btn_save, btn_cancel, btn_delete = mt.columns([2, 1, 1])
-with btn_save:
-    if mt.button("Save Changes", className="w-full"):
-        mt.session_state["save_success"] = True
-with btn_cancel:
-    mt.button("Cancel", key="btn_cancel", className="w-full")
-with btn_delete:
-    with mt.dialog("Delete Account", trigger_label="Delete Account"):
-        mt.warning("Are you sure? All data will be permanently removed.")
-        if mt.button("Yes, delete my account", key="confirm_delete"):
-            mt.error("Account deletion is disabled in this demo.")
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            if mt.button("Save Changes", className="w-full"):
+                mt.session_state["save_success"] = True
+        with mt.col(3):
+            mt.button("Cancel", key="btn_cancel", className="w-full")
+        with mt.col(3):
+            with mt.dialog("Delete Account", trigger_label="Delete Account"):
+                mt.warning("Are you sure? All data will be permanently removed.")
+                if mt.button("Yes, delete my account", key="confirm_delete"):
+                    mt.error("Account deletion is disabled in this demo.")
 
 # Toast replaces the inline success banner
 if mt.session_state.get("save_success"):

@@ -82,15 +82,12 @@ if section == "Typography":
     mt.latex(r"E = mc^2 \quad \text{and} \quad \nabla \cdot \mathbf{B} = 0")
 
     mt.subheader("Badge")
-    c1, c2, c3, c4 = mt.columns(4)
-    with c1:
-        mt.badge("default")
-    with c2:
-        mt.badge("v1.0.0")
-    with c3:
-        mt.badge("+12%")
-    with c4:
-        mt.badge("beta")
+    with mt.grid():
+        with mt.row():
+            with mt.col(3): mt.badge("default")
+            with mt.col(3): mt.badge("v1.0.0")
+            with mt.col(3): mt.badge("+12%")
+            with mt.col(3): mt.badge("beta")
 
     mt.subheader("Named Entity Recognition")
     _ner_text = (
@@ -117,15 +114,16 @@ elif section == "Widgets":
 
     # Text inputs
     mt.subheader("Text & credential inputs")
-    ti1, ti2 = mt.columns(2)
-    with ti1:
-        name  = mt.text_input("Name",     value="Alice",              key="ks_name")
-        email = mt.email_input("Email",   value="alice@example.com",  key="ks_email")
-        pwd   = mt.password_input("Password",                         key="ks_pwd")
-    with ti2:
-        dt    = mt.datetime_input("Appointment",                      key="ks_dt")
-        d     = mt.date_input("Date",                                 key="ks_date")
-        t     = mt.time_input("Time",     value="09:00",              key="ks_time")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                name  = mt.text_input("Name",     value="Alice",              key="ks_name")
+                email = mt.email_input("Email",   value="alice@example.com",  key="ks_email")
+                pwd   = mt.password_input("Password",                         key="ks_pwd")
+            with mt.col(6):
+                dt    = mt.datetime_input("Appointment",                      key="ks_dt")
+                d     = mt.date_input("Date",                                 key="ks_date")
+                t     = mt.time_input("Time",     value="09:00",              key="ks_time")
     mt.write(f"name={name!r}  email={email!r}  dt={dt!r}  date={d!r}  time={t!r}")
 
     mt.subheader("Text area")
@@ -134,38 +132,41 @@ elif section == "Widgets":
 
     # Numeric
     mt.subheader("Numeric inputs")
-    ni1, ni2 = mt.columns(2)
-    with ni1:
-        num    = mt.number_input("Integer (0–100)", min_value=0, max_value=100, value=42, key="ks_num")
-        sl_val = mt.slider("Slider (0–100)", 0, 100, value=50, key="ks_slider")
-    with ni2:
-        speed = mt.select_slider(
-            "Speed", options=["slow", "medium", "fast", "ludicrous"],
-            value="medium", key="ks_speed",
-        )
-        color = mt.color_picker("Accent color", value="#4f46e5", key="ks_color")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                num    = mt.number_input("Integer (0–100)", min_value=0, max_value=100, value=42, key="ks_num")
+                sl_val = mt.slider("Slider (0–100)", 0, 100, value=50, key="ks_slider")
+            with mt.col(6):
+                speed = mt.select_slider(
+                    "Speed", options=["slow", "medium", "fast", "ludicrous"],
+                    value="medium", key="ks_speed",
+                )
+                color = mt.color_picker("Accent color", value="#4f46e5", key="ks_color")
     mt.write(f"number={num}  slider={sl_val}  speed={speed!r}  color={color!r}")
 
     # Selection
     mt.subheader("Selection widgets")
-    si1, si2 = mt.columns(2)
-    with si1:
-        lang = mt.selectbox("Language", ["Python", "JavaScript", "Rust", "Go"], key="ks_lang")
-        fw   = mt.radio("Framework", ["FastAPI", "Django", "Flask"], key="ks_fw")
-    with si2:
-        tags = mt.multiselect("Tags", ["web", "api", "data", "ml", "ui"],
-                              default=["web", "api"], key="ks_tags")
-        view = mt.pills("View mode", ["List", "Grid", "Table"], key="ks_view")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                lang = mt.selectbox("Language", ["Python", "JavaScript", "Rust", "Go"], key="ks_lang")
+                fw   = mt.radio("Framework", ["FastAPI", "Django", "Flask"], key="ks_fw")
+            with mt.col(6):
+                tags = mt.multiselect("Tags", ["web", "api", "data", "ml", "ui"],
+                                      default=["web", "api"], key="ks_tags")
+                view = mt.pills("View mode", ["List", "Grid", "Table"], key="ks_view")
     mt.write(f"lang={lang!r}  fw={fw!r}  tags={tags}  view={view!r}")
 
     # Booleans
     mt.subheader("Boolean widgets")
-    bi1, bi2 = mt.columns(2)
-    with bi1:
-        dark  = mt.checkbox("Dark mode",      key="ks_dark")
-        notif = mt.toggle("Notifications", value=True, key="ks_notif")
-    with bi2:
-        mt.write(f"dark={dark}  notifications={notif}")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                dark  = mt.checkbox("Dark mode",      key="ks_dark")
+                notif = mt.toggle("Notifications", value=True, key="ks_notif")
+            with mt.col(6):
+                mt.write(f"dark={dark}  notifications={notif}")
 
     # File upload
     mt.subheader("File upload")
@@ -177,15 +178,16 @@ elif section == "Widgets":
 
     # Feedback
     mt.subheader("Feedback")
-    fb1, fb2 = mt.columns(2)
-    with fb1:
-        thumbs = mt.feedback("Was this helpful?", sentiment="thumbs", key="ks_thumbs")
-        if thumbs:
-            mt.write(f"Vote: {thumbs}")
-    with fb2:
-        stars = mt.feedback("Rate this page", sentiment="stars", key="ks_stars")
-        if stars:
-            mt.write(f"Stars: {stars} / 5")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                thumbs = mt.feedback("Was this helpful?", sentiment="thumbs", key="ks_thumbs")
+                if thumbs:
+                    mt.write(f"Vote: {thumbs}")
+            with mt.col(6):
+                stars = mt.feedback("Rate this page", sentiment="stars", key="ks_stars")
+                if stars:
+                    mt.write(f"Stars: {stars} / 5")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -195,12 +197,13 @@ elif section == "Actions":
     mt.header("Actions")
 
     mt.subheader("Button")
-    ac1, ac2 = mt.columns([1, 3])
-    with ac1:
-        if mt.button("Click me", key="ks_btn"):
-            mt.session_state["ks_btn_clicks"] += 1
-    with ac2:
-        mt.write(f"Clicked **{mt.session_state['ks_btn_clicks']}** time(s).")
+    with mt.grid():
+        with mt.row():
+            with mt.col(3):
+                if mt.button("Click me", key="ks_btn"):
+                    mt.session_state["ks_btn_clicks"] += 1
+            with mt.col(9):
+                mt.write(f"Clicked **{mt.session_state['ks_btn_clicks']}** time(s).")
 
     mt.button("Disabled", disabled=True, key="ks_btn_dis")
 
@@ -225,16 +228,17 @@ elif section == "Actions":
     mt.write(f"Current page: **{_page}** of 10")
 
     mt.subheader("Toast notifications")
-    tc1, tc2, tc3 = mt.columns(3)
-    with tc1:
-        if mt.button("Success toast", key="ks_toast_ok"):
-            mt.toast("Saved successfully!", title="Done", variant="success")
-    with tc2:
-        if mt.button("Warning toast", key="ks_toast_warn"):
-            mt.toast("Proceed with caution.", title="Warning", variant="warning")
-    with tc3:
-        if mt.button("Danger toast", key="ks_toast_err"):
-            mt.toast("Something went wrong.", title="Error", variant="danger")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                if mt.button("Success toast", key="ks_toast_ok"):
+                    mt.toast("Saved successfully!", title="Done", variant="success")
+            with mt.col(4):
+                if mt.button("Warning toast", key="ks_toast_warn"):
+                    mt.toast("Proceed with caution.", title="Warning", variant="warning")
+            with mt.col(4):
+                if mt.button("Danger toast", key="ks_toast_err"):
+                    mt.toast("Something went wrong.", title="Error", variant="danger")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -260,32 +264,32 @@ elif section == "Data & Charts":
     mt.json({"framework": "mxlit", "version": "0.1", "features": ["SSE", "HTMX", "OAT"]})
 
     mt.subheader("Metrics")
-    mc1, mc2, mc3 = mt.columns(3)
-    with mc1:
-        mt.metric("Revenue", "$19,500", "+$1,300")
-    with mc2:
-        mt.metric("Costs", "$11,500", "-$500")
-    with mc3:
-        mt.metric("Margin", "41%", "+3 pp")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4): mt.metric("Revenue", "$19,500", "+$1,300")
+            with mt.col(4): mt.metric("Costs", "$11,500", "-$500")
+            with mt.col(4): mt.metric("Margin", "41%", "+3 pp")
 
     mt.subheader("Charts")
-    ch1, ch2 = mt.columns(2)
-    with ch1:
-        mt.write("**Line chart**")
-        mt.line_chart(_rev_by_month, title="Monthly Revenue")
-    with ch2:
-        mt.write("**Bar chart**")
-        mt.bar_chart(_rev_by_month, title="Monthly Revenue")
-
-    ch3, ch4 = mt.columns(2)
-    with ch3:
-        mt.write("**Area chart**")
-        mt.area_chart(_rev_by_month, title="Monthly Revenue")
-    with ch4:
-        mt.write("**Scatter chart**")
-        _xs = [i * 0.5 for i in range(12)]
-        _ys = [math.sin(x) * 10 + 20 for x in _xs]
-        mt.scatter_chart({"x": _xs, "y": _ys}, title="Sine wave")
+    _xs = [i * 0.5 for i in range(12)]
+    _ys = [math.sin(x) * 10 + 20 for x in _xs]
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                mt.write("**Line chart**")
+                mt.line_chart(_rev_by_month, title="Monthly Revenue")
+        with mt.row():
+            with mt.col(6):
+                mt.write("**Bar chart**")
+                mt.bar_chart(_rev_by_month, title="Monthly Revenue")
+        with mt.row():
+            with mt.col(6):
+                mt.write("**Area chart**")
+                mt.area_chart(_rev_by_month, title="Monthly Revenue")
+        with mt.row():
+            with mt.col(6):
+                mt.write("**Scatter chart**")
+                mt.scatter_chart({"x": _xs, "y": _ys}, title="Sine wave")
 
     mt.subheader("Auto-refresh (setInterval)")
     mt.write("The chart below re-fetches itself every 5 seconds:")
@@ -306,22 +310,18 @@ elif section == "Layout":
     mt.header("Layout")
 
     mt.subheader("Columns — equal split")
-    la, lb, lc = mt.columns(3)
-    with la:
-        mt.info("Column 1")
-    with lb:
-        mt.info("Column 2")
-    with lc:
-        mt.info("Column 3")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4): mt.info("Column 1")
+            with mt.col(4): mt.info("Column 2")
+            with mt.col(4): mt.info("Column 3")
 
     mt.subheader("Columns — weighted 1:2:1")
-    wa, wb, wc = mt.columns([1, 2, 1])
-    with wa:
-        mt.write("1 part")
-    with wb:
-        mt.write("2 parts (double width)")
-    with wc:
-        mt.write("1 part")
+    with mt.grid():
+        with mt.row():
+            with mt.col(3): mt.write("1 part")
+            with mt.col(6): mt.write("2 parts (double width)")
+            with mt.col(3): mt.write("1 part")
 
     mt.subheader("Container")
     with mt.container(className="rounded-lg border p-4"):
@@ -334,15 +334,36 @@ elif section == "Layout":
         mt.code("print('hello from expander')")
 
     mt.subheader("Card")
-    cc1, cc2 = mt.columns(2)
-    with cc1:
-        with mt.card("Revenue"):
-            mt.metric("MRR", "$19,500", "+$1,300")
-            mt.progress(0.72)
-    with cc2:
-        with mt.card("Queue", footer="Last updated: just now"):
-            mt.metric("Tickets", "14", "open")
-            mt.progress(0.35)
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                with mt.card("Revenue"):
+                    mt.metric("MRR", "$19,500", "+$1,300")
+                    mt.progress(0.72)
+            with mt.col(6):
+                with mt.card("Queue", footer="Last updated: just now"):
+                    mt.metric("Tickets", "14", "open")
+                    mt.progress(0.35)
+
+    mt.subheader("Card — compound slots")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                with mt.card() as c1:
+                    with c1.header:
+                        mt.write("**Revenue Summary**")
+                        mt.badge("Live", className="ml-2")
+                    with c1.footer:
+                        mt.button("Export CSV", key="ks_card_export")
+                    mt.metric("MRR", "$19,500", "+$1,300")
+                    mt.progress(0.72)
+            with mt.col(6):
+                with mt.card() as c2:
+                    with c2.header:
+                        mt.write("**Support Queue**")
+                        mt.badge("14 open", className="ml-2")
+                    mt.metric("Avg response", "2.4 h", "-0.3 h")
+                    mt.progress(0.35)
 
     mt.subheader("Nested tabs")
     nt_a, nt_b = mt.tabs(["Tab A", "Tab B"])
@@ -358,6 +379,14 @@ elif section == "Layout":
     mt.subheader("Input group")
     with mt.input_group(prefix="https://", suffix=".io"):
         mt.text_input("Subdomain", key="ks_subdomain", className="w-full")
+
+    mt.subheader("Input group — compound slots")
+    with mt.input_group() as ig:
+        with ig.prefix:
+            mt.badge("https://")
+        with ig.suffix:
+            mt.button("Go", key="ks_ig_go")
+        mt.text_input("Domain", key="ks_ig_domain", className="w-full")
 
     mt.subheader("Popover")
     with mt.popover("Settings"):
@@ -375,6 +404,17 @@ elif section == "Layout":
         mt.warning("This action cannot be undone.")
         mt.write("Type **DELETE** to confirm.")
         mt.text_input("Confirmation", key="ks_dlg_confirm")
+
+    mt.subheader("Dialog — compound slots")
+    with mt.dialog(trigger_label="Delete item") as dlg:
+        with dlg.header:
+            mt.write("**Confirm deletion**")
+            mt.badge("Irreversible", className="ml-2")
+        with dlg.footer:
+            mt.button("Cancel", key="ks_dlg2_cancel")
+            mt.button("Yes, delete", key="ks_dlg2_confirm")
+        mt.warning("This action cannot be undone.")
+        mt.text_input("Type DELETE to confirm", key="ks_dlg2_text")
 
     mt.subheader("Dropdown menu")
     mt.dropdown("Options", items=[
@@ -408,16 +448,17 @@ elif section == "OAT Extras":
     ])
 
     mt.subheader("Avatar")
-    av1, av2, av3 = mt.columns(3)
-    with av1:
-        mt.write("Large")
-        mt.avatar(initials="JD", size="large")
-    with av2:
-        mt.write("Default")
-        mt.avatar(initials="AB")
-    with av3:
-        mt.write("Small")
-        mt.avatar(initials="MK", size="small")
+    with mt.grid():
+        with mt.row():
+            with mt.col(4):
+                mt.write("Large")
+                mt.avatar(initials="JD", size="large")
+            with mt.col(4):
+                mt.write("Default")
+                mt.avatar(initials="AB")
+            with mt.col(4):
+                mt.write("Small")
+                mt.avatar(initials="MK", size="small")
 
     mt.subheader("Avatar group")
     mt.avatar_group(avatars=[
@@ -428,13 +469,14 @@ elif section == "OAT Extras":
     ])
 
     mt.subheader("Spinner")
-    sp1, sp2 = mt.columns(2)
-    with sp1:
-        mt.write("small")
-        mt.spinner("small")
-    with sp2:
-        mt.write("large")
-        mt.spinner("large")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                mt.write("small")
+                mt.spinner("small")
+            with mt.col(6):
+                mt.write("large")
+                mt.spinner("large")
 
     mt.subheader("Skeleton placeholders")
     mt.skeleton("line")
@@ -495,12 +537,13 @@ elif section == "Status & Alerts":
     )
 
     mt.subheader("Rerun & Stop")
-    rc1, rc2 = mt.columns(2)
-    with rc1:
-        if mt.button("Trigger rerun", key="ks_rerun"):
-            mt.rerun()
-    with rc2:
-        mt.write("`mt.stop()` halts script execution at the call site.")
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                if mt.button("Trigger rerun", key="ks_rerun"):
+                    mt.rerun()
+            with mt.col(6):
+                mt.write("`mt.stop()` halts script execution at the call site.")
 
     mt.subheader("App options")
     mt.code(
