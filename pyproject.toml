@@ -44,10 +44,6 @@ mxlit = "mxlit.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mxlit"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/mxlit/static" = "mxlit/static"
-"src/mxlit/templates" = "mxlit/templates"
-
 [dependency-groups]
 dev = [
     "pytailwindcss>=0.3.1",
