@@ -111,6 +111,15 @@ html, body {
   min-height: 100vh;
 }
 
+/* Every rendered component is wrapped in a <div class="mx-component"> (for
+   targeted HTMX swaps), interposed between .hstack and its real children.
+   oat.ink's own .hstack > *{margin:0} only reaches that wrapper (already
+   margin:0 as a div) — reach one level deeper so <p>/<h1>/etc. still get
+   their default browser margin reset inside a horizontal mt.container(). */
+.hstack > .mx-component > * {
+  margin: 0;
+}
+
 /* Loading placeholder */
 #app-root > p.mx-loading {
   padding: 2rem;

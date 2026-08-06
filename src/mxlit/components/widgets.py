@@ -14,13 +14,22 @@ _OAT_FIELD       = OatProps(field=True)
 
 
 @widget_component(ComponentType.BUTTON, htmx=HtmxProps(trigger="click"))
-def button(label: str, key: str = None, disabled: bool = False) -> tuple[dict, bool]:
-    """Display a button widget. Returns True if clicked on this run."""
+def button(label: str, key: str = None, disabled: bool = False,
+           variant: str = None) -> tuple[dict, bool]:
+    """Display a button widget. Returns True if clicked on this run.
+
+    Args:
+        variant: OAT semantic variant — ``None`` (default) is OAT's primary
+                 filled style, or ``'secondary'`` / ``'danger'``. Style
+                 modifiers (``'outline'``, ``'ghost'``, ``'small'``, ``'large'``)
+                 are plain classes — pass them via ``className=``.
+    """
     widget_key = key or BaseComponent.generate_key(ComponentType.BUTTON, label)
     clicked = session_state.get(widget_key, "false") == "true"
     if widget_key in session_state:
         session_state[widget_key] = "false"
-    return ({"label": label, "key": widget_key, "disabled": disabled}, clicked)
+    return ({"label": label, "key": widget_key, "disabled": disabled,
+              "variant": variant}, clicked)
 
 
 @widget_component(ComponentType.TEXT_INPUT, htmx=_HTMX_CHANGE, oat=_OAT_FIELD)

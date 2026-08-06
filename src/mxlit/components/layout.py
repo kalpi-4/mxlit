@@ -21,6 +21,19 @@ class Sidebar:
         with mt.sidebar(className="w-64"):
             mt.title("Nav")
 
+    Matching oat.ink's own sidebar recipe (``<aside data-sidebar><header>…
+    <nav>…<footer>``), ``.header``/``.footer`` named slots are available —
+    same mechanism as :func:`card`/:func:`dialog`. Content outside a slot
+    goes in the middle ``<nav>`` region as before::
+
+        with mt.sidebar as s:
+            with s.header:
+                mt.write("Logo")
+            mt.write("Nav link 1")   # un-slotted -> <nav>
+            mt.write("Nav link 2")
+            with s.footer:
+                mt.button("Logout")
+
     Internally each ``with`` block creates a fresh :class:`CompositeComponent`
     so there is no cross-request state leak on the singleton object.
     """
@@ -249,15 +262,18 @@ def avatar(src: str = "", initials: str = "", size: str = "") -> tuple[dict, Non
 
 
 @component(ComponentType.AVATAR_GROUP)
-def avatar_group(avatars: list, size: str = "") -> tuple[dict, None]:
+def avatar_group(avatars: list, size: str = "", label: str = "") -> tuple[dict, None]:
     """Group multiple avatars together in OAT's stacked avatar pattern.
 
     Args:
         avatars: List of dicts with optional keys ``src``, ``initials``, ``size``.
                  Example: ``[{"initials": "JD"}, {"src": "/img/avatar.png"}]``
         size:    ``'small'`` or ``'large'`` — applied to the group wrapper.
+        label:   Accessible name for the whole group, e.g. ``"Team members"``.
+                 Rendered as ``aria-label`` on the group ``<figure>``, matching
+                 OAT's own avatar-group recipe.
     """
-    return ({"avatars": avatars, "size": size}, None)
+    return ({"avatars": avatars, "size": size, "label": label}, None)
 
 
 # ── Breadcrumb ────────────────────────────────────────────────────────────────

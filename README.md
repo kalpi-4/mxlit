@@ -10,7 +10,7 @@ Mxlit is a lightweight, pure-Python alternative to Streamlit, powered by **FastA
 - **Rich Components** — Text, markdown, dataframes, metrics, images, charts, and 11+ interactive widgets.
 - **Layouts** — Sidebars, columns, tabs, expanders, and horizontal containers.
 - **Advanced UI** — Named Entity Recognition (NER) highlighting and streaming text (`write_stream`) built in.
-- **Python-Driven Styling** — Pass Tailwind utility classes to any component via `class_="..."` directly from Python code.
+- **Python-Driven Styling** — Pass Tailwind utility classes to any component via `className="..."` directly from Python code.
 - **Live Theme Generator** — `mt.theme(dict)` stores the palette in `session_state`; the framework injects CSS variables automatically on every response with no manual code needed.
 - **oat.ink UI Library** — Semantic, zero-dependency component styles; buttons, alerts, tabs, and forms styled automatically.
 - **Tailwind CSS v4** — Utility classes compiled to a single `style.css`; no Node.js required (uses `pytailwindcss`).
@@ -65,6 +65,21 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+### Option 4 — uv (fast, reproducible via `uv.lock`)
+
+Clone the repository and let `uv` create the virtualenv and install everything
+from the lockfile, including the `dev` extra (`pytailwindcss`, needed for the
+automatic CSS rebuild on `mxlit run`):
+
+```bash
+git clone https://github.com/kalpi-4/mxlit.git
+cd mxlit
+uv sync --extra dev
+```
+
+> On a network with a TLS-intercepting proxy, add `--native-tls` (or set
+> `UV_NATIVE_TLS=true`) if `uv sync` fails with a certificate error.
+
 ## Quick Start
 
 Create a file named `app.py`:
@@ -96,6 +111,19 @@ You can specify a custom host or port:
 
 ```bash
 mxlit run app.py --host 0.0.0.0 --port 8000
+```
+
+If you installed with `uv` (Option 4), run through `uv run` instead so it
+uses the project's managed virtualenv without activating it:
+
+```bash
+uv run mxlit run app.py
+```
+
+Try one of the bundled samples the same way:
+
+```bash
+uv run mxlit run .\samples\kitchen_sink.py
 ```
 
 ## How It Works
@@ -149,6 +177,56 @@ def my_stream():
         yield word
 mt.write_stream(my_stream())
 ```
+
+### Grid, rows, and columns
+
+For finer control than `mt.columns()`, use OAT's 12-column grid directly —
+`mt.grid()` holds one or more `mt.row()`s, each split into `mt.col()`s by
+`span` (1-12), with optional `offset` and `end` alignment:
+
+```python
+import mxlit as mt
+
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            mt.write("Left half")
+        with mt.col(6):
+            mt.write("Right half")
+
+    with mt.row():
+        with mt.col(4):
+            mt.write("One third")
+        with mt.col(4, offset=4):
+            mt.write("Last third, shifted right")
+
+    with mt.row():
+        with mt.col(3, end=True):
+            mt.metric("Uptime", "99.98%")
+```
+
+### Sidebar
+
+`mt.sidebar` works as a bare context manager, a callable that accepts
+`className`, or — matching OAT's `<aside data-sidebar>` recipe — as a context
+manager yielding named `.header` / `.footer` slots, with any un-slotted
+content falling into the middle `<nav>` region:
+
+```python
+import mxlit as mt
+
+with mt.sidebar as s:
+    with s.header:
+        mt.write("Logo")
+    mt.write("Nav link 1")   # un-slotted -> <nav>
+    mt.write("Nav link 2")
+    with s.footer:
+        mt.button("Logout")
+
+# or, styled and without slots:
+with mt.sidebar(className="w-64"):
+    mt.title("Nav")
+```
 ---
 
 ### Customizing the theme
@@ -196,54 +274,57 @@ See `samples/class_styling_demo.py` for a full working example.
 
 ### Passing utility classes from Python
 
-Every mxlit component accepts an optional `class_` keyword argument (the trailing
-underscore avoids a clash with Python's `class` keyword). The value is a
-space-separated string of Tailwind utility classes applied directly to the
-component's primary HTML element.
+Every mxlit component accepts an optional `className` keyword argument. The
+value is a space-separated string of Tailwind utility classes applied
+directly to the component's primary HTML element.
 
 > **Full working demo** — `samples/class_styling_demo.py` showcases every
-> component type with `class_` applied, plus the live theme generator.
+> component type with `className` applied, plus the live theme generator.
 > Run it with `python -m mxlit run samples/class_styling_demo.py`.
 
 ```python
 import mxlit as mt
 
 # Typography — colour, size, weight
-mt.title("Sales Dashboard",   class_="text-3xl font-extrabold")
-mt.write("Last updated: now", class_="text-sm text-slate-400 italic")
+mt.title("Sales Dashboard",   className="text-3xl font-extrabold")
+mt.write("Last updated: now", className="text-sm text-slate-400 italic")
 
 # Badges — background and text colour via Tailwind
-mt.badge("stable",     class_="bg-green-100 text-green-800 font-semibold")
-mt.badge("deprecated", class_="bg-red-100   text-red-700   line-through")
+mt.badge("stable",     className="bg-green-100 text-green-800 font-semibold")
+mt.badge("deprecated", className="bg-red-100   text-red-700   line-through")
 
 # Full-width button
-if mt.button("Save changes", class_="w-full"):
-    mt.success("Saved!", class_="mt-1")
+if mt.button("Save changes", className="w-full"):
+    mt.success("Saved!", className="mt-1")
 
 # Constrained form inputs
-mt.text_input("Full name", class_="max-w-sm")
-mt.selectbox("Language", ["Python", "Rust", "Go"], class_="max-w-xs")
+mt.text_input("Full name", className="max-w-sm")
+mt.selectbox("Language", ["Python", "Rust", "Go"], className="max-w-xs")
 
 # Chart with a card border
-mt.bar_chart({"A": 10, "B": 20, "C": 15}, class_="rounded-lg border p-2")
+mt.bar_chart({"A": 10, "B": 20, "C": 15}, className="rounded-lg border p-2")
 
 # Metric cards in a row
 col1, col2 = mt.columns(2)
-with col1: mt.metric("Revenue", "$84,200", "+12%", class_="w-full")
-with col2: mt.metric("Users",   "3,412",   "+5%",  class_="w-full")
+with col1: mt.metric("Revenue", "$84,200", "+12%", className="w-full")
+with col2: mt.metric("Users",   "3,412",   "+5%",  className="w-full")
 
 # Styled expander and pill container
-with mt.expander("Model details", class_="border rounded-lg"):
-    mt.write("GPT-4o-mini · 128k context", class_="text-sm")
+with mt.expander("Model details", className="border rounded-lg"):
+    mt.write("GPT-4o-mini · 128k context", className="text-sm")
 
-with mt.container(horizontal=True, class_="gap-3 flex-wrap p-4 bg-slate-50 rounded-xl border"):
-    mt.badge("Python 3.12",  class_="bg-blue-100  text-blue-800  text-sm px-3 py-1")
-    mt.badge("Tailwind v4",  class_="bg-sky-100   text-sky-800   text-sm px-3 py-1")
+with mt.container(horizontal=True, className="gap-3 flex-wrap p-4 bg-slate-50 rounded-xl border"):
+    mt.badge("Python 3.12",  className="bg-blue-100  text-blue-800  text-sm px-3 py-1")
+    mt.badge("Tailwind v4",  className="bg-sky-100   text-sky-800   text-sm px-3 py-1")
 ```
+
+> **Note:** `error`/`warning`/`info`/`success` (in `status.py`) also accept a
+> legacy `class_` kwarg as a compat alias for `className`. Every other
+> component only accepts `className`.
 
 **Where the class lands per component type**
 
-| Component | Element that receives `class_` |
+| Component | Element that receives `className` |
 |-----------|-------------------------------|
 | `title` / `header` / `subheader` | `<h1>` / `<h2>` / `<h3>` |
 | `write` / `text` | `<p>` |

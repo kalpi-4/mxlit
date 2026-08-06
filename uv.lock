@@ -230,15 +230,23 @@ dependencies = [
     { name = "uvicorn" },
 ]
 
+[package.optional-dependencies]
+dev = [
+    { name = "pytailwindcss", version = "0.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pytailwindcss", version = "0.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "markdown" },
     { name = "pandas" },
+    { name = "pytailwindcss", marker = "extra == 'dev'" },
     { name = "python-multipart" },
     { name = "uvicorn" },
 ]
+provides-extras = ["dev"]
 
 [[package]]
 name = "numpy"
@@ -655,6 +663,35 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1f/f2/f11dd73284122713f5f89fc940f370d035fa8e1e078d446b3313955157fe/pydantic_core-2.41.5-pp311-pypy311_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:a668ce24de96165bb239160b3d854943128f4334822900534f2fe947930e5770", size = 2330317, upload-time = "2025-11-04T13:43:40.406Z" },
     { url = "https://files.pythonhosted.org/packages/88/9d/b06ca6acfe4abb296110fb1273a4d848a0bfb2ff65f3ee92127b3244e16b/pydantic_core-2.41.5-pp311-pypy311_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:f14f8f046c14563f8eb3f45f499cc658ab8d10072961e07225e507adb700e93f", size = 2316992, upload-time = "2025-11-04T13:43:43.602Z" },
     { url = "https://files.pythonhosted.org/packages/36/c7/cfc8e811f061c841d7990b0201912c3556bfeb99cdcb7ed24adc8d6f8704/pydantic_core-2.41.5-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:56121965f7a4dc965bff783d70b907ddf3d57f6eba29b6d2e5dabfaf07799c51", size = 2145302, upload-time = "2025-11-04T13:43:46.64Z" },
+]
+
+[[package]]
+name = "pytailwindcss"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.11'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/55/91e655cfbd8e18a777cae3bdd91be02a85fa69e29a4685ab92a87b2ec8cd/pytailwindcss-0.2.0.tar.gz", hash = "sha256:112718583a33f42c57b2718270dd0e0605574da0023cab4829fad3a98ebe450b", size = 5686, upload-time = "2023-06-23T21:23:35.225Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/51/a5142efe05873e947a71389ca86572866692ca01113037f99dd009cb0f55/pytailwindcss-0.2.0-py3-none-any.whl", hash = "sha256:30e7bd3b78de19a39a7e66329db02d393ee540f010924397b4d780e85041fae4", size = 7288, upload-time = "2023-06-23T21:23:33.855Z" },
+]
+
+[[package]]
+name = "pytailwindcss"
+version = "0.3.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/8a/5ba4a60c6a2f235c9ad93a5e9f29d202ad9e8038e8ea293be31057085cee/pytailwindcss-0.3.1.tar.gz", hash = "sha256:e83c65985f078ff91500f74bca595f615e54059d5afc90b233382e118b509b4d", size = 18712, upload-time = "2026-06-12T13:43:01.804Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/9b/362cd1ae308a2fd8a9a58ff089cefd2e49976540765afa4e9a2c013876af/pytailwindcss-0.3.1-py3-none-any.whl", hash = "sha256:31583c5bb7fac66c6e6535992e51630e36788cf6e569f4d294e98962fa034535", size = 7496, upload-time = "2026-06-12T13:43:00.675Z" },
 ]
 
 [[package]]

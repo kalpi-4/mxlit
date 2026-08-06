@@ -49,6 +49,72 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 {# Empty-string values emit bare attribute (e.g. disabled); others emit key="val" #}
 {% macro html_attrs(attrs) %}{% if attrs %}{% for k, v in attrs.items() %} {% if v == '' %}{{ k }}{% else %}{{ k }}="{{ v | e }}"{% endif %}{% endfor %}{% endif %}{% endmacro %}
 
+{# ── group_child: render a child of mt.input_group() (children/.prefix/.suffix) ─ #}
+{# oat.ink's fieldset.group > :is(input,textarea,select){flex:1} only matches
+   DIRECT children, and .group is display:flex so a <button> only lays out right
+   as a direct flex item too — so every child here must render bare (no
+   mx-component wrapper, no widget's own <label data-field> wrapper), matching
+   oat's own recipe: <legend>prefix</legend><input><select><button>Go</button>.
+   Used by all three regions (prefix slot, plain children, suffix slot) so a
+   button/select/etc. behaves the same wherever it's placed in the group.       #}
+{% macro group_child(child) %}
+    {%- set _type_map = {
+        'text_input':     'text',
+        'email_input':    'email',
+        'password_input': 'password',
+        'number_input':   'number',
+        'date_input':     'date',
+        'datetime_input': 'datetime-local'
+    } -%}
+    {% if child.type in _type_map %}
+        <input type="{{ _type_map[child.type] }}"
+               name="{{ child.key }}"
+               value="{{ child.value | default('') }}"
+               placeholder="{{ child.label }}"
+               class="{{ child.className | default('') }}"
+               hx-post="/interact"
+               hx-target="{{ child['hx-target'] | default('#app-root') }}"
+               hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+               hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+               hx-include="[name]">
+    {% elif child.type == 'selectbox' %}
+        <select name="{{ child.key }}" aria-label="{{ child.label }}"
+                class="{{ child.className | default('') }}"
+                hx-post="/interact"
+                hx-target="{{ child['hx-target'] | default('#app-root') }}"
+                hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+                hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+                hx-include="[name]">
+            {% for option in child.options %}
+                <option value="{{ option }}" {% if child.value == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    {% elif child.type == 'text_area' %}
+        <textarea name="{{ child.key }}" placeholder="{{ child.label }}"
+                  class="{{ child.className | default('') }}"
+                  hx-post="/interact"
+                  hx-target="{{ child['hx-target'] | default('#app-root') }}"
+                  hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+                  hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+                  hx-include="[name]">{{ child.value }}</textarea>
+    {% elif child.type == 'button' %}
+        <button type="button"
+                {% if child.variant %}data-variant="{{ child.variant }}"{% endif %}
+                name="{{ child.key }}"
+                value="true"
+                {% if not child.disabled %}
+                hx-post="/interact"
+                hx-target="#app-root"
+                hx-swap="innerHTML"
+                hx-include="[name]"
+                {% endif %}
+                {% if child.disabled %}disabled aria-disabled="true"{% endif %}
+                class="{{ child.className | default('') }}">{{ child.label }}</button>
+    {% else %}
+        {{ render_component(child) }}
+    {% endif %}
+{% endmacro %}
+
 {# ── render_children: render a list of components, handling tab/column grouping ─ #}
 {% macro render_children(children) %}
 {% for comp in children %}
@@ -102,7 +168,10 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
 
 {% macro render_component(comp) %}
-{% set _tbl_inline = ['html_table','table_head','table_body','table_foot','table_row','table_cell'] %}
+{# grid_col must stay display:contents too — .row is display:flex and needs the
+   real .col-N div as its direct flex child, or flex:0 0 N% never applies and
+   the column (and everything inside it) shrinks to fit its content instead. #}
+{% set _tbl_inline = ['html_table','table_head','table_body','table_foot','table_row','table_cell','grid_col'] %}
 <div {% if comp.id %}id="mx-{{ comp.id }}"{% endif %}
      {% if comp.type in _tbl_inline %}style="display:contents"{% else %}class="mx-component"{% endif %}
      {% if comp.refresh_trigger %}
@@ -193,8 +262,11 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Widgets ─────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'button' %}
+        {# OAT's default button (no data-variant) is the primary filled style —
+           only emit the attribute when a variant was actually requested, or
+           every button always rendered as OAT's "secondary" look. #}
         <button type="button"
-                data-variant="secondary"
+                {% if comp.variant %}data-variant="{{ comp.variant }}"{% endif %}
                 name="{{ comp.key }}"
                 value="true"
                 {% if not comp.disabled %}
@@ -423,9 +495,9 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
                 {{ render_component(child) }}
             {% endfor %}
             {% if comp.slot_footer is defined and comp.slot_footer %}
-                <footer>{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+                <footer class="hstack">{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
             {% elif comp.footer %}
-                <footer>{{ comp.footer }}</footer>
+                <footer class="hstack">{{ comp.footer }}</footer>
             {% endif %}
         </article>
 
@@ -458,11 +530,13 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {# ── Avatar ──────────────────────────────────────────────────────────── #}
     {% elif comp.type == 'avatar' %}
+        {# aria-label on the <figure> already carries the accessible name — img alt
+           stays empty/decorative, or a screen reader announces the name twice. #}
         <figure data-variant="avatar"
                 class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}"
                 {% if comp.initials %}aria-label="{{ comp.initials }}"{% endif %}>
             {% if comp.src %}
-                <img src="{{ comp.src }}" alt="{{ comp.initials | default('') }}">
+                <img src="{{ comp.src }}" alt="">
             {% else %}
                 <abbr title="{{ comp.initials | default('') }}">{{ comp.initials | default('') }}</abbr>
             {% endif %}
@@ -470,13 +544,14 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 
     {% elif comp.type == 'avatar_group' %}
         <figure data-variant="avatar" role="group"
-                class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}">
+                class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}"
+                {% if comp.label %}aria-label="{{ comp.label }}"{% endif %}>
             {% for av in comp.avatars %}
                 <figure data-variant="avatar"
                         {% if av.size %}class="{{ av.size }}"{% endif %}
                         {% if av.initials %}aria-label="{{ av.initials }}"{% endif %}>
                     {% if av.src %}
-                        <img src="{{ av.src }}" alt="{{ av.initials | default('') }}">
+                        <img src="{{ av.src }}" alt="">
                     {% else %}
                         <abbr title="{{ av.initials | default('') }}">{{ av.initials | default('') }}</abbr>
                     {% endif %}
@@ -605,39 +680,43 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
             <menu popover id="{{ _menu_id }}">
                 {% for item in comp['items'] %}
                     {% if item.href is defined and item.href %}
-                        <a href="{{ item.href }}" role="menuitem">{{ item.label }}</a>
+                        <a href="{{ item.href }}" role="menuitem" class="unstyled">{{ item.label }}</a>
                     {% else %}
-                        <button role="menuitem" type="button">{{ item.label }}</button>
+                        <button role="menuitem" type="button" class="ghost">{{ item.label }}</button>
                     {% endif %}
                 {% endfor %}
             </menu>
         </ot-dropdown>
 
     {# ── Grid ────────────────────────────────────────────────────────────── #}
+    {# oat.ink's .container carries page-root padding/max-width/centering —
+       mxlit's <main class="mx-main"> already owns that job, so neutralize
+       them here or a nested grid ends up double-inset from the page edge. #}
     {% elif comp.type == 'grid' %}
-        <div class="container {{ comp.className | default('') }}">
+        <div class="container {{ comp.className | default('') }}"
+             style="max-width:none;padding-inline:0;margin-inline:0">
             {% for child in comp.children %}
                 {{ render_component(child) }}
             {% endfor %}
         </div>
 
     {# ── Grid Row ─────────────────────────────────────────────────────────── #}
-    {# Explicit flex row so col widths are calculated from span, not CSS grid  #}
+    {# oat.ink's own .row is display:grid + gap — use it natively instead of a
+       hand-rolled flex-basis %, which ignored .row's gap and overflowed/wrapped. #}
     {% elif comp.type == 'grid_row' %}
-        <div class="row {{ comp.className | default('') }}" style="display:flex;flex-wrap:wrap">
+        <div class="row {{ comp.className | default('') }}">
             {% for child in comp.children %}
                 {{ render_component(child) }}
             {% endfor %}
         </div>
 
     {# ── Grid Col ─────────────────────────────────────────────────────────── #}
-    {# Width = span/12 * 100%; min-width:0 prevents canvas/flex overflow       #}
+    {# oat.ink's [class*=col-] reads --span/--offset custom props to size the
+       grid-column span — set them directly so any span/offset value works,
+       not just the offset-1..offset-6 classes oat.min.css predefines.        #}
     {% elif comp.type == 'grid_col' %}
-        {% set _col_cls = 'col-' ~ comp.span %}
-        {% set _w = (comp.span / 12 * 100) | round(4) %}
-        {% set _ml = (comp.offset / 12 * 100) | round(4) if comp.offset else 0 %}
-        <div class="{{ _col_cls }} {{ comp.className | default('') }}"
-             style="flex:0 0 {{ _w }}%;max-width:{{ _w }}%;min-width:0;{% if comp.offset %}margin-left:{{ _ml }}%;{% endif %}{% if comp.end %}margin-left:auto;{% endif %}">
+        <div class="col-{{ comp.span }}{% if comp.end %} col-end{% endif %} {{ comp.className | default('') }}"
+             style="--span:{{ comp.span }};{% if comp.offset %}--offset:{{ comp.offset }};{% endif %}">
             {% for child in comp.children %}
                 {{ render_component(child) }}
             {% endfor %}
@@ -704,42 +783,22 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
         </label>
 
     {# ── Input Group ─────────────────────────────────────────────────────── #}
-    {# oat.ink: <fieldset class="group"><legend>prefix</legend><input><button>suffix</button></fieldset> #}
-    {# Children that are form inputs are rendered as bare <input> elements    #}
-    {# (no <label data-field> wrapper) so they sit flush in the group strip.  #}
+    {# oat.ink: <fieldset class="group"><legend>prefix</legend><input><select><button>Go</button></fieldset> #}
+    {# Every child (prefix slot, plain children, suffix slot) renders through  #}
+    {# group_child() so it stays a bare, direct <fieldset> child — see that    #}
+    {# macro's comment for why the mx-component/label wrappers must be gone.   #}
     {% elif comp.type == 'input_group' %}
-        {%- set _type_map = {
-            'text_input':     'text',
-            'email_input':    'email',
-            'password_input': 'password',
-            'number_input':   'number',
-            'date_input':     'date',
-            'datetime_input': 'datetime-local'
-        } -%}
         <fieldset class="group {{ comp.className | default('') }}">
             {% if comp.slot_prefix is defined and comp.slot_prefix %}
-                {% for child in comp.slot_prefix %}{{ render_component(child) }}{% endfor %}
+                {% for child in comp.slot_prefix %}{{ group_child(child) }}{% endfor %}
             {% elif comp.prefix %}
                 <legend>{{ comp.prefix }}</legend>
             {% endif %}
             {% for child in comp.children %}
-                {% if child.type in _type_map %}
-                    <input type="{{ _type_map[child.type] }}"
-                           name="{{ child.key }}"
-                           value="{{ child.value | default('') }}"
-                           placeholder="{{ child.label }}"
-                           class="{{ child.className | default('') }}"
-                           hx-post="/interact"
-                           hx-target="{{ child['hx-target'] | default('#app-root') }}"
-                           hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
-                           hx-trigger="{{ child['hx-trigger'] | default('change') }}"
-                           hx-include="[name]">
-                {% else %}
-                    {{ render_component(child) }}
-                {% endif %}
+                {{ group_child(child) }}
             {% endfor %}
             {% if comp.slot_suffix is defined and comp.slot_suffix %}
-                {% for child in comp.slot_suffix %}{{ render_component(child) }}{% endfor %}
+                {% for child in comp.slot_suffix %}{{ group_child(child) }}{% endfor %}
             {% elif comp.suffix %}
                 <span>{{ comp.suffix }}</span>
             {% endif %}
@@ -930,12 +989,22 @@ body, html { background-color: {{ bg }}; color: {{ txt }}; }
 {% if ns.has_sidebar %}
     {% for comp in components %}
         {% if comp.type == 'sidebar' %}
+            {# oat.ink's aside[data-sidebar] is display:flex;flex-direction:column with
+               >:is(header,footer){flex-shrink:0} — header/footer must be direct children
+               of <aside>, so they're written as literal tags here, not routed through
+               the generic mx-component wrapper the way nav's un-slotted content is.     #}
             <aside data-sidebar class="{{ aside_class | default('') }} {{ comp.className | default('') }}">
+                {% if comp.slot_header is defined and comp.slot_header %}
+                    <header>{% for child in comp.slot_header %}{{ render_component(child) }}{% endfor %}</header>
+                {% endif %}
                 <nav class="pt-8">
                     {% for child in comp.children %}
                         {{ render_component(child) }}
                     {% endfor %}
                 </nav>
+                {% if comp.slot_footer is defined and comp.slot_footer %}
+                    <footer>{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+                {% endif %}
             </aside>
         {% endif %}
     {% endfor %}
