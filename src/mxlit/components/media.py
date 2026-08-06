@@ -1,49 +1,27 @@
-from mxlit.context import get_context
+from typing import Callable
 
-def image(image, width=None):
-    """
-    Display an image or list of images.
-    `image` can be a URL string or a file path string.
-    """
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({
-            "type": "image",
-            "url": image,  # Assuming string URL/path for now
-            "width": width
-        })
-    else:
-        print(f"[Image: {image}]")
+from mxlit.components.base import ComponentType, component
 
-def audio(data):
+
+@component(ComponentType.IMAGE)
+def image(url, width=None) -> tuple[dict, Callable]:
+    """Display an image."""
+    return ({"url": url, "width": width}, lambda: print(f"[Image: {url}]"))
+
+
+@component(ComponentType.AUDIO)
+def audio(url) -> tuple[dict, Callable]:
     """Display an audio player."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({
-            "type": "audio",
-            "url": data
-        })
-    else:
-        print(f"[Audio: {data}]")
+    return ({"url": url}, lambda: print(f"[Audio: {url}]"))
 
-def video(data):
+
+@component(ComponentType.VIDEO)
+def video(url) -> tuple[dict, Callable]:
     """Display a video player."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({
-            "type": "video",
-            "url": data
-        })
-    else:
-        print(f"[Video: {data}]")
+    return ({"url": url}, lambda: print(f"[Video: {url}]"))
 
-def logo(image):
-    """Display a logo."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({
-            "type": "logo",
-            "url": image
-        })
-    else:
-        print(f"[Logo: {image}]")
+
+@component(ComponentType.LOGO)
+def logo(url) -> tuple[dict, Callable]:
+    """Display a logo image."""
+    return ({"url": url}, lambda: print(f"[Logo: {url}]"))

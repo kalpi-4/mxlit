@@ -1,42 +1,39 @@
-from mxlit.context import get_context
+from typing import Callable
 
-def error(body: str):
-    """Display an error message."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "error", "content": body})
-    else:
-        print(f"[Error] {body}")
+from mxlit.components.base import (
+    BaseComponent, ComponentType, OatProps, component,
+)
 
-def warning(body: str):
-    """Display a warning message."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "warning", "content": body})
-    else:
-        print(f"[Warning] {body}")
 
-def info(body: str):
-    """Display an informational message."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "info", "content": body})
-    else:
-        print(f"[Info] {body}")
+def _make_status_variant(status_type: str) -> Callable:
+    """Generate a status display function for the given OAT variant."""
+    preset_oat = OatProps(variant=status_type, role="alert")
 
-def success(body: str):
-    """Display a success message."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "success", "content": body})
-    else:
-        print(f"[Success] {body}")
+    @component(ComponentType.STATUS, oat=preset_oat)
+    def _fn(body: str) -> tuple[dict, Callable]:
+        return (
+            {"content": body, "status_type": status_type},
+            lambda: print(f"[{status_type.upper()}] {body}"),
+        )
 
-def exception(e: Exception):
-    """Display an exception."""
-    ctx = get_context()
+    _fn.__name__     = status_type
+    _fn.__qualname__ = f"mxlit.components.status.{status_type}"
+    return _fn
+
+
+error   = _make_status_variant("error")
+warning = _make_status_variant("warning")
+success = _make_status_variant("success")
+info    = _make_status_variant("info")
+
+
+def exception(e: Exception, **kwargs):
+    """Display an exception as an error alert."""
     body = f"{type(e).__name__}: {str(e)}"
-    if ctx:
-        ctx.add_component({"type": "status", "status_type": "error", "content": body})
-    else:
-        print(f"[Exception] {body}")
+    BaseComponent(
+        type         = ComponentType.STATUS,
+        className    = kwargs.pop("class_", kwargs.pop("className", "")),
+        props        = {"content": body, "status_type": "error"},
+        _oat         = OatProps(variant="error", role="alert"),
+        _fallback_fn = lambda: print(f"[EXCEPTION] {body}"),
+    )

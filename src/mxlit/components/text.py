@@ -1,126 +1,90 @@
 import uuid
-from mxlit.context import get_context
+from typing import Callable
+
+from mxlit.components.base import (
+    BaseComponent, ComponentType, component,
+)
 from mxlit.state import session_state
-from mxlit.layout import layout_manager
 
-def _register_text_component(component_type: str, content: str, id: str = None):
-    """Helper to register text component."""
-    ctx = get_context()
-    if ctx:
-        if ctx.mode == "init":
-            component_id = layout_manager.register_component(
-                component_type,
-                {"content": content},
-                component_id=id
-            )
-            return component_id
-        else:
-            ctx.add_component({"type": component_type, "content": content})
-    return None
 
-def write(*args, id: str = None):
-    """Print text or objects to the app."""
+# ── Heading factory ───────────────────────────────────────────────────────────
+
+def _make_heading(component_type: ComponentType, fallback_prefix: str) -> Callable:
+    """Generate a heading display function for the given heading level."""
+    @component(component_type)
+    def _fn(text: str) -> tuple[dict, Callable]:
+        return (
+            {"content": text},
+            lambda: print(f"{fallback_prefix} {text}"),
+        )
+    _fn.__name__     = component_type.value
+    _fn.__qualname__ = f"mxlit.components.text.{component_type.value}"
+    return _fn
+
+
+title     = _make_heading(ComponentType.TITLE,     "#")
+header    = _make_heading(ComponentType.HEADER,    "##")
+subheader = _make_heading(ComponentType.SUBHEADER, "###")
+
+
+# ── Text components ───────────────────────────────────────────────────────────
+
+@component(ComponentType.WRITE)
+def write(*args) -> tuple[dict, Callable]:
     content = " ".join(str(a) for a in args)
-    component_id = _register_text_component("write", content, id)
-    if component_id:  # init mode
-        return component_id
-    if not get_context():
-        print(*args)
+    return ({"content": content}, lambda: print(content))
 
-def title(text: str, id: str = None):
-    """Display text in title formatting."""
-    component_id = _register_text_component("title", text, id)
-    if component_id:  # init mode
-        return component_id
-    if not get_context():
-        print(f"# {text}")
 
-def header(text: str):
-    """Display text in header formatting."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "header", "content": text})
-    else:
-        print(f"## {text}")
+@component(ComponentType.TEXT)
+def text(body: str) -> tuple[dict, Callable]:
+    return ({"content": body}, lambda: print(body))
 
-def subheader(text: str):
-    """Display text in subheader formatting."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "subheader", "content": text})
-    else:
-        print(f"### {text}")
 
-def text(text: str):
-    """Display fixed-width text."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "text", "content": text})
-    else:
-        print(text)
+@component(ComponentType.MARKDOWN)
+def markdown(body: str) -> tuple[dict, Callable]:
+    try:
+        import markdown as md
+        html_content = md.markdown(body, extensions=["fenced_code", "tables"])
+    except ImportError:
+        html_content = f"<pre>{body}</pre>"
+    return ({"content": html_content}, lambda: print(body))
 
-def markdown(text: str):
-    """Display text as markdown."""
-    ctx = get_context()
-    if ctx:
-        try:
-            import markdown as md
-            html_content = md.markdown(text, extensions=['fenced_code', 'tables'])
-        except ImportError:
-            html_content = f"<pre>{text}</pre>"
-        ctx.add_component({"type": "markdown", "content": html_content})
-    else:
-        print(text)
 
-def code(text: str):
-    """Display a code block."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "code", "content": text})
-    else:
-        print(text)
-        
-def html(text: str):
-    """Display raw HTML."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "html", "content": text})
-    else:
-        print(text)
+@component(ComponentType.CODE)
+def code(body: str) -> tuple[dict, Callable]:
+    return ({"content": body}, lambda: print(body))
 
-def latex(body: str):
-    """Display mathematical expressions formatted as LaTeX."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "latex", "content": body})
-    else:
-        print(f"LaTeX: {body}")
 
-def badge(label: str):
-    """Display a badge."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "badge", "content": label})
-    else:
-        print(f"Badge: {label}")
+@component(ComponentType.HTML)
+def html(body: str) -> tuple[dict, Callable]:
+    return ({"content": body}, lambda: print(body))
 
-def write_stream(stream):
-    """Stream text to the app."""
-    ctx = get_context()
-    if ctx:
-        stream_id = str(uuid.uuid4())
-        session_state[f"_stream_{stream_id}"] = stream
-        ctx.add_component({"type": "write_stream", "stream_id": stream_id})
-    else:
-        for chunk in stream:
-            print(chunk, end="")
-        print()
 
-def ner_text(text: str, entities: list):
-    """Display text with Named Entity Recognition highlights."""
-    ctx = get_context()
-    if ctx:
-        ctx.add_component({"type": "ner", "content": text, "entities": entities})
-    else:
-        print(text)
-        print("Entities:", entities)
+@component(ComponentType.LATEX)
+def latex(body: str) -> tuple[dict, Callable]:
+    return ({"content": body}, lambda: print(f"LaTeX: {body}"))
+
+
+@component(ComponentType.BADGE)
+def badge(label: str) -> tuple[dict, Callable]:
+    return ({"content": label}, lambda: print(f"Badge: {label}"))
+
+
+@component(ComponentType.NER)
+def ner_text(body: str, entities: list) -> tuple[dict, Callable]:
+    return (
+        {"content": body, "entities": entities},
+        lambda: print(f"{body}\nEntities: {entities}"),
+    )
+
+
+# ── write_stream is display-only but needs session_state for the generator ────
+
+@component(ComponentType.WRITE_STREAM)
+def write_stream(stream) -> tuple[dict, Callable]:
+    stream_id = str(uuid.uuid4())
+    session_state[f"_stream_{stream_id}"] = stream
+    return (
+        {"stream_id": stream_id},
+        lambda: [print(chunk, end="") for chunk in stream] or print(),
+    )

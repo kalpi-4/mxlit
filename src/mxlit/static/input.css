@@ -1,0 +1,302 @@
+/* ── Tailwind v4 — utilities only, NO preflight ──────────────────────────────
+   oat.min.css ships a complete @layer base reset (box-sizing, margins,
+   typography, link colours, form elements, etc.).  Importing the full
+   `tailwindcss` bundle injects Tailwind's own @layer base preflight into
+   style.css, which loads AFTER oat.min.css in base.html.  Within the same
+   cascade layer, later source order wins — so Tailwind's preflight silently
+   overrides every oat.ink base style (headings lose size/weight, links lose
+   colour/underline, inputs lose borders, lists lose markers, etc.).
+
+   Fix: import only the theme tokens and utility classes.  oat.min.css already
+   serves as the global reset; Tailwind's preflight is not needed.
+
+   Build:  python -m pytailwindcss -i src/mxlit/static/input.css \
+                                   -o src/mxlit/static/style.css
+   Watch:  add --watch to the command above
+   ─────────────────────────────────────────────────────────────────────────── */
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
+
+/* Tell Tailwind v4 where to scan for utility classes */
+@source "../templates/**/*.html";   /* Jinja2 templates                    */
+@source "../../../**/*.py";         /* user app scripts + framework source  */
+
+/* ── Design tokens — sourced from constants/theme.json (Material Theme Builder)
+   All hex values below correspond 1-to-1 with scheme tokens in theme.json.
+   The template (components.html) overrides these at runtime via mt.theme().
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── oat.ink default theme ────────────────────────────────────────────────────
+   Values sourced directly from oat.min.css :root { light-dark(…) } declarations.
+   Light values are the first argument; dark values are the second.
+   Run `mxlit sync-css-tokens` after upgrading oat.min.css to regenerate.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Light (:root) ────────────────────────────────────────────────────────────── */
+:root {
+  --background          : #FFF;
+  --foreground          : #09090B;
+  --card                : #FFF;
+  --card-foreground     : #09090B;
+  --primary             : #574747;
+  --primary-foreground  : #FAFAFA;
+  --secondary           : #F4F4F5;
+  --secondary-foreground: #574747;
+  --muted               : #F4F4F5;
+  --muted-foreground    : #71717A;
+  --faint               : #FAFAFA;
+  --faint-foreground    : #A1A1AA;
+  --accent              : #F4F4F5;
+  --danger              : #D32F2F;
+  --danger-foreground   : #FAFAFA;
+  --success             : #008032;
+  --success-foreground  : #FAFAFA;
+  --warning             : #A65B00;
+  --border              : #D4D4D8;
+  --input               : #D4D4D8;
+  --ring                : #574747;
+  --warning-foreground  : #09090B;
+}
+
+/* Dark ─────────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --background          : #09090B;
+  --foreground          : #FAFAFA;
+  --card                : #18181B;
+  --card-foreground     : #FAFAFA;
+  --primary             : #FAFAFA;
+  --primary-foreground  : #18181B;
+  --secondary           : #27272A;
+  --secondary-foreground: #FAFAFA;
+  --muted               : #27272A;
+  --muted-foreground    : #A1A1AA;
+  --faint               : #1E1E21;
+  --faint-foreground    : #71717A;
+  --accent              : #27272A;
+  --danger              : #F4807B;
+  --danger-foreground   : #18181B;
+  --success             : #6CC070;
+  --success-foreground  : #18181B;
+  --warning             : #F0A030;
+  --border              : #52525B;
+  --input               : #52525B;
+  --ring                : #D4D4D8;
+  --warning-foreground  : #09090B;
+}
+
+/* ── Base font size ──────────────────────────────────────────────────────────
+   Restore the browser default (16 px).  Oat.ink and Tailwind both use rem
+   units, so this single value controls the entire type scale.
+   ─────────────────────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  font-size: 16px;
+  font-family: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── mxlit app shell ─────────────────────────────────────────────────────────
+   #app-root acts as the data-sidebar-layout host.  oat.ink handles the
+   sidebar/main split; we just ensure it fills the viewport.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+#app-root {
+  min-height: 100vh;
+}
+
+/* When no sidebar is present, fall back to normal block flow so <main>
+   is not stranded inside an empty 14rem grid column. */
+#app-root:not(:has(> aside[data-sidebar])) {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+}
+
+/* Every rendered component is wrapped in a <div class="mx-component"> (for
+   targeted HTMX swaps), interposed between .hstack and its real children.
+   oat.ink's own .hstack > *{margin:0} only reaches that wrapper (already
+   margin:0 as a div) — reach one level deeper so <p>/<h1>/etc. still get
+   their default browser margin reset inside a horizontal mt.container(). */
+.hstack > .mx-component > * {
+  margin: 0;
+}
+
+/* Loading placeholder */
+#app-root > p.mx-loading {
+  padding: 2rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Main content area ───────────────────────────────────────────────────────
+   oat.ink's <main> inside data-sidebar-layout fills the remaining width.
+   We add a comfortable max-width + padding for readability.
+   ─────────────────────────────────────────────────────────────────────────── */
+main.mx-main {
+  padding: 2rem 2.5rem;
+  width: 100%;
+}
+
+/* ── Component spacing ───────────────────────────────────────────────────────*/
+.mx-component {
+  margin-bottom: 1rem;
+}
+
+/* ── Metric card ─────────────────────────────────────────────────────────────
+   No direct oat.ink equivalent; render as a small card-like block.
+   ─────────────────────────────────────────────────────────────────────────── */
+.mx-metric {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  margin-right: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.mx-metric-label {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.mx-metric-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1;
+}
+.mx-metric-delta {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.mx-metric-delta.positive { color: var(--success); }
+.mx-metric-delta.negative { color: var(--danger);  }
+
+/* ── NER highlighting ────────────────────────────────────────────────────────*/
+.mx-ner {
+  line-height: 2;
+}
+.mx-ner-entity {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  background-color: color-mix(in srgb, var(--warning) 15%, transparent);
+  border-bottom: 2px solid var(--warning);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  margin: 0 0.1rem;
+}
+.mx-ner-label {
+  font-size: 0.65em;
+  font-weight: 700;
+  color: var(--warning);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Chart container ─────────────────────────────────────────────────────────*/
+.mx-chart {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  height: 300px;
+  margin-bottom: 1rem;
+}
+
+/* ── Write-stream container ──────────────────────────────────────────────────*/
+.mx-stream {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* ── LaTeX (raw render) ──────────────────────────────────────────────────────*/
+.mx-latex {
+  overflow-x: auto;
+  padding: 0.75rem 0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1rem;
+}
+
+/* ── Image / media ───────────────────────────────────────────────────────────*/
+.mx-media {
+  margin-bottom: 1rem;
+}
+.mx-media img,
+.mx-media video {
+  max-width: 100%;
+  border-radius: 0.375rem;
+}
+.mx-media audio {
+  width: 100%;
+}
+
+/* ── HTMX SSE swap – prevent flash of unstyled content ──────────────────────
+   When oat-tabs or other WC are swapped in, they need the custom element
+   upgrade to happen before they're visible.  The htmx:afterSwap event fires
+   after innerHTML is set; we reveal content then.
+   ─────────────────────────────────────────────────────────────────────────── */
+ot-tabs[hidden-until-ready] {
+  visibility: hidden;
+}
+
+/* Columns using Tailwind flex utilities */
+.mx-columns {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.mx-column {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  main.mx-main {
+    padding: 1rem;
+  }
+  .mx-columns {
+    flex-direction: column;
+  }
+}
+
+/* ── Form element fix removed ────────────────────────────────────────────────
+   Previously this block re-declared oat.ink form styles inside @layer
+   components to win the specificity race against Tailwind's @layer base
+   preflight.  Now that we import only tailwindcss/theme + tailwindcss/utilities
+   (no preflight), oat.min.css owns the form element styles without conflict.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Date / time picker indicator (calendar + clock icons) ───────────────────
+   Chromium-based browsers render ::-webkit-calendar-picker-indicator as a
+   dark-coloured glyph regardless of the page colour scheme.  On a dark
+   background the icon becomes invisible.  The fixes below:
+     1. Ensure the cursor is a pointer so users know it's clickable.
+     2. In light mode keep the icon at slightly reduced opacity (feels polished).
+     3. In dark mode invert the icon to white so it's legible on dark inputs.
+   Firefox uses its own internal rendering and is unaffected by these rules.
+   ─────────────────────────────────────────────────────────────────────────── */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.75;
+  border-radius: 3px;
+  padding: 2px;
+  transition: opacity 0.12s ease, background-color 0.12s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--accent);
+}
+
+/* Dark mode: invert the glyph from dark to light */
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}

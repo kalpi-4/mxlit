@@ -4,59 +4,111 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mxlit App</title>
-    <!-- Include HTMX -->
-    <script src="/static/htmx.min.js"></script>
-    <!-- Include Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <!-- The form wraps the root so that all inputs are submitted on interaction.
-         hx-target and hx-swap here ensure button clicks (form submits) update #app-root. -->
-    <form hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" style="width: 100%; margin: 0; padding: 0;">
-        <div id="app-root" class="main-layout" hx-get="/initial" hx-trigger="load" hx-target="#app-root" hx-swap="innerHTML settle:0">
-            <p style="padding: 2rem;">Loading app...</p>
-        </div>
-    </form>
 
+    <!-- Prevent FOUC: apply stored theme before first paint -->
     <script>
-        // Targeted SSE updates via plain EventSource (avoids HTMX extension conflicts)
-        (function () {
-            const evtSource = new EventSource('/events');
-            evtSource.addEventListener('targetedUpdate', function (evt) {
-                const lines = evt.data.split('\n');
-                lines.forEach(function (line) {
-                    const sep = line.indexOf('\t');
-                    if (sep === -1) return;
-                    const componentId = line.slice(0, sep);
-                    const htmlFragment = line.slice(sep + 1);
-                    const el = document.getElementById(componentId);
-                    if (el) el.innerHTML = htmlFragment;
-                });
-            });
-            evtSource.addEventListener('close', function () { evtSource.close(); });
-        })();
+      (function () {
+        var t = localStorage.getItem('theme');
+        if (t) {
+          document.documentElement.style.colorScheme = t;
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      })();
+    </script>
 
-        // Tab switching helper used by inline onclick handlers in rendered tabs
-        function activateTab(tabsId, activeIndex) {
-            const tabsEl = document.getElementById(tabsId);
-            if (!tabsEl) return;
-            const headers = tabsEl.querySelectorAll('.st-tab-header');
-            const contents = tabsEl.querySelectorAll('.st-tab-content');
-            headers.forEach(function (h, i) { h.classList.toggle('active', i === activeIndex); });
-            contents.forEach(function (c, i) { c.classList.toggle('active', i === activeIndex); });
+    <!-- 1. sanitize.css — normalize cross-browser inconsistencies (must be first) -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/sanitize.css/sanitize.min.css">
+
+    <!-- 2. Google Fonts: preconnect for early DNS + TLS handshake -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap">
+
+    <!-- 3. oat.ink component library (semantic, zero-dependency) -->
+    <link rel="stylesheet" href="/static/oat.min.css">
+
+    <!-- 5. Tailwind output: custom mxlit styles + utility classes -->
+    <link rel="stylesheet" href="/static/style.css">
+
+    <!-- HTMX + SSE extension -->
+    <script src="/static/htmx.min.js"></script>
+    <script src="/static/sse.js"></script>
+
+    <!-- oat.ink JS (tabs, dropdown, toast, sidebar toggle WebComponents) -->
+    <script src="/static/oat.min.js" defer></script>
+
+    <!-- Chart.js (used by st.line_chart / st.bar_chart etc.) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+
+    <!-- Tab-state persistence across HTMX swaps
+         Problem 1: <button role="tab"> without type="button" defaults to type="submit"
+                    inside the outer <form>, so clicking a tab submits the form and HTMX
+                    re-renders the whole page, snapping back to tab 0.
+                    → Fixed in components.html by adding type="button".
+
+         Problem 2: After any HTMX innerHTML swap, ot-tabs.connectedCallback fires
+                    synchronously and calls init(), which always activates tab 0 first.
+                    The user's previously selected tab is lost.
+                    → Fixed here: save the active index to localStorage on ot-tab-change,
+                      then restore it on htmx:afterSwap (which fires after init() runs). -->
+    <script>
+      (function () {
+        var LS_PREFIX = 'mxlit:tab:';
+
+        // 1. Persist the active tab whenever the user switches tabs.
+        //    ot-tab-change bubbles up from <ot-tabs> with detail.index.
+        document.addEventListener('ot-tab-change', function (e) {
+          var key = e.target.dataset && e.target.dataset.tabGroup;
+          if (!key) return;
+          try { localStorage.setItem(LS_PREFIX + key, String(e.detail.index)); } catch (_) {}
+        });
+
+        // 2. After every HTMX swap the ot-tabs custom element re-initialises and
+        //    resets to tab 0.  Re-apply the saved index using the activeIndex setter,
+        //    which ot-tabs exposes explicitly for exactly this purpose.
+        function restoreTabs() {
+          document.querySelectorAll('ot-tabs[data-tab-group]').forEach(function (el) {
+            var key = el.dataset.tabGroup;
+            var saved;
+            try { saved = localStorage.getItem(LS_PREFIX + key); } catch (_) { return; }
+            if (saved === null) return;
+            var idx = parseInt(saved, 10);
+            if (!isNaN(idx)) { el.activeIndex = idx; }
+          });
         }
 
-        // Re-initialise Chart.js canvases and tab state after every HTMX swap
-        document.body.addEventListener('htmx:afterSwap', function () {
-            // Activate first tab in every tabs group that lost its active state
-            document.querySelectorAll('.st-tabs').forEach(function (tabsEl) {
-                const activeContent = tabsEl.querySelector('.st-tab-content.active');
-                if (!activeContent) {
-                    activateTab(tabsEl.id, 0);
-                }
-            });
-        });
+        document.addEventListener('htmx:afterSwap', restoreTabs);
+      })();
     </script>
+</head>
+<body>
+    <!--
+      The outer <form> is a plain wrapper — its only role is to collect every
+      named input so hx-include="[name]" on each widget can send the full
+      form state. HTMX attrs are NOT on the form; each widget controls its own
+      request (targeted outerHTML swap). Buttons use hx-target="#app-root" for
+      full-page re-renders when application state changes.
+    -->
+    <form style="margin:0; padding:0; width:100%;">
+
+        <!--
+          #app-root: HTMX swap target for full-page renders (initial load,
+          button clicks) AND SSE listener for server-pushed updates.
+          The hx-trigger="load" fires once on page load to populate the UI.
+        -->
+        <div id="app-root"
+             data-sidebar-layout
+             hx-trigger="load"
+             hx-post="/interact"
+             hx-target="#app-root"
+             hx-swap="innerHTML"
+             hx-ext="sse"
+             sse-connect="/events"
+             sse-swap="message">
+            <p class="mx-loading">Loading app&hellip;</p>
+        </div>
+    </form>
 </body>
 </html>

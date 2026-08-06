@@ -1,459 +1,1062 @@
-{% macro render_component(comp) %}
-    <div class="component">
-        {% if comp.type == 'title' %}
-            <h1>{{ comp.content }}</h1>
-        {% elif comp.type == 'header' %}
-            <h2>{{ comp.content }}</h2>
-        {% elif comp.type == 'subheader' %}
-            <h3>{{ comp.content }}</h3>
-        {% elif comp.type == 'write' or comp.type == 'text' %}
-            <p>{{ comp.content }}</p>
-        {% elif comp.type == 'markdown' %}
-            <div>{{ comp.content | safe }}</div>
-        {% elif comp.type == 'code' %}
-            <pre><code>{{ comp.content }}</code></pre>
-        {% elif comp.type == 'html' %}
-            <div>{{ comp.content | safe }}</div>
-        {% elif comp.type == 'dataframe' or comp.type == 'table' %}
-            {{ comp.content | safe }}
-        {% elif comp.type == 'ner' %}
-            <div style="line-height: 2;">
-                {% set text = comp.content %}
-                {% set ns_ner = namespace(last_idx=0) %}
-                {% for ent in comp.entities %}
-                    {{ text[ns_ner.last_idx:ent.start] }}
-                    <span style="background-color: #ffe0e0; padding: 0.2rem 0.4rem; border-radius: 0.3rem; margin: 0 0.1rem; border-bottom: 2px solid #ff4b4b;">
-                        {{ text[ent.start:ent.end] }}
-                        <span style="font-size: 0.7em; font-weight: bold; color: #ff4b4b; text-transform: uppercase; margin-left: 0.2rem;">{{ ent.label }}</span>
-                    </span>
-                    {% set ns_ner.last_idx = ent.end %}
-                {% endfor %}
-                {{ text[ns_ner.last_idx:] }}
-            </div>
-        {% elif comp.type == 'write_stream' %}
-            <div hx-ext="sse" sse-connect="/stream/{{ comp.stream_id }}" sse-swap="message" hx-swap="beforeend" sse-close="close">
-            </div>
-        {% elif comp.type == 'json' %}
-            <pre><code>{{ comp.content }}</code></pre>
-        {% elif comp.type == 'metric' %}
-            <div class="metric-container">
-                <div class="metric-label">{{ comp.label }}</div>
-                <div class="metric-value">{{ comp.value }}</div>
-                {% if comp.delta %}
-                    {% set delta_class = 'positive' if not comp.delta.startswith('-') else 'negative' %}
-                    <div class="metric-delta {{ delta_class }}">{{ comp.delta }}</div>
+{# ── Theme CSS variables ──────────────────────────────────────────────────── #}
+{% if theme %}
+{% set _sc  = "dark" if dark_mode else "light" %}
+{% set p   = theme["schemes." ~ _sc ~ ".primary"] %}
+{% set s   = theme["schemes." ~ _sc ~ ".secondary"] %}
+{% set bg  = theme["schemes." ~ _sc ~ ".background"] %}
+{% set txt = theme["schemes." ~ _sc ~ ".onBackground"] %}
+{% set err = theme.get("schemes." ~ _sc ~ ".error", "#d32f2f") %}
+{% set ter = theme.get("schemes." ~ _sc ~ ".tertiary", "#008032") %}
+<style>
+:root {
+    --primary:              {{ p }};
+    --primary-foreground:   #ffffff;
+    --secondary:            color-mix(in srgb, {{ s }} 18%, {{ bg }});
+    --secondary-foreground: {{ s }};
+    --background:           {{ bg }};
+    --card:                 {{ bg }};
+    --foreground:           {{ txt }};
+    --card-foreground:      {{ txt }};
+    --border:               color-mix(in srgb, {{ txt }} 14%, {{ bg }});
+    --input:                color-mix(in srgb, {{ txt }} 14%, {{ bg }});
+    --ring:                 {{ p }};
+    --muted:                color-mix(in srgb, {{ txt }} 6%,  {{ bg }});
+    --muted-foreground:     color-mix(in srgb, {{ txt }} 55%, {{ bg }});
+    --faint:                color-mix(in srgb, {{ txt }} 3%,  {{ bg }});
+    --faint-foreground:     color-mix(in srgb, {{ txt }} 35%, {{ bg }});
+    --accent:               color-mix(in srgb, {{ p }} 10%, {{ bg }});
+    --accent-foreground:    {{ p }};
+    --danger:               {{ err }};
+    --danger-foreground:    #fafafa;
+    --success:              {{ ter }};
+    --success-foreground:   #fafafa;
+    --warning:              #a65b00;
+    --warning-foreground:   #09090b;
+}
+body, html { background-color: {{ bg }}; color: {{ txt }}; }
+</style>
+<script>
+(function(){
+    var t='{{ _sc }}';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
+    try { localStorage.setItem('theme', t); } catch(e) {}
+})();
+</script>
+{% endif %}
+
+{# ── html_attrs: emit arbitrary HTML attrs from a dict ───────────────────────── #}
+{# Empty-string values emit bare attribute (e.g. disabled); others emit key="val" #}
+{% macro html_attrs(attrs) %}{% if attrs %}{% for k, v in attrs.items() %} {% if v == '' %}{{ k }}{% else %}{{ k }}="{{ v | e }}"{% endif %}{% endfor %}{% endif %}{% endmacro %}
+
+{# ── group_child: render a child of mt.input_group() (children/.prefix/.suffix) ─ #}
+{# oat.ink's fieldset.group > :is(input,textarea,select){flex:1} only matches
+   DIRECT children, and .group is display:flex so a <button> only lays out right
+   as a direct flex item too — so every child here must render bare (no
+   mx-component wrapper, no widget's own <label data-field> wrapper), matching
+   oat's own recipe: <legend>prefix</legend><input><select><button>Go</button>.
+   Used by all three regions (prefix slot, plain children, suffix slot) so a
+   button/select/etc. behaves the same wherever it's placed in the group.       #}
+{% macro group_child(child) %}
+    {%- set _type_map = {
+        'text_input':     'text',
+        'email_input':    'email',
+        'password_input': 'password',
+        'number_input':   'number',
+        'date_input':     'date',
+        'datetime_input': 'datetime-local'
+    } -%}
+    {% if child.type in _type_map %}
+        <input type="{{ _type_map[child.type] }}"
+               name="{{ child.key }}"
+               value="{{ child.value | default('') }}"
+               placeholder="{{ child.label }}"
+               class="{{ child.className | default('') }}"
+               hx-post="/interact"
+               hx-target="{{ child['hx-target'] | default('#app-root') }}"
+               hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+               hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+               hx-include="[name]">
+    {% elif child.type == 'selectbox' %}
+        <select name="{{ child.key }}" aria-label="{{ child.label }}"
+                class="{{ child.className | default('') }}"
+                hx-post="/interact"
+                hx-target="{{ child['hx-target'] | default('#app-root') }}"
+                hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+                hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+                hx-include="[name]">
+            {% for option in child.options %}
+                <option value="{{ option }}" {% if child.value == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    {% elif child.type == 'text_area' %}
+        <textarea name="{{ child.key }}" placeholder="{{ child.label }}"
+                  class="{{ child.className | default('') }}"
+                  hx-post="/interact"
+                  hx-target="{{ child['hx-target'] | default('#app-root') }}"
+                  hx-swap="{{ child['hx-swap'] | default('innerHTML') }}"
+                  hx-trigger="{{ child['hx-trigger'] | default('change') }}"
+                  hx-include="[name]">{{ child.value }}</textarea>
+    {% elif child.type == 'button' %}
+        <button type="button"
+                {% if child.variant %}data-variant="{{ child.variant }}"{% endif %}
+                name="{{ child.key }}"
+                value="true"
+                {% if not child.disabled %}
+                hx-post="/interact"
+                hx-target="#app-root"
+                hx-swap="innerHTML"
+                hx-include="[name]"
                 {% endif %}
+                {% if child.disabled %}disabled aria-disabled="true"{% endif %}
+                class="{{ child.className | default('') }}">{{ child.label }}</button>
+    {% else %}
+        {{ render_component(child) }}
+    {% endif %}
+{% endmacro %}
+
+{# ── render_children: render a list of components, handling tab/column grouping ─ #}
+{% macro render_children(children) %}
+{% for comp in children %}
+    {% if comp.type == 'column' %}
+        {% if loop.index0 == 0 or children[loop.index0 - 1].type != 'column' %}
+            <div class="mx-columns {{ comp.columnsClassName | default('') }}">
+        {% endif %}
+        <div class="mx-column {{ comp.className | default('') }}" style="flex: {{ comp.weight | default(1) }}">
+            {{ render_children(comp.children) }}
+        </div>
+        {% if loop.last or children[loop.index0 + 1].type != 'column' %}
             </div>
-        {% elif comp.type == 'button' %}
-            <button type="submit" class="st-button" name="{{ comp.key }}" value="true">
-                {{ comp.label }}
-            </button>
-        {% elif comp.type == 'text_input' %}
-            <div class="st-text-input-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
-                <input type="text" id="{{ comp.key }}" name="{{ comp.key }}" class="st-text-input" value="{{ comp.value }}"
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-            </div>
-        {% elif comp.type == 'checkbox' %}
-            <div class="st-checkbox-container">
-                <input type="hidden" name="{{ comp.key }}" value="false">
-                <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true" {% if comp.value %}checked{% endif %}
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="click, change">
-                <label for="{{ comp.key }}">{{ comp.label }}</label>
-            </div>
-        {% elif comp.type == 'slider' %}
-            <div class="st-slider-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.value }}</span></label>
-                <input type="range" id="{{ comp.key }}" name="{{ comp.key }}" class="st-slider" 
-                       min="{{ comp.min_value }}" max="{{ comp.max_value }}" value="{{ comp.value }}"
-                       oninput="document.getElementById('{{ comp.key }}-val').innerText = this.value"
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change, input delay:500ms">
-            </div>
-        {% elif comp.type == 'number_input' %}
-            <div class="st-number-input-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
-                <input type="number" id="{{ comp.key }}" name="{{ comp.key }}" class="st-number-input" value="{{ comp.value }}"
-                       {% if comp.step is not none %}step="{{ comp.step }}"{% else %}step="any"{% endif %}
-                       {% if comp.min_value is not none %}min="{{ comp.min_value }}"{% endif %} 
-                       {% if comp.max_value is not none %}max="{{ comp.max_value }}"{% endif %}
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-            </div>
-        {% elif comp.type == 'text_area' %}
-            <div class="st-text-area-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
-                <textarea id="{{ comp.key }}" name="{{ comp.key }}" class="st-text-area"
-                          hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">{{ comp.value }}</textarea>
-            </div>
-        {% elif comp.type == 'radio' %}
-            <div class="st-radio-container">
-                <label class="widget-label">{{ comp.label }}</label>
-                {% for option in comp.options %}
-                    <div>
-                        <input type="radio" id="{{ comp.key }}_{{ loop.index }}" name="{{ comp.key }}" value="{{ option }}" 
-                               {% if comp.value == option %}checked{% endif %}
-                               hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-                        <label for="{{ comp.key }}_{{ loop.index }}">{{ option }}</label>
-                    </div>
-                {% endfor %}
-            </div>
-        {% elif comp.type == 'selectbox' %}
-            <div class="st-selectbox-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
-                <select id="{{ comp.key }}" name="{{ comp.key }}" class="st-selectbox"
-                        hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-                    {% for option in comp.options %}
-                        <option value="{{ option }}" {% if comp.value == option %}selected{% endif %}>{{ option }}</option>
+        {% endif %}
+    {% elif comp.type == 'tab' %}
+        {% if loop.index0 == 0 or children[loop.index0 - 1].type != 'tab' %}
+            {% set tab_start = loop.index0 %}
+            {% set tab_id_ns = namespace(value='', done=false) %}
+            {% for fc in children[tab_start:] %}
+                {% if fc.type == 'tab' and not tab_id_ns.done %}
+                    {% set tab_id_ns.value = tab_id_ns.value ~ '-' ~ fc.label | replace(' ', '-') %}
+                {% else %}
+                    {% set tab_id_ns.done = true %}
+                {% endif %}
+            {% endfor %}
+            <ot-tabs data-tab-group="mxlit-tabs{{ tab_id_ns.value }}"
+                     class="{{ comp.tabsClassName | default('') }}">
+                <div role="tablist">
+                    {% set hdr_ns = namespace(stop=false) %}
+                    {% for fc in children[tab_start:] %}
+                        {% if not hdr_ns.stop %}
+                            {% if fc.type == 'tab' %}
+                                <button role="tab" type="button">{{ fc.label }}</button>
+                            {% else %}
+                                {% set hdr_ns.stop = true %}
+                            {% endif %}
+                        {% endif %}
                     {% endfor %}
-                </select>
+                </div>
+        {% endif %}
+        <div role="tabpanel">
+            {{ render_children(comp.children) }}
+        </div>
+        {% if loop.last or children[loop.index0 + 1].type != 'tab' %}
+            </ot-tabs>
+        {% endif %}
+    {% else %}
+        {{ render_component(comp) }}
+    {% endif %}
+{% endfor %}
+{% endmacro %}
+
+
+{% macro render_component(comp) %}
+{# grid_col must stay display:contents too — .row is display:flex and needs the
+   real .col-N div as its direct flex child, or flex:0 0 N% never applies and
+   the column (and everything inside it) shrinks to fit its content instead. #}
+{% set _tbl_inline = ['html_table','table_head','table_body','table_foot','table_row','table_cell','grid_col'] %}
+<div {% if comp.id %}id="mx-{{ comp.id }}"{% endif %}
+     {% if comp.type in _tbl_inline %}style="display:contents"{% else %}class="mx-component"{% endif %}
+     {% if comp.refresh_trigger %}
+     hx-post="/refresh/{{ comp.id }}"
+     hx-trigger="{{ comp.refresh_trigger }}"
+     hx-target="this"
+     hx-swap="outerHTML"
+     hx-include="[name]"
+     {% endif %}>
+
+    {# ── Typography ──────────────────────────────────────────────────────── #}
+    {% if comp.type == 'title' %}
+        <h1 class="{{ comp.className | default('') }}">{{ comp.content }}</h1>
+
+    {% elif comp.type == 'header' %}
+        <h2 class="{{ comp.className | default('') }}">{{ comp.content }}</h2>
+
+    {% elif comp.type == 'subheader' %}
+        <h3 class="{{ comp.className | default('') }}">{{ comp.content }}</h3>
+
+    {% elif comp.type == 'write' or comp.type == 'text' %}
+        <p class="{{ comp.className | default('') }}">{{ comp.content }}</p>
+
+    {% elif comp.type == 'markdown' %}
+        <div class="{{ comp.className | default('') }}">{{ comp.content | safe }}</div>
+
+    {% elif comp.type == 'code' %}
+        <pre class="{{ comp.className | default('') }}"><code>{{ comp.content }}</code></pre>
+
+    {% elif comp.type == 'html' %}
+        <div class="{{ comp.className | default('') }}">{{ comp.content | safe }}</div>
+
+    {% elif comp.type == 'latex' %}
+        <div class="mx-latex {{ comp.className | default('') }}">$${{ comp.content }}$$</div>
+
+    {% elif comp.type == 'json' %}
+        <pre class="{{ comp.className | default('') }}"><code>{{ comp.content }}</code></pre>
+
+    {# ── NER highlighting ────────────────────────────────────────────────── #}
+    {% elif comp.type == 'ner' %}
+        <div class="mx-ner {{ comp.className | default('') }}">
+            {% set text_content = comp.content %}
+            {% set ns_ner = namespace(last_idx=0) %}
+            {% for ent in comp.entities %}
+                {{ text_content[ns_ner.last_idx:ent.start] }}
+                <span class="mx-ner-entity">
+                    {{ text_content[ent.start:ent.end] }}
+                    <span class="mx-ner-label">{{ ent.label }}</span>
+                </span>
+                {% set ns_ner.last_idx = ent.end %}
+            {% endfor %}
+            {{ text_content[ns_ner.last_idx:] }}
+        </div>
+
+    {# ── Streaming text ──────────────────────────────────────────────────── #}
+    {% elif comp.type == 'write_stream' %}
+        <div class="mx-stream {{ comp.className | default('') }}"
+             hx-ext="sse"
+             sse-connect="/stream/{{ comp.stream_id }}"
+             sse-swap="message"
+             hx-swap="beforeend"
+             sse-close="close"></div>
+
+    {# ── Data / Table ────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'dataframe' or comp.type == 'table' %}
+        <div class="table {{ comp.className | default('') }}">{{ comp.content | safe }}</div>
+
+    {# ── Metric card ─────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'metric' %}
+        <div class="mx-metric {{ comp.className | default('') }}">
+            <span class="mx-metric-label">{{ comp.label }}</span>
+            <span class="mx-metric-value">{{ comp.value }}</span>
+            {% if comp.delta %}
+                {% set delta_class = 'positive' if not comp.delta.startswith('-') else 'negative' %}
+                <span class="mx-metric-delta {{ delta_class }}">{{ comp.delta }}</span>
+            {% endif %}
+        </div>
+
+    {# ── Badge ───────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'badge' %}
+        <span class="badge {{ comp.className | default('') }}">{{ comp.content }}</span>
+
+    {# ── Status / Alert ──────────────────────────────────────────────────── #}
+    {% elif comp.type == 'status' %}
+        <div role="{{ comp.role | default('alert') }}"
+             {% if comp['data-variant'] is defined %}data-variant="{{ comp['data-variant'] }}"{% elif comp.status_type and comp.status_type != 'info' %}data-variant="{{ comp.status_type }}"{% endif %}
+             class="{{ comp.className | default('') }}">{{ comp.content }}</div>
+
+    {# ── Widgets ─────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'button' %}
+        {# OAT's default button (no data-variant) is the primary filled style —
+           only emit the attribute when a variant was actually requested, or
+           every button always rendered as OAT's "secondary" look. #}
+        <button type="button"
+                {% if comp.variant %}data-variant="{{ comp.variant }}"{% endif %}
+                name="{{ comp.key }}"
+                value="true"
+                {% if not comp.disabled %}
+                hx-post="/interact"
+                hx-target="#app-root"
+                hx-swap="innerHTML"
+                hx-include="[name]"
+                {% endif %}
+                {% if comp.disabled %}disabled aria-disabled="true"{% endif %}
+                class="{{ comp.className | default('') }}">{{ comp.label }}</button>
+
+    {% elif comp.type == 'text_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="text"
+                   id="{{ comp.key }}"
+                   name="{{ comp.key }}"
+                   value="{{ comp.value }}"
+                   {% if not comp.disabled %}
+                   hx-post="/interact"
+                   hx-target="#mx-{{ comp.id }}"
+                   hx-swap="outerHTML settle:100ms"
+                   hx-trigger="{{ comp['hx-trigger'] | default('change') }}"
+                   hx-include="[name]"
+                   {% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'email_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="email" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'password_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="password" id="{{ comp.key }}" name="{{ comp.key }}" autocomplete="current-password"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'datetime_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="datetime-local" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'text_area' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <textarea id="{{ comp.key }}" name="{{ comp.key }}"
+                      {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                      {% if comp.disabled %}disabled{% endif %}>{{ comp.value }}</textarea>
+        </label>
+
+    {% elif comp.type == 'number_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="number" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if comp.step is not none %}step="{{ comp.step }}"{% else %}step="any"{% endif %}
+                   {% if comp.min_value is not none %}min="{{ comp.min_value }}"{% endif %}
+                   {% if comp.max_value is not none %}max="{{ comp.max_value }}"{% endif %}
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'date_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="date" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'color_picker' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="color" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'checkbox' %}
+        <label data-field class="{{ comp.className | default('') }}">
+            <input type="hidden" name="{{ comp.key }}" value="false">
+            <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true"
+                   {% if comp.value %}checked{% endif %}
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+            {{ comp.label }}
+        </label>
+
+    {% elif comp.type == 'toggle' %}
+        <label class="{{ comp.className | default('') }}">
+            <input type="hidden" name="{{ comp.key }}" value="false">
+            <input type="checkbox" role="switch" id="{{ comp.key }}" name="{{ comp.key }}" value="true"
+                   {% if comp.value %}checked{% endif %}
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+            {{ comp.label }}
+        </label>
+
+    {% elif comp.type == 'slider' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.value }}</span>
+            <input type="range" id="{{ comp.key }}" name="{{ comp.key }}"
+                   min="{{ comp.min_value }}" max="{{ comp.max_value }}" value="{{ comp.value }}"
+                   oninput="document.getElementById('{{ comp.key }}-val').textContent = this.value"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change, input delay:500ms') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {% elif comp.type == 'radio' %}
+        <fieldset class="hstack {{ comp.className | default('') }}">
+            <legend>{{ comp.label }}</legend>
+            {% for option in comp.options %}
+                <label>
+                    <input type="radio" id="{{ comp.key }}_{{ loop.index }}"
+                           name="{{ comp.key }}" value="{{ option }}"
+                           {% if comp.value == option %}checked{% endif %}
+                           {% if not comp.disabled %}
+                           hx-post="/interact"
+                           hx-target="{{ comp['hx-target'] | default('#app-root') }}"
+                           hx-swap="{{ comp['hx-swap'] | default('innerHTML') }}"
+                           hx-trigger="{{ comp['hx-trigger'] | default('change') }}"
+                           hx-include="[name]"
+                           {% endif %}
+                           {% if comp.disabled %}disabled{% endif %}>
+                    {{ option }}
+                </label>
+            {% endfor %}
+        </fieldset>
+
+    {% elif comp.type == 'selectbox' %}
+        <div data-field class="{{ comp.className | default('') }}">
+            <label for="{{ comp.key }}">{{ comp.label }}</label>
+            <select id="{{ comp.key }}" name="{{ comp.key }}" aria-label="{{ comp.label }}"
+                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                    {% if comp.disabled %}disabled{% endif %}>
+                {% for option in comp.options %}
+                    <option value="{{ option }}" {% if comp.value == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+    {# ── Media ───────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'image' %}
+        <div class="mx-media">
+            <img src="{{ comp.url }}"
+                 alt="{{ comp.caption | default('') }}"
+                 class="{{ comp.className | default('') }}"
+                 {% if comp.width %}style="width: {{ comp.width }}px;"{% endif %}>
+        </div>
+
+    {% elif comp.type == 'logo' %}
+        <div class="mx-media">
+            <img src="{{ comp.url }}" alt="Logo" class="{{ comp.className | default('') }}" style="max-height: 50px;">
+        </div>
+
+    {% elif comp.type == 'audio' %}
+        <div class="mx-media">
+            <audio controls src="{{ comp.url }}" class="{{ comp.className | default('') }}"></audio>
+        </div>
+
+    {% elif comp.type == 'video' %}
+        <div class="mx-media">
+            <video controls src="{{ comp.url }}" class="{{ comp.className | default('') }}"></video>
+        </div>
+
+    {# ── Charts ──────────────────────────────────────────────────────────── #}
+    {% elif comp.type in ('line_chart', 'bar_chart', 'area_chart', 'scatter_chart', 'chart') %}
+        <div class="mx-chart {{ comp.className | default('') }}">
+            <canvas id="chart-{{ comp.key }}"></canvas>
+            <script>
+                (function () {
+                    function initChart() {
+                        var canvas = document.getElementById('chart-{{ comp.key }}');
+                        if (!canvas || !window.Chart) { return; }
+                        new Chart(canvas.getContext('2d'), {
+                            type: '{{ comp.chart_type }}',
+                            data: {{ comp.data | tojson | safe }},
+                            options: Object.assign(
+                                { responsive: true, maintainAspectRatio: false },
+                                {{ comp.kwargs | tojson | safe }}
+                            )
+                        });
+                    }
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', initChart);
+                    } else {
+                        setTimeout(initChart, 50);
+                    }
+                })();
+            </script>
+        </div>
+
+    {# ── Layout: container ───────────────────────────────────────────────── #}
+    {% elif comp.type == 'container' %}
+        <div class="{% if comp.horizontal %}hstack{% endif %} {{ comp.className | default('') }}">
+            {{ render_children(comp.children) }}
+        </div>
+
+    {# ── Layout: expander ────────────────────────────────────────────────── #}
+    {% elif comp.type == 'expander' %}
+        <details class="{{ comp.className | default('') }}">
+            <summary>{% if comp.icon %}{{ comp.icon }} {% endif %}{{ comp.label }}</summary>
+            <div>
+                {{ render_children(comp.children) }}
             </div>
-        {% elif comp.type == 'toggle' %}
-            <div class="st-toggle-container">
-                <input type="hidden" name="{{ comp.key }}" value="false">
-                <input type="checkbox" id="{{ comp.key }}" name="{{ comp.key }}" value="true" {% if comp.value %}checked{% endif %}
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-                <label for="{{ comp.key }}">{{ comp.label }}</label>
-            </div>
-        {% elif comp.type == 'color_picker' %}
-            <div class="st-color-picker-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
-                <input type="color" id="{{ comp.key }}" name="{{ comp.key }}" class="st-color-picker" value="{{ comp.value }}"
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-            </div>
-        {% elif comp.type == 'date_input' %}
-            <div class="st-date-input-container">
-                <label class="widget-label" for="{{ comp.key }}">{{ comp.label }}</label>
-                <input type="date" id="{{ comp.key }}" name="{{ comp.key }}" class="st-date-input" value="{{ comp.value }}"
-                       hx-post="/interact" hx-target="#app-root" hx-swap="innerHTML settle:0" hx-trigger="change">
-            </div>
-        {% elif comp.type == 'status' %}
-            <div class="st-status st-status-{{ comp.status_type }}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-weight: 500;
-                {% if comp.status_type == 'error' %}background-color: #ffcccc; color: #990000; border: 1px solid #ff9999;
-                {% elif comp.status_type == 'warning' %}background-color: #ffffcc; color: #996600; border: 1px solid #ffff99;
-                {% elif comp.status_type == 'success' %}background-color: #ccffcc; color: #006600; border: 1px solid #99ff99;
-                {% elif comp.status_type == 'info' %}background-color: #cce5ff; color: #003366; border: 1px solid #99ccff;
-                {% endif %}">
-                {{ comp.content }}
-            </div>
-        {% elif comp.type == 'latex' %}
-            <div class="st-latex" style="overflow-x: auto; padding: 1rem 0; font-family: 'Courier New', Courier, monospace;">
-                <!-- Just rendering as text for now; MathJax/KaTeX could be included -->
-                $${{ comp.content }}$$
-            </div>
-        {% elif comp.type == 'badge' %}
-            <span class="st-badge" style="background-color: #f0f2f6; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 600;">
-                {{ comp.content }}
-            </span>
-        {% elif comp.type == 'image' %}
-            <div class="st-image-container" style="margin-bottom: 1rem;">
-                <img src="{{ comp.url }}" alt="Image" style="max-width: 100%; {% if comp.width %}width: {{ comp.width }}px;{% endif %}">
-            </div>
-        {% elif comp.type == 'logo' %}
-            <div class="st-logo-container" style="margin-bottom: 1rem;">
-                <img src="{{ comp.url }}" alt="Logo" style="max-height: 50px;">
-            </div>
-        {% elif comp.type == 'audio' %}
-            <div class="st-audio-container" style="margin-bottom: 1rem;">
-                <audio controls src="{{ comp.url }}" style="width: 100%;"></audio>
-            </div>
-        {% elif comp.type == 'video' %}
-            <div class="st-video-container" style="margin-bottom: 1rem;">
-                <video controls src="{{ comp.url }}" style="max-width: 100%;"></video>
-            </div>
-        {% elif comp.type == 'chart' %}
-            <div class="st-chart-container" style="margin-bottom: 1rem; width: 100%; max-width: 800px; height: 300px; position: relative;">
-                <canvas id="chart-{{ comp.key }}"></canvas>
-                <script>
-                    (function() {
-                        setTimeout(() => {
-                            const canvas = document.getElementById('chart-{{ comp.key }}');
-                            if (!canvas) return;
-                            const ctx = canvas.getContext('2d');
-                            if (window.Chart) {
-                                new Chart(ctx, {
-                                    type: '{{ comp.chart_type }}',
-                                    data: {{ comp.data | tojson | safe }},
-                                    options: Object.assign({ responsive: true, maintainAspectRatio: false }, {{ comp.kwargs | tojson | safe }})
-                                });
-                            }
-                        }, 50);
-                    })();
-                </script>
-            </div>
-        {% elif comp.type == 'container' %}
-            <div class="{% if comp.horizontal %}st-container-horizontal{% endif %}">
+        </details>
+
+    {# ── Layout: card (CompositeComponent) ───────────────────────────────── #}
+    {% elif comp.type == 'card' %}
+        <article class="card {{ comp.className | default('') }}">
+            {% if comp.slot_header is defined and comp.slot_header %}
+                <header>{% for child in comp.slot_header %}{{ render_component(child) }}{% endfor %}</header>
+            {% elif comp.header %}
+                <header><h3>{{ comp.header }}</h3></header>
+            {% endif %}
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+            {% if comp.slot_footer is defined and comp.slot_footer %}
+                <footer class="hstack">{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+            {% elif comp.footer %}
+                <footer class="hstack">{{ comp.footer }}</footer>
+            {% endif %}
+        </article>
+
+    {# ── OAT UI primitives ───────────────────────────────────────────────── #}
+    {% elif comp.type == 'spinner' %}
+        <div aria-busy="true"
+             data-spinner="{{ comp.size | default('large') }}"
+             class="{{ comp.className | default('') }}"></div>
+
+    {% elif comp.type == 'progress' %}
+        {% if comp.value is not none %}
+            <progress value="{{ comp.value }}" max="{{ comp.max | default(1.0) }}"
+                      class="{{ comp.className | default('') }}"></progress>
+        {% else %}
+            <progress class="{{ comp.className | default('') }}"></progress>
+        {% endif %}
+
+    {% elif comp.type == 'skeleton' %}
+        <div role="status"
+             class="skeleton {{ comp.variant | default('line') }} {{ comp.className | default('') }}"></div>
+
+    {% elif comp.type == 'meter' %}
+        <meter value="{{ comp.value }}"
+               min="{{ comp.min | default(0.0) }}"
+               max="{{ comp.max | default(1.0) }}"
+               {% if comp.low is not none %}low="{{ comp.low }}"{% endif %}
+               {% if comp.high is not none %}high="{{ comp.high }}"{% endif %}
+               {% if comp.optimum is not none %}optimum="{{ comp.optimum }}"{% endif %}
+               class="{{ comp.className | default('') }}"></meter>
+
+    {# ── Avatar ──────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'avatar' %}
+        {# aria-label on the <figure> already carries the accessible name — img alt
+           stays empty/decorative, or a screen reader announces the name twice. #}
+        <figure data-variant="avatar"
+                class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}"
+                {% if comp.initials %}aria-label="{{ comp.initials }}"{% endif %}>
+            {% if comp.src %}
+                <img src="{{ comp.src }}" alt="">
+            {% else %}
+                <abbr title="{{ comp.initials | default('') }}">{{ comp.initials | default('') }}</abbr>
+            {% endif %}
+        </figure>
+
+    {% elif comp.type == 'avatar_group' %}
+        <figure data-variant="avatar" role="group"
+                class="{{ ([comp.size, comp.className] | select | join(' ')) | default('') }}"
+                {% if comp.label %}aria-label="{{ comp.label }}"{% endif %}>
+            {% for av in comp.avatars %}
+                <figure data-variant="avatar"
+                        {% if av.size %}class="{{ av.size }}"{% endif %}
+                        {% if av.initials %}aria-label="{{ av.initials }}"{% endif %}>
+                    {% if av.src %}
+                        <img src="{{ av.src }}" alt="">
+                    {% else %}
+                        <abbr title="{{ av.initials | default('') }}">{{ av.initials | default('') }}</abbr>
+                    {% endif %}
+                </figure>
+            {% endfor %}
+        </figure>
+
+    {# ── Breadcrumb ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'breadcrumb' %}
+        <nav aria-label="Breadcrumb" class="{{ comp.className | default('') }}">
+            <ol class="unstyled hstack" style="font-size: var(--text-7)">
+                {% for item in comp['items'] %}
+                    {% if not loop.first %}<li aria-hidden="true">/</li>{% endif %}
+                    <li {% if loop.last %}aria-current="page"{% endif %}>
+                        {% if item.href is defined and item.href and not loop.last %}
+                            <a href="{{ item.href }}" class="unstyled">{{ item.label }}</a>
+                        {% elif loop.last %}
+                            <strong>{{ item.label }}</strong>
+                        {% else %}
+                            {{ item.label }}
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+        </nav>
+
+    {# ── Button Group ────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'button_group' %}
+        <menu class="buttons {{ comp.className | default('') }}">
+            {% for btn in comp.buttons %}
+                <li>
+                    <button type="button"
+                            class="outline"
+                            name="{{ btn.key }}"
+                            value="true"
+                            hx-post="/interact"
+                            hx-target="#app-root"
+                            hx-swap="innerHTML"
+                            hx-include="[name]">{{ btn.label }}</button>
+                </li>
+            {% endfor %}
+        </menu>
+
+    {# ── Toast ───────────────────────────────────────────────────────────── #}
+    {# oat.ink API: ot.toast(message, title?, options?)                      #}
+    {% elif comp.type == 'toast' %}
+        <div style="display:none" class="{{ comp.className | default('') }}">
+            <script>
+                (function () {
+                    function _showToast() {
+                        if (window.ot && window.ot.toast) {
+                            ot.toast(
+                                {{ comp.message | tojson }},
+                                {{ comp.title | default('') | tojson }},
+                                {
+                                    {% if comp.variant %}variant:   {{ comp.variant | tojson }},{% endif %}
+                                    placement: {{ comp.placement | default('top-right') | tojson }},
+                                    duration:  {{ comp.duration | default(4000) }}
+                                }
+                            );
+                        }
+                    }
+                    if (document.readyState !== 'loading') { setTimeout(_showToast, 50); }
+                    else { document.addEventListener('DOMContentLoaded', _showToast); }
+                })();
+            </script>
+        </div>
+
+    {# ── Pagination ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'pagination' %}
+        <nav aria-label="Pagination" class="{{ comp.className | default('') }}">
+            <menu class="buttons">
+                {% for page in range(1, comp.total_pages + 1) %}
+                    <li>
+                        <button type="button"
+                                name="{{ comp.key }}"
+                                value="{{ page }}"
+                                class="small{{ '' if page == comp.current_page else ' outline' }}"
+                                {% if page == comp.current_page %}aria-current="page"{% endif %}
+                                hx-post="/interact"
+                                hx-target="#app-root"
+                                hx-swap="innerHTML"
+                                hx-include="[name]">{{ page }}</button>
+                    </li>
+                {% endfor %}
+            </menu>
+        </nav>
+
+    {# ── Dialog ──────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'dialog' %}
+        {% set _dlg_id = "dlg-" ~ comp.id %}
+        <button type="button"
+                onclick="document.getElementById('{{ _dlg_id }}').showModal()"
+                class="{{ comp.className | default('') }}">{{ comp.trigger_label | default('Open') }}</button>
+        <dialog id="{{ _dlg_id }}" closedby="any">
+            <form method="dialog">
+                {% if comp.slot_header is defined and comp.slot_header %}
+                    <header>{% for child in comp.slot_header %}{{ render_component(child) }}{% endfor %}</header>
+                {% elif comp.title %}
+                    <header><h3>{{ comp.title }}</h3></header>
+                {% endif %}
+                <div>
+                    {% for child in comp.children %}
+                        {{ render_component(child) }}
+                    {% endfor %}
+                </div>
+                {% if comp.slot_footer is defined and comp.slot_footer %}
+                    <footer>{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+                {% else %}
+                    <footer>
+                        <button type="button" onclick="this.closest('dialog').close()" class="outline">Close</button>
+                    </footer>
+                {% endif %}
+            </form>
+        </dialog>
+
+    {# ── Dropdown ────────────────────────────────────────────────────────── #}
+    {# oat.ink uses popovertarget/popover — NOT slot="trigger"              #}
+    {% elif comp.type == 'dropdown' %}
+        {% set _menu_id = "menu-" ~ comp.id %}
+        <ot-dropdown class="{{ comp.className | default('') }}">
+            <button type="button" popovertarget="{{ _menu_id }}" class="outline">
+                {{ comp.label }}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <menu popover id="{{ _menu_id }}">
+                {% for item in comp['items'] %}
+                    {% if item.href is defined and item.href %}
+                        <a href="{{ item.href }}" role="menuitem" class="unstyled">{{ item.label }}</a>
+                    {% else %}
+                        <button role="menuitem" type="button" class="ghost">{{ item.label }}</button>
+                    {% endif %}
+                {% endfor %}
+            </menu>
+        </ot-dropdown>
+
+    {# ── Grid ────────────────────────────────────────────────────────────── #}
+    {# oat.ink's .container carries page-root padding/max-width/centering —
+       mxlit's <main class="mx-main"> already owns that job, so neutralize
+       them here or a nested grid ends up double-inset from the page edge. #}
+    {% elif comp.type == 'grid' %}
+        <div class="container {{ comp.className | default('') }}"
+             style="max-width:none;padding-inline:0;margin-inline:0">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── Grid Row ─────────────────────────────────────────────────────────── #}
+    {# oat.ink's own .row is display:grid + gap — use it natively instead of a
+       hand-rolled flex-basis %, which ignored .row's gap and overflowed/wrapped. #}
+    {% elif comp.type == 'grid_row' %}
+        <div class="row {{ comp.className | default('') }}">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── Grid Col ─────────────────────────────────────────────────────────── #}
+    {# oat.ink's [class*=col-] reads --span/--offset custom props to size the
+       grid-column span — set them directly so any span/offset value works,
+       not just the offset-1..offset-6 classes oat.min.css predefines.        #}
+    {% elif comp.type == 'grid_col' %}
+        <div class="col-{{ comp.span }}{% if comp.end %} col-end{% endif %} {{ comp.className | default('') }}"
+             style="--span:{{ comp.span }};{% if comp.offset %}--offset:{{ comp.offset }};{% endif %}">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── HTML Table ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'html_table' %}
+        <table class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% if comp.caption %}<caption>{{ comp.caption | e }}</caption>{% endif %}
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </table>
+
+    {# ── Table Head ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_head' %}
+        <thead class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </thead>
+
+    {# ── Table Body ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_body' %}
+        <tbody class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </tbody>
+
+    {# ── Table Foot ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_foot' %}
+        <tfoot class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </tfoot>
+
+    {# ── Table Row ────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_row' %}
+        <tr class="{{ comp.className | default('') }}"{{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </tr>
+
+    {# ── Table Cell ───────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'table_cell' %}
+        {% if comp.header %}
+        <th class="{{ comp.className | default('') }}"
+            {% if comp.colspan > 1 %}colspan="{{ comp.colspan }}"{% endif %}
+            {% if comp.rowspan > 1 %}rowspan="{{ comp.rowspan }}"{% endif %}
+            {% if comp.scope %}scope="{{ comp.scope }}"{% endif %}
+            {{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </th>
+        {% else %}
+        <td class="{{ comp.className | default('') }}"
+            {% if comp.colspan > 1 %}colspan="{{ comp.colspan }}"{% endif %}
+            {% if comp.rowspan > 1 %}rowspan="{{ comp.rowspan }}"{% endif %}
+            {{ html_attrs(comp.attrs) | safe }}>
+            {% for child in comp.children %}{{ render_component(child) }}{% endfor %}
+        </td>
+        {% endif %}
+
+    {# ── File Input ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'file_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="file" id="{{ comp.key }}" name="{{ comp.key }}"
+                   {% if comp.accept %}accept="{{ comp.accept }}"{% endif %}
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]" hx-encoding="multipart/form-data"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {# ── Input Group ─────────────────────────────────────────────────────── #}
+    {# oat.ink: <fieldset class="group"><legend>prefix</legend><input><select><button>Go</button></fieldset> #}
+    {# Every child (prefix slot, plain children, suffix slot) renders through  #}
+    {# group_child() so it stays a bare, direct <fieldset> child — see that    #}
+    {# macro's comment for why the mx-component/label wrappers must be gone.   #}
+    {% elif comp.type == 'input_group' %}
+        <fieldset class="group {{ comp.className | default('') }}">
+            {% if comp.slot_prefix is defined and comp.slot_prefix %}
+                {% for child in comp.slot_prefix %}{{ group_child(child) }}{% endfor %}
+            {% elif comp.prefix %}
+                <legend>{{ comp.prefix }}</legend>
+            {% endif %}
+            {% for child in comp.children %}
+                {{ group_child(child) }}
+            {% endfor %}
+            {% if comp.slot_suffix is defined and comp.slot_suffix %}
+                {% for child in comp.slot_suffix %}{{ group_child(child) }}{% endfor %}
+            {% elif comp.suffix %}
+                <span>{{ comp.suffix }}</span>
+            {% endif %}
+        </fieldset>
+
+    {# ── Multiselect ─────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'multiselect' %}
+        <div data-field class="{{ comp.className | default('') }}">
+            <label for="{{ comp.key }}">{{ comp.label }}</label>
+            <select id="{{ comp.key }}" name="{{ comp.key }}" multiple aria-label="{{ comp.label }}"
+                    {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                    {% if comp.disabled %}disabled{% endif %}>
+                {% for option in comp.options %}
+                    <option value="{{ option }}" {% if option in comp.value %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+    {# ── Select Slider ───────────────────────────────────────────────────── #}
+    {% elif comp.type == 'select_slider' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}: <span id="{{ comp.key }}-val">{{ comp.display_value }}</span>
+            <input type="range" id="{{ comp.key }}" name="{{ comp.key }}"
+                   list="{{ comp.key }}-opts"
+                   min="0" max="{{ comp.options | length - 1 }}" step="1"
+                   value="{{ comp.index }}"
+                   oninput="document.getElementById('{{ comp.key }}-val').textContent = {{ comp.options | tojson }}[+this.value]"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change, input delay:500ms') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+            <datalist id="{{ comp.key }}-opts">
+                {% for opt in comp.options %}
+                    <option value="{{ loop.index0 }}">{{ opt }}</option>
+                {% endfor %}
+            </datalist>
+        </label>
+
+    {# ── Time Input ──────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'time_input' %}
+        <label data-field for="{{ comp.key }}" class="{{ comp.className | default('') }}">
+            {{ comp.label }}
+            <input type="time" id="{{ comp.key }}" name="{{ comp.key }}" value="{{ comp.value }}"
+                   {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-trigger="{{ comp['hx-trigger'] | default('change') }}" hx-include="[name]"{% endif %}
+                   {% if comp.disabled %}disabled{% endif %}>
+        </label>
+
+    {# ── Link Button ─────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'link_button' %}
+        <a href="{{ comp.url }}"
+           {% if comp.new_tab %}target="_blank" rel="noopener noreferrer"{% endif %}
+           role="button"
+           class="{{ comp.className | default('') }}">{{ comp.label }}</a>
+
+    {# ── Download Button ─────────────────────────────────────────────────── #}
+    {% elif comp.type == 'download_button' %}
+        <a href="{{ comp.href }}"
+           download="{{ comp.file_name }}"
+           role="button"
+           class="{{ comp.className | default('') }}">{{ comp.label }}</a>
+
+    {# ── Pills ───────────────────────────────────────────────────────────── #}
+    {# Single-select pill buttons — styled like radio but rendered as chips   #}
+    {% elif comp.type == 'pills' %}
+        <fieldset class="{{ comp.className | default('') }}">
+            <legend>{{ comp.label }}</legend>
+            <menu class="buttons">
+                {% for option in comp.options %}
+                    <li>
+                        <button type="button"
+                                name="{{ comp.key }}"
+                                value="{{ option }}"
+                                class="{% if comp.value != option %}outline {% endif %}small"
+                                {% if comp.value == option %}aria-pressed="true"{% endif %}
+                                {% if not comp.disabled %}hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms"{% endif %}
+                                {% if comp.disabled %}disabled{% endif %}>{{ option }}</button>
+                    </li>
+                {% endfor %}
+            </menu>
+        </fieldset>
+
+    {# ── Feedback ────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'feedback' %}
+        <fieldset class="{{ comp.className | default('') }}">
+            {% if comp.label %}<legend>{{ comp.label }}</legend>{% endif %}
+            <menu class="buttons">
+                {% if comp.sentiment == 'thumbs' %}
+                    <li>
+                        <button type="button" name="{{ comp.key }}" value="up"
+                                class="{% if comp.value != 'up' %}outline {% endif %}small"
+                                {% if comp.value == 'up' %}aria-pressed="true"{% endif %}
+                                hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]">👍</button>
+                    </li>
+                    <li>
+                        <button type="button" name="{{ comp.key }}" value="down"
+                                class="{% if comp.value != 'down' %}outline {% endif %}small"
+                                {% if comp.value == 'down' %}aria-pressed="true"{% endif %}
+                                hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]">👎</button>
+                    </li>
+                {% else %}
+                    {% for star in [1, 2, 3, 4, 5] %}
+                        <li>
+                            <button type="button" name="{{ comp.key }}" value="{{ star }}"
+                                    class="{% if comp.value != star | string %}outline {% endif %}small"
+                                    {% if comp.value == star | string %}aria-pressed="true"{% endif %}
+                                    hx-post="/interact" hx-target="#mx-{{ comp.id }}" hx-swap="outerHTML settle:100ms" hx-include="[name]">{{ '★' * star }}{{ '☆' * (5 - star) }}</button>
+                        </li>
+                    {% endfor %}
+                {% endif %}
+            </menu>
+        </fieldset>
+
+    {# ── Space ───────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'space' %}
+        <div style="margin-block: {{ comp.n | default(1) }}rem;" aria-hidden="true"></div>
+
+    {# ── Empty placeholder ───────────────────────────────────────────────── #}
+    {% elif comp.type == 'empty' %}
+        <div class="{{ comp.className | default('') }}" aria-hidden="true"></div>
+
+    {# ── Popover ─────────────────────────────────────────────────────────── #}
+    {% elif comp.type == 'popover' %}
+        {% set _pop_id = "pop-" ~ comp.id %}
+        <button type="button" popovertarget="{{ _pop_id }}"
+                class="{{ comp.className | default('') }}">{{ comp.label }}</button>
+        <div id="{{ _pop_id }}" popover class="mx-popover">
+            {% for child in comp.children %}
+                {{ render_component(child) }}
+            {% endfor %}
+        </div>
+
+    {# ── Status container ────────────────────────────────────────────────── #}
+    {% elif comp.type == 'status_box' %}
+        {% set _state_icon = {'running': '', 'complete': '✓', 'error': '✗'} %}
+        <details class="mx-status {{ comp.className | default('') }}"
+                 {% if comp.state == 'complete' or comp.state == 'error' %}open{% endif %}>
+            <summary>
+                {% if comp.state == 'running' %}
+                    <span aria-busy="true" data-spinner="small"></span>
+                {% elif comp.state == 'complete' %}
+                    <span style="color: var(--success)">✓</span>
+                {% else %}
+                    <span style="color: var(--danger)">✗</span>
+                {% endif %}
+                {{ comp.label }}
+            </summary>
+            <div>
                 {% for child in comp.children %}
                     {{ render_component(child) }}
                 {% endfor %}
             </div>
-        {% elif comp.type == 'expander' %}
-            {% set eid = range(1, 100000) | random %}
-            <div class="st-expander">
-                <input type="checkbox" id="expander-{{ eid }}" class="st-expander-toggle" style="display: none;">
-                <label class="st-expander-header" for="expander-{{ eid }}">
-                    <span>
-                        {% if comp.icon %}{{ comp.icon }} {% endif %}{{ comp.label }}
-                    </span>
-                    <span>▼</span>
-                </label>
-                <div class="st-expander-content">
-                    {% for child in comp.children %}
-                        {{ render_component(child) }}
-                    {% endfor %}
-                </div>
-            </div>
-        {% elif comp.type == 'column' %}
-            <!-- Handled in columns parent -->
-        {% elif comp.type == 'tab' %}
-            <!-- Handled in tabs parent -->
-        {% else %}
-            <div>Unsupported component type: {{ comp.type }}</div>
-        {% endif %}
-    </div>
-{% endmacro %}
+        </details>
 
-{% macro render_component_from_spec(comp) %}
-    <div class="component">
-        {% if comp.type == 'title' %}
-            <h1>{{ comp.props.content }}</h1>
-        {% elif comp.type == 'header' %}
-            <h2>{{ comp.props.content }}</h2>
-        {% elif comp.type == 'subheader' %}
-            <h3>{{ comp.props.content }}</h3>
-        {% elif comp.type == 'write' or comp.type == 'text' %}
-            <p id="{{ comp.id }}-content">{{ comp.props.content }}</p>
-        {% elif comp.type == 'markdown' %}
-            <div>{{ comp.props.content | safe }}</div>
-        {% elif comp.type == 'code' %}
-            <pre><code>{{ comp.props.content }}</code></pre>
-        {% elif comp.type == 'html' %}
-            <div>{{ comp.props.content | safe }}</div>
-        {% elif comp.type == 'dataframe' or comp.type == 'table' %}
-            {{ comp.props.content | safe }}
-        {% elif comp.type == 'json' %}
-            <pre><code>{{ comp.props.content }}</code></pre>
-        {% elif comp.type == 'button' %}
-            <button type="submit" name="{{ comp.props.key }}" value="true" class="st-button">
-                {{ comp.props.label }}
-            </button>
-        {% elif comp.type == 'text_input' %}
-            <div class="st-text-input">
-                <label>{{ comp.props.label }}</label>
-                <input type="text" name="{{ comp.props.key }}" value="{{ comp.props.value }}" class="st-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-            </div>
-        {% elif comp.type == 'slider' %}
-            <div class="st-slider">
-                <label>{{ comp.props.label }}: {{ comp.props.value }}</label>
-                <input type="range" name="{{ comp.props.key }}" min="{{ comp.props.min_value }}" max="{{ comp.props.max_value }}" value="{{ comp.props.value }}" class="st-range" hx-post="/interact" hx-trigger="change, input delay:500ms" hx-target="#app-root" hx-swap="innerHTML settle:0">
-            </div>
-        {% elif comp.type == 'selectbox' %}
-            <div class="st-selectbox">
-                <label>{{ comp.props.label }}</label>
-                <select name="{{ comp.props.key }}" class="st-select" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-                    {% for option in comp.props.options %}
-                        <option value="{{ option }}" {% if option == comp.props.value %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        {% elif comp.type == 'checkbox' %}
-            <div class="st-checkbox">
-                <input type="hidden" name="{{ comp.props.key }}" value="false">
-                <label>
-                    <input type="checkbox" name="{{ comp.props.key }}" value="true" {% if comp.props.value %}checked{% endif %} class="st-checkbox-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-                    {{ comp.props.label }}
-                </label>
-            </div>
-        {% elif comp.type == 'radio' %}
-            <div class="st-radio">
-                <label>{{ comp.props.label }}</label>
-                {% for option in comp.props.options %}
-                    <label>
-                        <input type="radio" name="{{ comp.props.key }}" value="{{ option }}" {% if option == comp.props.value %}checked{% endif %} class="st-radio-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-                        {{ option }}
-                    </label>
-                {% endfor %}
-            </div>
-        {% elif comp.type == 'number_input' %}
-            <div class="st-number-input">
-                <label>{{ comp.props.label }}</label>
-                <input type="number" name="{{ comp.props.key }}" value="{{ comp.props.value }}" {% if comp.props.min_value is not none %}min="{{ comp.props.min_value }}"{% endif %} {% if comp.props.max_value is not none %}max="{{ comp.props.max_value }}"{% endif %} {% if comp.props.step %}step="{{ comp.props.step }}"{% endif %} class="st-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-            </div>
-        {% elif comp.type == 'text_area' %}
-            <div class="st-text-area">
-                <label>{{ comp.props.label }}</label>
-                <textarea name="{{ comp.props.key }}" class="st-textarea" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">{{ comp.props.value }}</textarea>
-            </div>
-        {% elif comp.type == 'toggle' %}
-            <div class="st-toggle">
-                <input type="hidden" name="{{ comp.props.key }}" value="false">
-                <label>
-                    <input type="checkbox" name="{{ comp.props.key }}" value="true" {% if comp.props.value %}checked{% endif %} class="st-toggle-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-                    {{ comp.props.label }}
-                </label>
-            </div>
-        {% elif comp.type == 'color_picker' %}
-            <div class="st-color-picker">
-                <label>{{ comp.props.label }}</label>
-                <input type="color" name="{{ comp.props.key }}" value="{{ comp.props.value }}" class="st-color-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-            </div>
-        {% elif comp.type == 'date_input' %}
-            <div class="st-date-input">
-                <label>{{ comp.props.label }}</label>
-                <input type="date" name="{{ comp.props.key }}" value="{{ comp.props.value }}" class="st-date-input" hx-post="/interact" hx-trigger="change" hx-target="#app-root" hx-swap="innerHTML settle:0">
-            </div>
-        {% elif comp.type == 'metric' %}
-            <div class="st-metric">
-                <div class="st-metric-label">{{ comp.props.label }}</div>
-                <div id="{{ comp.id }}-value" class="st-metric-value">{{ comp.props.value }}</div>
-                {% if comp.props.delta %}
-                    <div id="{{ comp.id }}-delta" class="st-metric-delta">{{ comp.props.delta }}</div>
-                {% endif %}
-            </div>
-        {% elif comp.type == 'status' %}
-            <div class="st-status st-status-{{ comp.props.status_type }}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-weight: 500;
-                {% if comp.props.status_type == 'error' %}background-color: #ffcccc; color: #990000; border: 1px solid #ff9999;
-                {% elif comp.props.status_type == 'warning' %}background-color: #ffffcc; color: #996600; border: 1px solid #ffff99;
-                {% elif comp.props.status_type == 'success' %}background-color: #ccffcc; color: #006600; border: 1px solid #99ff99;
-                {% elif comp.props.status_type == 'info' %}background-color: #cce5ff; color: #003366; border: 1px solid #99ccff;
-                {% endif %}">
-                {{ comp.props.content }}
-            </div>
-        {% elif comp.type == 'latex' %}
-            <div class="st-latex" style="overflow-x: auto; padding: 1rem 0; font-family: 'Courier New', Courier, monospace;">
-                $${{ comp.props.content }}$$
-            </div>
-        {% elif comp.type == 'sidebar' %}
-            <div class="sidebar">
-                {% for child_id in comp.children %}
-                    {% set child_comp = layout_schema.components[child_id] %}
-                    {{ render_component_from_spec(child_comp) }}
-                {% endfor %}
-            </div>
-        {% elif comp.type == 'column' %}
-            <div class="st-column" style="flex: {{ comp.props.weight | default(1) }}">
-                {% for child_id in comp.children %}
-                    {% set child_comp = layout_schema.components[child_id] %}
-                    {{ render_component_from_spec(child_comp) }}
-                {% endfor %}
-            </div>
-        {% elif comp.type == 'container' %}
-            <div class="{% if comp.props.horizontal %}st-container-horizontal{% endif %}">
-                {% for child_id in comp.children %}
-                    {% set child_comp = layout_schema.components[child_id] %}
-                    {{ render_component_from_spec(child_comp) }}
-                {% endfor %}
-            </div>
-        {% elif comp.type == 'expander' %}
-            <div class="st-expander">
-                <input type="checkbox" id="expander-{{ comp.id }}" class="st-expander-toggle" style="display: none;">
-                <label class="st-expander-header" for="expander-{{ comp.id }}">
-                    <span>
-                        {% if comp.props.icon %}{{ comp.props.icon }} {% endif %}{{ comp.props.label }}
-                    </span>
-                    <span>▼</span>
-                </label>
-                <div class="st-expander-content">
-                    {% for child_id in comp.children %}
-                        {% set child_comp = layout_schema.components[child_id] %}
-                        {{ render_component_from_spec(child_comp) }}
-                    {% endfor %}
-                </div>
-            </div>
-        {% elif comp.type == 'tabs' %}
-            <div id="{{ comp.id }}" class="st-tabs">
-                <div class="st-tab-headers">
-                    {% for child_id in comp.children %}
-                        {% set tab = layout_schema.components[child_id] %}
-                        <div class="st-tab-header {% if loop.first %}active{% endif %}"
-                             onclick="activateTab('{{ comp.id }}', {{ loop.index0 }})">
-                            {{ tab.props.label }}
-                        </div>
-                    {% endfor %}
-                </div>
-                {% for child_id in comp.children %}
-                    {% set tab = layout_schema.components[child_id] %}
-                    <div id="{{ child_id }}" class="st-tab-content {% if loop.first %}active{% endif %}">
-                        {% for grandchild_id in tab.children %}
-                            {% set grandchild = layout_schema.components[grandchild_id] %}
-                            <div id="{{ grandchild_id }}">{{ render_component_from_spec(grandchild) }}</div>
-                        {% endfor %}
-                    </div>
-                {% endfor %}
-            </div>
-        {% elif comp.type == 'tab' %}
-            {# Standalone tab (legacy/fallback - show content directly) #}
-            <div id="{{ comp.id }}" class="st-tab-content active" style="padding: 0.8rem; border: 1px solid #ddd; border-radius: 0.4rem; margin-bottom: 0.5rem;">
-                {% for child_id in comp.children %}
-                    {% set child_comp = layout_schema.components[child_id] %}
-                    {{ render_component_from_spec(child_comp) }}
-                {% endfor %}
-            </div>
-        {% else %}
-            <div>Unsupported component type: {{ comp.type }}</div>
-        {% endif %}
-    </div>
-{% endmacro %}
+    {# column / tab / sidebar are handled by the outer loop #}
+    {% elif comp.type == 'column' %}{% elif comp.type == 'tab' %}{% elif comp.type == 'sidebar' %}
 
-    {% if layout_schema %}
-        {# Sidebar: rendered as a flex sibling of main-content so CSS positioning works #}
-        {% for component_id in layout_schema.root_children %}
-            {% set comp = layout_schema.components[component_id] %}
-            {% if comp.type == 'sidebar' %}
-                <div id="{{ component_id }}" class="sidebar">
-                    {% for child_id in comp.children %}
-                        {% set child_comp = layout_schema.components[child_id] %}
-                        <div id="{{ child_id }}">{{ render_component_from_spec(child_comp) }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endfor %}
-
-        {# Main content area #}
-        <div class="main-content">
-            <div class="container">
-                {% for component_id in layout_schema.root_children %}
-                    {% set comp = layout_schema.components[component_id] %}
-                    {% if comp.type != 'sidebar' %}
-                        {% if comp.type == 'column' %}
-                            {# Group contiguous columns inside st-columns flex wrapper #}
-                            {% if loop.index0 == 0 or layout_schema.components[layout_schema.root_children[loop.index0 - 1]].type != 'column' %}
-                                <div class="st-columns">
-                            {% endif %}
-                            <div id="{{ component_id }}" class="st-column" style="flex: {{ comp.props.weight | default(1) }}">
-                                {% for child_id in comp.children %}
-                                    {% set child_comp = layout_schema.components[child_id] %}
-                                    <div id="{{ child_id }}">{{ render_component_from_spec(child_comp) }}</div>
-                                {% endfor %}
-                            </div>
-                            {% if loop.last or layout_schema.components[layout_schema.root_children[loop.index0 + 1]].type != 'column' %}
-                                </div>{# end st-columns #}
-                            {% endif %}
-                        {% else %}
-                            <div id="{{ component_id }}">{{ render_component_from_spec(comp) }}</div>
-                        {% endif %}
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </div>
     {% else %}
-        {# Fallback: legacy component list rendering #}
-        {% set ns = namespace(has_sidebar=false) %}
-        {% for comp in components %}
-            {% if comp.type == 'sidebar' %}
-                {% set ns.has_sidebar = true %}
-                <div class="sidebar">
-                    {% for child in comp.children %}
-                        {{ render_component(child) }}
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endfor %}
-        <div class="main-content">
-            <div class="container">
-                {% for comp in components %}
-                    {% if comp.type != 'sidebar' %}
-                        {{ render_component(comp) }}
-                    {% endif %}
-                {% endfor %}
-            </div>
+        <div role="alert" data-variant="warning">
+            Unsupported component type: <code>{{ comp.type }}</code>
         </div>
     {% endif %}
+
+</div>
+{% endmacro %}
+
+
+{# ── Navbar ────────────────────────────────────────────────────────────────── #}
+{% set ns_nav = namespace(has_navbar=false) %}
+{% for comp in components %}
+    {% if comp.type == 'navbar' %}{% set ns_nav.has_navbar = true %}{% endif %}
+{% endfor %}
+{% if ns_nav.has_navbar %}
+    {% for comp in components %}
+        {% if comp.type == 'navbar' %}
+            <header class="mx-navbar {{ comp.className | default('') }}" style="grid-column: 1 / -1;">
+                {% for child in comp.children %}
+                    {{ render_component(child) }}
+                {% endfor %}
+            </header>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+{# ── Sidebar ──────────────────────────────────────────────────────────────── #}
+{% set ns = namespace(has_sidebar=false) %}
+{% for comp in components %}
+    {% if comp.type == 'sidebar' %}{% set ns.has_sidebar = true %}{% endif %}
+{% endfor %}
+
+{% if ns.has_sidebar %}
+    {% for comp in components %}
+        {% if comp.type == 'sidebar' %}
+            {# oat.ink's aside[data-sidebar] is display:flex;flex-direction:column with
+               >:is(header,footer){flex-shrink:0} — header/footer must be direct children
+               of <aside>, so they're written as literal tags here, not routed through
+               the generic mx-component wrapper the way nav's un-slotted content is.     #}
+            <aside data-sidebar class="{{ aside_class | default('') }} {{ comp.className | default('') }}">
+                {% if comp.slot_header is defined and comp.slot_header %}
+                    <header>{% for child in comp.slot_header %}{{ render_component(child) }}{% endfor %}</header>
+                {% endif %}
+                <nav class="pt-8">
+                    {% for child in comp.children %}
+                        {{ render_component(child) }}
+                    {% endfor %}
+                </nav>
+                {% if comp.slot_footer is defined and comp.slot_footer %}
+                    <footer>{% for child in comp.slot_footer %}{{ render_component(child) }}{% endfor %}</footer>
+                {% endif %}
+            </aside>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+{# ── Main content ─────────────────────────────────────────────────────────── #}
+<main class="mx-main {{ main_class | default('') }}">
+    {% set tab_group_ns = namespace(count=0) %}
+    {% for comp in components %}
+        {% if comp.type != 'sidebar' and comp.type != 'navbar' %}
+
+            {% if comp.type == 'column' %}
+                {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'column' %}
+                    <div class="mx-columns {{ comp.columnsClassName | default('') }}">
+                {% endif %}
+                <div class="mx-column {{ comp.className | default('') }}" style="flex: {{ comp.weight | default(1) }}">
+                    {{ render_children(comp.children) }}
+                </div>
+                {% if loop.last or components[loop.index0 + 1].type != 'column' %}
+                    </div>
+                {% endif %}
+
+            {% elif comp.type == 'tab' %}
+                {% if loop.index0 == 0 or components[loop.index0 - 1].type != 'tab' %}
+                    {% set tab_group_ns.count = tab_group_ns.count + 1 %}
+                    <ot-tabs data-tab-group="mxlit-tabs-{{ tab_group_ns.count }}"
+                             class="{{ comp.tabsClassName | default('') }}">
+                        <div role="tablist">
+                            {% set tab_start = loop.index0 %}
+                            {% set hdr_ns = namespace(stop=false) %}
+                            {% for fc in components[tab_start:] %}
+                                {% if not hdr_ns.stop %}
+                                    {% if fc.type == 'tab' %}
+                                        <button role="tab" type="button">{{ fc.label }}</button>
+                                    {% else %}
+                                        {% set hdr_ns.stop = true %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                {% endif %}
+                <div role="tabpanel">
+                    {{ render_children(comp.children) }}
+                </div>
+                {% if loop.last or components[loop.index0 + 1].type != 'tab' %}
+                    </ot-tabs>
+                {% endif %}
+
+            {% else %}
+                {{ render_component(comp) }}
+            {% endif %}
+
+        {% endif %}
+    {% endfor %}
+</main>

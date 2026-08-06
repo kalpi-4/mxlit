@@ -23,8 +23,14 @@ class SessionState:
     def __setitem__(self, name, value):
         self._state[name] = value
 
+    def __delitem__(self, name):
+        del self._state[name]
+
     def get(self, name, default=None):
         return self._state.get(name, default)
+
+    def pop(self, name, *args):
+        return self._state.pop(name, *args)
 
     def update(self, **kwargs):
         self._state.update(kwargs)

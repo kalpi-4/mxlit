@@ -1,5 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+# >=1.18 is required for reliable PEP 660 editable-install support (build_editable
+# hook). Without a floor here, build isolation can silently resolve an older
+# hatchling that lacks it, and pip falls back to a regular (non-editable) install
+# with no error — `pip install -e .` then serves a frozen copy of the package that
+# never reflects further source edits until manually reinstalled.
+requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
@@ -26,6 +31,11 @@ dependencies = [
     "python-multipart",
     "pandas",
     "markdown"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytailwindcss"
 ]
 
 [project.urls]

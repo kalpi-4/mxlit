@@ -1,288 +1,261 @@
 import os
-import sys
 import runpy
-from pathlib import Path
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-import asyncio
-
-from mxlit.context import AppContext, _current_context
-from mxlit.state import session_state
-from mxlit.layout import layout_manager
-from mxlit.callbacks import callback_registry
-from mxlit.dag import reactive_dag
-
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup logic: Initialize app schema
-    try:
-        script_path = get_script_path()
-        ctx = AppContext(mode="init")
-        token = _current_context.set(ctx)
-        try:
-            # Run script in init mode to build layout schema and register callbacks
-            runpy.run_path(script_path, run_name="__main__")
-        except Exception as e:
-            if type(e).__name__ not in ("RerunException", "SystemExit"):
-                raise
-        finally:
-            _current_context.reset(token)
+import asyncio
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
-        # Build DAG from registered callbacks
-        for callback_id, callback_info in callback_registry.get_all_callbacks().items():
-            reactive_dag.register_callback(
-                callback_id,
-                callback_info["inputs"],
-                callback_info["outputs"]
-            )
+from mxlit._exceptions import RerunException
+from mxlit._paths import STATIC_DIR, TEMPLATES_DIR
+from mxlit.components.base import reset_render_counts
+from mxlit.context import AppContext, _current_context
+from mxlit.constants import THEME_KEY, theme_manager
+from mxlit.state import session_state
 
-    except Exception as e:
-        print(f"Error during app initialization: {e}")
 
-    yield
-
-    # Shutdown logic: Cancel all active SSE connections
-    for queue in sse_clients:
-        queue.put_nowait(None)  # Send sentinel value to stop generator
-
-app = FastAPI(lifespan=lifespan)
-
-sse_clients = set()
-
-# Setup static files
-STATIC_DIR = Path(__file__).parent / "static"
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-# Setup templates
-TEMPLATES_DIR = Path(__file__).parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-
-def get_script_path():
+def get_script_path() -> str:
     path = os.environ.get("MXLIT_SCRIPT")
     if not path or not Path(path).is_file():
         raise RuntimeError("MXLIT_SCRIPT environment variable not set or file not found.")
     return path
 
-def rebuild_layout_schema():
-    layout_manager.components.clear()
-    layout_manager.root_children.clear()
-    layout_manager.current_container_stack.clear()
-    layout_manager.next_geometry = {"x": 0, "y": 0, "width": 12, "height": 1}
 
-    script_path = get_script_path()
-    ctx = AppContext(mode="init")
+def _coerce_form_value(key: str, value: str) -> object:
+    """Cast a form string value to match the type already stored in session_state."""
+    if key not in session_state:
+        return value
+    old = session_state[key]
+    if isinstance(old, int):
+        try:
+            return int(value)
+        except ValueError:
+            return value
+    if isinstance(old, float):
+        try:
+            return float(value)
+        except ValueError:
+            return value
+    if isinstance(old, bool):
+        return str(value).lower() in ("true", "1", "yes", "on")
+    return value
+
+
+def _apply_form_data(form_data) -> None:
+    """Write incoming form values into session_state with type coercion.
+
+    Handles multi-value fields (e.g. <select multiple>) by collecting all
+    values for a key into a list when more than one value is present.
+    """
+    seen: set[str] = set()
+    for key in form_data:
+        if key in seen:
+            continue
+        seen.add(key)
+        values = form_data.getlist(key)
+        if len(values) > 1:
+            # Multi-select — store as list of strings
+            session_state[key] = values
+        else:
+            session_state[key] = _coerce_form_value(key, values[0])
+
+
+def _run_script(script_path: str) -> AppContext:
+    """Execute the user script inside a fresh AppContext and return it."""
+    reset_render_counts()
+    ctx = AppContext()
     token = _current_context.set(ctx)
     try:
         runpy.run_path(script_path, run_name="__main__")
+    except RerunException:
+        pass
     except Exception as e:
-        # RerunException (and SystemExit from mt.stop()) are expected control flow;
-        # ignore them so the partial schema that was built up to that point is used.
-        if type(e).__name__ not in ("RerunException", "SystemExit"):
-            raise
+        ctx.add_component({"type": "write", "content": f"Error executing script: {e}"})
     finally:
         _current_context.reset(token)
+    return ctx
+
+
+def _find_component(components: list, target_id: str) -> dict | None:
+    """Recursively search the component tree for the component matching target_id."""
+    for comp in components:
+        if comp.get("id") == target_id:
+            return comp
+        found = _find_component(comp.get("children", []), target_id)
+        if found:
+            return found
+    return None
+
+
+# ── App setup ─────────────────────────────────────────────────────────────────
+
+sse_clients: set = set()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    for queue in sse_clients:
+        queue.put_nowait(None)
+
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    """Serve the initial app shell."""
-    return templates.TemplateResponse("base.html", {"request": request})
+    return templates.TemplateResponse(request, "base.html")
 
-@app.get("/initial", response_class=HTMLResponse)
-async def get_initial_layout(request: Request):
-    """Serve the initial layout using the pre-built schema."""
-    layout_schema = layout_manager.get_layout_schema()
-    return templates.TemplateResponse(
-        "components.html",
-        {"request": request, "layout_schema": layout_schema}
-    )
 
 @app.post("/interact", response_class=HTMLResponse)
 async def interact(request: Request):
-    """
-    Handle HTMX interactions using reactive DAG execution.
+    """Handle HTMX interactions. Re-runs the script and returns updated HTML.
+
+    When HX-Target is a component wrapper (starts with 'mx-'), returns only
+    that component's fragment so HTMX can do a targeted outerHTML swap.
+    Otherwise returns the full component tree.
     """
     form_data = await request.form()
+    _apply_form_data(form_data)
 
-    # Track changed inputs for DAG
-    changed_inputs = set()
+    ctx = _run_script(get_script_path())
 
-    for key, value in form_data.items():
-        # Try to cast value to existing type if it exists in session_state
-        old_value = session_state.get(key)
-        if key in session_state:
-            if isinstance(old_value, int):
-                try:
-                    value = int(value)
-                except ValueError:
-                    pass
-            elif isinstance(old_value, float):
-                try:
-                    value = float(value)
-                except ValueError:
-                    pass
-            elif isinstance(old_value, bool):
-                # Handle boolean casting
-                if str(value).lower() in ("true", "1", "yes", "on"):
-                    value = True
-                elif str(value).lower() in ("false", "0", "no", "off"):
-                    value = False
+    # Targeted per-component swap (Section 10 — widget interactions)
+    hx_target = request.headers.get("HX-Target", "")
+    if hx_target.startswith("mx-"):
+        target_id = hx_target[3:]  # strip "mx-" prefix
+        comp = _find_component(ctx.components, target_id)
+        if comp is not None:
+            return templates.TemplateResponse(
+                request,
+                "component_fragment.html",
+                {"comp": comp, "theme": theme_manager.resolve(),
+                 "dark_mode": session_state.get("_mx_dark_mode", False)},
+            )
 
-        # Only mark as changed if value actually changed
-        if session_state.get(key) != value:
-            changed_inputs.add(key)
+    # Full render (initial load, button clicks, fallback)
+    return templates.TemplateResponse(
+        request,
+        "components.html",
+        {
+            "components":  ctx.components,
+            "theme":       theme_manager.resolve(),
+            "dark_mode":   session_state.get("_mx_dark_mode", False),
+            "main_class":  ctx.main_class,
+            "aside_class": ctx.aside_class,
+        },
+    )
 
-        session_state[key] = value
 
-    # Mark dirty inputs in DAG
-    for input_key in changed_inputs:
-        reactive_dag.mark_input_dirty(input_key)
+@app.post("/refresh/{component_id}", response_class=HTMLResponse)
+async def refresh_component(request: Request, component_id: str):
+    """Partial re-render for a single auto-refresh component (Section 11).
 
-    # Execute affected callbacks
-    try:
-        updates = await reactive_dag.execute_callbacks(callback_registry, session_state)
+    Called by HTMX hx-trigger='every Ns' / 'load delay:Ns' on the component
+    wrapper div. Re-runs the full user script, extracts the target component,
+    and returns its HTML fragment. The client swaps via hx-swap='outerHTML'.
+    """
+    form_data = await request.form()
+    _apply_form_data(form_data)
 
-        # Send targeted updates via SSE
-        if updates:
-            # Format: component_id:html_fragment
-            update_messages = []
-            for component_id, new_value in updates.items():
-                update_messages.append(f"{component_id}\t{new_value}")
+    ctx = _run_script(get_script_path())
 
-            sse_message = "\n".join(update_messages)
-            for queue in sse_clients:
-                queue.put_nowait(sse_message)
+    comp = _find_component(ctx.components, component_id)
+    if comp is None:
+        return HTMLResponse(f'<div id="mx-{component_id}"></div>')
 
-        # Rebuild and re-render full layout with updated state and return HTML for HTMX swap
-        rebuild_layout_schema()
-        layout_schema = layout_manager.get_layout_schema()
-        html = templates.get_template("components.html").render(
-            request=request, 
-            layout_schema=layout_schema
-        )
-        return HTMLResponse(content=html, status_code=200)
+    return templates.TemplateResponse(
+        request,
+        "component_fragment.html",
+        {"comp": comp, "theme": theme_manager.resolve(),
+         "dark_mode": session_state.get("_mx_dark_mode", False)},
+    )
 
-    except Exception as e:
-        return HTMLResponse(content=f"<div>Error: {e}</div>", status_code=500)
 
 @app.get("/events")
 async def global_events(request: Request):
-    """
-    Global SSE endpoint for real-time updates.
-    """
-    queue = asyncio.Queue()
+    """Global SSE endpoint for real-time updates pushed via /modify."""
+    queue: asyncio.Queue = asyncio.Queue()
     sse_clients.add(queue)
-    
+
     async def event_generator(req: Request):
         try:
             while True:
-                # Use wait_for to periodically check if the client disconnected
-                # If they did, we raise an exception/break.
                 if await req.is_disconnected():
                     break
-                    
                 try:
-                    # Wait for next event or connection close, with a short timeout
-                    html_str = await asyncio.wait_for(queue.get(), timeout=1.0)
-                    
+                    html_str = await asyncio.wait_for(queue.get(), timeout=30.0)
                     if html_str is None:
-                        # Send a final empty payload to close SSE cleanly before server exits
                         yield "event: close\ndata: \n\n"
                         break
-                    # Yield it in SSE format, being careful with newlines.
-                    # Since html_str can contain newlines, we should format it properly for SSE.
-                    formatted_data = "\n".join(f"data: {line}" for line in html_str.split("\n"))
-                    yield f"event: targetedUpdate\n{formatted_data}\n\n"
+                    formatted = "\n".join(f"data: {line}" for line in html_str.split("\n"))
+                    yield f"{formatted}\n\n"
                 except asyncio.TimeoutError:
-                    # Just keep checking
-                    continue
+                    yield ": heartbeat\n\n"
         except asyncio.CancelledError:
             pass
         finally:
             sse_clients.discard(queue)
 
-    return StreamingResponse(event_generator(request), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
 
 @app.post("/modify", response_class=JSONResponse)
 async def modify_state(request: Request):
-    """
-    Modify state and push targeted updates to all connected clients.
-    """
+    """Modify state and push SSE update to all connected clients."""
     form_data = await request.form()
+    _apply_form_data(form_data)
 
-    # Track changed inputs
-    changed_inputs = set()
+    ctx = _run_script(get_script_path())
 
-    for key, value in form_data.items():
-        # Try to cast value to existing type
-        old_value = session_state.get(key)
-        if key in session_state:
-            if isinstance(old_value, int):
-                try:
-                    value = int(value)
-                except ValueError:
-                    pass
-            elif isinstance(old_value, float):
-                try:
-                    value = float(value)
-                except ValueError:
-                    pass
-            elif isinstance(old_value, bool):
-                if str(value).lower() in ("true", "1", "yes", "on"):
-                    value = True
-                elif str(value).lower() in ("false", "0", "no", "off"):
-                    value = False
+    html_content = templates.get_template("components.html").render({
+        "request":     request,
+        "components":  ctx.components,
+        "theme":       theme_manager.resolve(),
+        "dark_mode":   session_state.get("_mx_dark_mode", False),
+        "main_class":  ctx.main_class,
+        "aside_class": ctx.aside_class,
+    })
 
-        if session_state.get(key) != value:
-            changed_inputs.add(key)
+    for queue in sse_clients:
+        queue.put_nowait(html_content)
 
-        session_state[key] = value
+    return JSONResponse(content={"status": "success"})
 
-    # Mark dirty inputs and execute callbacks
-    for input_key in changed_inputs:
-        reactive_dag.mark_input_dirty(input_key)
-
-    try:
-        updates = await reactive_dag.execute_callbacks(callback_registry, session_state)
-
-        # Convert updates to targeted SSE messages
-        # Format: component_id:html_fragment
-        update_messages = []
-        for component_id, new_value in updates.items():
-            update_messages.append(f"{component_id}\t{new_value}")
-
-        # Send targeted updates via SSE
-        sse_message = "\n".join(update_messages)
-        for queue in sse_clients:
-            queue.put_nowait(sse_message)
-
-        return JSONResponse(content={"status": "success", "updates": list(updates.keys())})
-
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "message": str(e)})
 
 @app.get("/stream/{stream_id}")
-async def stream_events(stream_id: str):
-    """
-    Handle SSE for text streaming.
-    """
+async def stream_events(request: Request, stream_id: str):
+    """SSE endpoint for text streaming (write_stream component)."""
     async def event_generator():
         stream_key = f"_stream_{stream_id}"
-        if stream_key in session_state:
-            # We assume it's a generator or iterable
-            stream = session_state[stream_key]
+        if stream_key not in session_state:
+            yield "event: close\ndata: \n\n"
+            return
+        stream = session_state[stream_key]
+        try:
             for chunk in stream:
-                # SSE format: data: <content>\n\n
-                # We can sleep a tiny bit to make it look like streaming if it's too fast
-                # but let's let the generator handle its own speed.
-                yield f"data: <span>{chunk}</span>\n\n"
-                await asyncio.sleep(0.05)  # small delay for effect
-            # Optional: send a closing event, but not strictly necessary for simple appending
-            # unless we want to stop the client from reconnecting
+                if await request.is_disconnected():
+                    break
+                safe_chunk = str(chunk).replace("\n", " ")
+                yield f"data: <span>{safe_chunk}</span>\n\n"
+                await asyncio.sleep(0)
+        finally:
+            session_state.pop(stream_key, None)
         yield "event: close\ndata: \n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

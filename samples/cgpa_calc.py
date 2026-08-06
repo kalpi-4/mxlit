@@ -34,32 +34,54 @@ mt.markdown(
 
 mt.latex(r"CGPA = \frac{\sum_{i=1}^{n} (grade_i * credit_i)}{\sum_{i=1}^{n} credit_i}")
 with mt.expander("Grade Table"):
-    mt.markdown("""
-    | Marks  | Grade | Points |
-    | :----: | :---: | :----: |
-    | 90-100 | O     | 10     |
-    | 80-89  | A+    | 9      |
-    | 70-79  | A     | 8      |
-    | 60-69  | B+    | 7      |
-    | 50-59  | B     | 6      |
-    | 40-49  | C     | 5      |
-    """)
+    with mt.html_table(className="w-full"):
+        with mt.table_head():
+            with mt.table_row():
+                with mt.table_cell(header=True, scope="col"): mt.write("Marks")
+                with mt.table_cell(header=True, scope="col"): mt.write("Grade")
+                with mt.table_cell(header=True, scope="col"): mt.write("Points")
+        with mt.table_body():
+            with mt.table_row():
+                with mt.table_cell(): mt.write("90-100")
+                with mt.table_cell(): mt.write("O")
+                with mt.table_cell(): mt.write("10")
+            with mt.table_row():
+                with mt.table_cell(): mt.write("80-89")
+                with mt.table_cell(): mt.write("A+")
+                with mt.table_cell(): mt.write("9")
+            with mt.table_row():
+                with mt.table_cell(): mt.write("70-79")
+                with mt.table_cell(): mt.write("A")
+                with mt.table_cell(): mt.write("8")
+            with mt.table_row():
+                with mt.table_cell(): mt.write("60-69")
+                with mt.table_cell(): mt.write("B+")
+                with mt.table_cell(): mt.write("7")
+            with mt.table_row():
+                with mt.table_cell(): mt.write("50-59")
+                with mt.table_cell(): mt.write("B")
+                with mt.table_cell(): mt.write("6")
+            with mt.table_row():
+                with mt.table_cell(): mt.write("40-49")
+                with mt.table_cell(): mt.write("C")
+                with mt.table_cell(): mt.write("5")
 
-cols = mt.columns(2)
-previous_cgpa = cols[0].number_input(
-    label="Previous CGPA",
-    help="Enter Your CGPA upto previous semester",
-    min_value=0.00,
-    value=0.00,
-    step=0.01,
-)
-previous_credit = cols[1].number_input(
-    label="Previous Credit",
-    help="Enter the total number of credits you have taken upto previous semester",
-    min_value=0.0,
-    value=0.0,
-    step=0.5,
-)
+with mt.grid():
+    with mt.row():
+        with mt.col(6):
+            previous_cgpa = mt.number_input(
+                label="Previous CGPA",
+                min_value=0.00,
+                value=0.00,
+                step=0.01,
+            )
+        with mt.col(6):
+            previous_credit = mt.number_input(
+                label="Previous Credit",
+                min_value=0.0,
+                value=0.0,
+                step=0.5,
+            )
 
 number_of_subjects = mt.number_input(
     label="Number of Subjects",
@@ -73,23 +95,24 @@ grade = [grades[0]] * number_of_subjects
 credit = [0.0] * number_of_subjects
 for i in range(number_of_subjects):
     mt.subheader(f"Subject #{i + 1}")
-    cols = mt.columns(2)
-    
-    grade[i] = cols[0].selectbox(
-        label="Grade",
-        options=grades,
-        key=f"grade_{i}",
-        index=0,
-    )
-
-    credit[i] = cols[1].number_input(
-        label="Credit",
-        min_value=1.0,
-        max_value=10.0,
-        value=4.0,
-        step=0.5,
-        key=f"credit_{i}",
-    )
+    with mt.grid():
+        with mt.row():
+            with mt.col(6):
+                grade[i] = mt.selectbox(
+                    label="Grade",
+                    options=grades,
+                    key=f"grade_{i}",
+                    index=0,
+                )
+            with mt.col(6):
+                credit[i] = mt.number_input(
+                    label="Credit",
+                    min_value=1.0,
+                    max_value=10.0,
+                    value=4.0,
+                    step=0.5,
+                    key=f"credit_{i}",
+                )
 
 if mt.button("Calculate"):
     grade_points = [grade_to_point[x] for x in grade]

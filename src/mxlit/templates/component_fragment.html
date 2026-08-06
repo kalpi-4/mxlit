@@ -1,0 +1,56 @@
+{#
+  Renders a single component as a self-contained fragment.
+  Used by /interact (targeted widget swap) and /refresh/{id} (auto-refresh).
+  Imports render_component from components.html so rendering logic stays DRY.
+
+  The fragment includes the theme <style> block so CSS variables are refreshed
+  on every targeted swap (required for live theme updates from the sidebar).
+#}
+{% from 'components.html' import render_component with context %}
+
+{% if theme %}
+{% set _sc  = "dark" if dark_mode else "light" %}
+{% set p   = theme["schemes." ~ _sc ~ ".primary"] %}
+{% set s   = theme["schemes." ~ _sc ~ ".secondary"] %}
+{% set bg  = theme["schemes." ~ _sc ~ ".background"] %}
+{% set txt = theme["schemes." ~ _sc ~ ".onBackground"] %}
+{% set err = theme.get("schemes." ~ _sc ~ ".error", "#d32f2f") %}
+{% set ter = theme.get("schemes." ~ _sc ~ ".tertiary", "#008032") %}
+<style>
+:root {
+    --primary:              {{ p }};
+    --primary-foreground:   #ffffff;
+    --secondary:            color-mix(in srgb, {{ s }} 18%, {{ bg }});
+    --secondary-foreground: {{ s }};
+    --background:           {{ bg }};
+    --card:                 {{ bg }};
+    --foreground:           {{ txt }};
+    --card-foreground:      {{ txt }};
+    --border:               color-mix(in srgb, {{ txt }} 14%, {{ bg }});
+    --input:                color-mix(in srgb, {{ txt }} 14%, {{ bg }});
+    --ring:                 {{ p }};
+    --muted:                color-mix(in srgb, {{ txt }} 6%,  {{ bg }});
+    --muted-foreground:     color-mix(in srgb, {{ txt }} 55%, {{ bg }});
+    --faint:                color-mix(in srgb, {{ txt }} 3%,  {{ bg }});
+    --faint-foreground:     color-mix(in srgb, {{ txt }} 35%, {{ bg }});
+    --accent:               color-mix(in srgb, {{ p }} 10%, {{ bg }});
+    --accent-foreground:    {{ p }};
+    --danger:               {{ err }};
+    --danger-foreground:    #fafafa;
+    --success:              {{ ter }};
+    --success-foreground:   #fafafa;
+    --warning:              #a65b00;
+    --warning-foreground:   #09090b;
+}
+</style>
+<script>
+(function(){
+    var t='{{ _sc }}';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
+    try { localStorage.setItem('theme', t); } catch(e) {}
+})();
+</script>
+{% endif %}
+
+{{ render_component(comp) }}

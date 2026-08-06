@@ -1,31 +1,25 @@
 import contextvars
 
-# Global context variable to store the current app context during a script run
 _current_context = contextvars.ContextVar('current_context')
 
 class AppContext:
-    def __init__(self, mode="runtime"):
-        """
-        mode: "init" for schema building, "runtime" for backward compatibility rendering
-        """
-        self.mode = mode
-        if mode == "runtime":
-            self.components = []
-            # Current target list for adding components. Changes when inside a container 'with' block.
-            self.current_target = self.components
-        else:  # init mode
-            self.components = None
-            self.current_target = None
+    def __init__(self):
+        self.components = []
+        self.current_target = self.components
+        self.main_class: str = ""
+        self.aside_class: str = ""
+        self._auto_refresh: str | None = None  # set by setInterval/setTimeout context managers
 
-    def add_component(self, component):
-        """Append a component dictionary to the current target list."""
-        if self.mode == "runtime":
-            self.current_target.append(component)
-        else:
-            from mxlit.layout import layout_manager
-            component_type = component.get("type")
-            props = {k: v for k, v in component.items() if k != "type"}
-            layout_manager.register_component(component_type, props)
+    def add_component(self, component: dict) -> None:
+        """Append a component dict to the current target list.
+
+        When an auto-refresh context is active, injects 'refresh_trigger' into
+        the component so the template can emit the HTMX polling attributes.
+        """
+        if self._auto_refresh is not None:
+            component = {**component, "refresh_trigger": self._auto_refresh}
+        self.current_target.append(component)
+
 
 def get_context():
     """Retrieve the current AppContext, or None if not within a script run."""
