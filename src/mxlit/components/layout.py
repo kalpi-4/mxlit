@@ -145,12 +145,32 @@ def container(horizontal: bool = False, className: str = "") -> CompositeCompone
     )
 
 
-def page_config(main_class: str = "", aside_class: str = ""):
-    """Set extra Tailwind classes on the top-level layout elements."""
+def page_config(
+    main_class: str = "",
+    aside_class: str = "",
+    title: str = "",
+    description: str = "",
+    og_image: str = "",
+    canonical_url: str = "",
+):
+    """Set extra Tailwind classes on the top-level layout elements and page-level SEO metadata.
+
+    Args:
+        main_class:    Extra classes on ``<main>``.
+        aside_class:   Extra classes on the sidebar ``<aside>``.
+        title:         Page ``<title>`` and ``og:title``/``twitter:title``.
+        description:   ``<meta name="description">`` and ``og:description``/``twitter:description``.
+        og_image:      ``og:image``/``twitter:image`` URL.
+        canonical_url: ``<link rel="canonical">`` and ``og:url``.
+    """
     ctx = get_context()
     if ctx:
-        ctx.main_class  = main_class
-        ctx.aside_class = aside_class
+        ctx.main_class          = main_class
+        ctx.aside_class         = aside_class
+        ctx.page_title          = title
+        ctx.page_description    = description
+        ctx.page_og_image       = og_image
+        ctx.page_canonical_url  = canonical_url
 
 
 # ── navbar — CompositeComponent ───────────────────────────────────────────────

@@ -111,7 +111,17 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse(request, "base.html")
+    ctx = _run_script(get_script_path())
+    return templates.TemplateResponse(
+        request,
+        "base.html",
+        {
+            "page_title":          ctx.page_title,
+            "page_description":    ctx.page_description,
+            "page_og_image":       ctx.page_og_image,
+            "page_canonical_url":  ctx.page_canonical_url,
+        },
+    )
 
 
 @app.post("/interact", response_class=HTMLResponse)

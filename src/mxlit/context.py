@@ -8,6 +8,10 @@ class AppContext:
         self.current_target = self.components
         self.main_class: str = ""
         self.aside_class: str = ""
+        self.page_title: str = ""
+        self.page_description: str = ""
+        self.page_og_image: str = ""
+        self.page_canonical_url: str = ""
         self._auto_refresh: str | None = None  # set by setInterval/setTimeout context managers
 
     def add_component(self, component: dict) -> None:

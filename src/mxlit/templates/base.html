@@ -3,7 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mxlit App</title>
+    <title>{{ page_title | default('Mxlit App') }}</title>
+    {% if page_description %}<meta name="description" content="{{ page_description }}">{% endif %}
+    {% if page_canonical_url %}<link rel="canonical" href="{{ page_canonical_url }}">{% endif %}
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="{{ page_title | default('Mxlit App') }}">
+    {% if page_description %}<meta property="og:description" content="{{ page_description }}">{% endif %}
+    {% if page_og_image %}<meta property="og:image" content="{{ page_og_image }}">{% endif %}
+    {% if page_canonical_url %}<meta property="og:url" content="{{ page_canonical_url }}">{% endif %}
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="{{ 'summary_large_image' if page_og_image else 'summary' }}">
+    <meta name="twitter:title" content="{{ page_title | default('Mxlit App') }}">
+    {% if page_description %}<meta name="twitter:description" content="{{ page_description }}">{% endif %}
+    {% if page_og_image %}<meta name="twitter:image" content="{{ page_og_image }}">{% endif %}
 
     <!-- Prevent FOUC: apply stored theme before first paint -->
     <script>
